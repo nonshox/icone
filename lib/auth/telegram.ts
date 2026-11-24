@@ -1,0 +1,157 @@
+import "server-only";
+
+import {
+  AppwriteException,
+  Account,
+  Users,
+  type Models,
+} from "node-appwrite";
+import {
+  createHash,
+  createHmac,
+  timingSafeEqual,
+} from "node:crypto";
+
+import { createAdminClient } from "@/lib/appwrite/server";
+
+export type TelegramUser = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  username: string | null;
+  photoUrl: string | null;
+  authDate: number;
+};
+
+const MAX_AUTH_AGE_SECONDS = 24 * 60 * 60;
+const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
+
+/**
+ * Verify data returned by the Telegram Login Widget.
+ *
+ * https://core.telegram.org/widgets/login#checking-authorization
+ * secret_key = SHA256(bot_token)
+ * hash = HMAC_SHA256(data_check_string, secret_key)
+ */
+export function verifyTelegramPayload(
+  params: URLSearchParams,
+  botToken: string,
+): TelegramUser | null {
+  const providedHash = params.get("hash");
+  if (!providedHash) return null;
+
+  const entries: Array<[string, string]> = [];
+  for (const [key, value] of params.entries()) {
+    if (key !== "hash" && key !== "state") entries.push([key, value]);
+  }
+
+  const dataCheckString = entries
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+
+  const secretKey = createHash("sha256").update(botToken).digest();
+  const computedHash = createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
+
+  const provided = Buffer.from(providedHash, "utf8");
+  const computed = Buffer.from(computedHash, "utf8");
+
+  if (
+    provided.length !== computed.length ||
+    !timingSafeEqual(provided, computed)
+  ) {
+    return null;
+  }
+
+  const id = params.get("id") ?? "";
+  if (!/^\d{1,15}$/.test(id)) return null;
+
+  const authDate = Number.parseInt(params.get("auth_date") ?? "", 10);
+  if (!Number.isFinite(authDate)) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    authDate > now + MAX_FUTURE_SKEW_SECONDS ||
+    now - authDate > MAX_AUTH_AGE_SECONDS
+  ) {
+    return null;
+  }
+
+  const firstName = (params.get("first_name") ?? "").trim().slice(0, 64);
+  const lastName = (params.get("last_name") ?? "").trim().slice(0, 64);
+  const username = (params.get("username") ?? "").trim().slice(0, 64);
+  const photoUrl = (params.get("photo_url") ?? "").trim().slice(0, 512);
+
+  return {
+    id,
+    firstName: firstName || "Telegram",
+    lastName: lastName || null,
+    username: username || null,
+    photoUrl: photoUrl || null,
+    authDate,
+  };
+}
+
+/**
+ * Find or create the Appwrite user behind a Telegram account, then return a
+ * real session. Telegram users live under the deterministic id `tg_<id>`.
+ */
+export async function signInWithTelegram(tg: TelegramUser): Promise<{
+  session: Models.Session;
+  user: Models.User<Models.Preferences>;
+}> {
+  const adminClient = createAdminClient();
+  const users = new Users(adminClient);
+  const account = new Account(adminClient);
+  const userId = `tg_${tg.id}`;
+  const displayName =
+    [tg.firstName, tg.lastName].filter(Boolean).join(" ").trim().slice(0, 128) ||
+    tg.username ||
+    "Telegram member";
+
+  let existing: Models.User<Models.Preferences> | null = null;
+
+  try {
+    existing = await users.get({ userId });
+  } catch (error) {
+    if (!(error instanceof AppwriteException) || error.code !== 404) {
+      throw error;
+    }
+  }
+
+  let user: Models.User<Models.Preferences>;
+
+  if (!existing) {
+    user = await users.create({ userId, name: displayName });
+  } else {
+    user = existing;
+    if (!user.name.trim()) {
+      user = await users.updateName({ userId, name: displayName });
+    }
+  }
+
+  try {
+    await users.updatePrefs({
+      userId,
+      prefs: {
+        ...user.prefs,
+        telegramId: tg.id,
+        telegramUsername: tg.username ?? "",
+        telegramPhotoUrl: tg.photoUrl ?? "",
+      },
+    });
+  } catch (error) {
+    // Preferences are metadata; losing them must not block sign-in.
+    console.error("[auth] failed to store Telegram preferences", error);
+  }
+
+  const token = await users.createToken({ userId, length: 64, expire: 120 });
+  const session = await account.createSession({
+    userId,
+    secret: token.secret,
+  });
+
+  return { session, user };
+}

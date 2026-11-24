@@ -1,0 +1,172 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import type {
+  Barber,
+  BookingRow,
+  Profile,
+  Review,
+  Service,
+  Slot,
+  Status,
+} from "@/lib/domain/types";
+
+import { api } from "./client";
+
+export const keys = {
+  barbers: ["barbers"] as const,
+  services: ["services"] as const,
+  availability: (barber: string, date: string, service: string) =>
+    ["availability", barber, date, service] as const,
+  bookings: ["bookings"] as const,
+  agenda: (date: string, barber: string) => ["agenda", date, barber] as const,
+  reviews: (barber: string) => ["reviews", barber] as const,
+  me: ["me"] as const,
+};
+
+export function useBarbers() {
+  return useQuery({
+    queryKey: keys.barbers,
+    queryFn: () => api<{ barbers: Barber[] }>("/api/barbers").then((r) => r.barbers),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useServices() {
+  return useQuery({
+    queryKey: keys.services,
+    queryFn: () =>
+      api<{ services: Service[] }>("/api/services").then((r) => r.services),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useAvailability(input: {
+  barber: string;
+  date: string;
+  service: string;
+}) {
+  const ready = Boolean(input.barber && input.date && input.service);
+
+  return useQuery({
+    queryKey: keys.availability(input.barber, input.date, input.service),
+    queryFn: () =>
+      api<{ slots: Slot[] }>(
+        `/api/availability?barber=${input.barber}&date=${input.date}&service=${input.service}`,
+      ).then((r) => r.slots),
+    enabled: ready,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useBookings() {
+  return useQuery({
+    queryKey: keys.bookings,
+    queryFn: () =>
+      api<{ bookings: BookingRow[] }>("/api/bookings").then((r) => r.bookings),
+  });
+}
+
+export function useAgenda(date: string, barber: string) {
+  return useQuery({
+    queryKey: keys.agenda(date, barber),
+    queryFn: () =>
+      api<{ bookings: BookingRow[] }>(
+        `/api/bookings?date=${date}${barber ? `&barber=${barber}` : ""}`,
+      ).then((r) => r.bookings),
+    enabled: Boolean(date),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useReviews(barber: string) {
+  return useQuery({
+    queryKey: keys.reviews(barber),
+    queryFn: () =>
+      api<{ reviews: Review[] }>(`/api/reviews?barber=${barber}`).then(
+        (r) => r.reviews,
+      ),
+    enabled: Boolean(barber),
+  });
+}
+
+export function useProfile() {
+  return useQuery({
+    queryKey: keys.me,
+    queryFn: () =>
+      api<{ profile: Profile }>("/api/me").then((r) => r.profile),
+  });
+}
+
+export function useCreateBooking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      barber: string;
+      service: string;
+      date: string;
+      start: number;
+      note?: string;
+    }) =>
+      api<{ booking: BookingRow }>("/api/bookings", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }).then((r) => r.booking),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.bookings });
+      void queryClient.invalidateQueries({ queryKey: ["availability"] });
+    },
+  });
+}
+
+export function useSetStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { id: string; status: Status }) =>
+      api<{ booking: BookingRow }>(`/api/bookings/${input.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: input.status }),
+      }).then((r) => r.booking),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.bookings });
+      void queryClient.invalidateQueries({ queryKey: ["agenda"] });
+      void queryClient.invalidateQueries({ queryKey: ["availability"] });
+    },
+  });
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { name?: string; phone?: string }) =>
+      api<{ profile: Profile }>("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((r) => r.profile),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.me });
+    },
+  });
+}
+
+export function useCreateReview() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { booking: string; rate: number; note?: string }) =>
+      api<{ review: Review; rating: number }>("/api/reviews", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["reviews"] });
+      void queryClient.invalidateQueries({ queryKey: keys.barbers });
+      void queryClient.invalidateQueries({ queryKey: keys.bookings });
+    },
+  });
+}

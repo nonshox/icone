@@ -1,0 +1,107 @@
+import "server-only";
+
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
+
+import { book } from "@/lib/domain/book";
+import { barberForUser } from "@/lib/domain/data";
+import { currentMember, isStaff } from "@/lib/domain/member";
+import { isDate } from "@/lib/domain/time";
+import { agenda, enrich, myBookings } from "@/lib/domain/views";
+import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { rateLimit } from "@/lib/rate-limit";
+
+const bodySchema = z.object({
+  barber: z.string().trim().min(1).max(36),
+  service: z.string().trim().min(1).max(36),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  start: z.number().int().min(0).max(1439),
+  note: z.string().trim().max(200).default(""),
+});
+
+/**
+ * GET /api/bookings — the member's bookings.
+ * GET /api/bookings?date=YYYY-MM-DD — staff agenda for a day.
+ */
+export async function GET(request: NextRequest) {
+  const member = await currentMember();
+  if (!member) return apiError("Sign in to see your bookings.", 401, "signed_out");
+
+  const params = request.nextUrl.searchParams;
+  const date = params.get("date");
+
+  try {
+    if (date && isStaff(member.profile.role)) {
+      if (!isDate(date)) {
+        return apiError("Pick a valid date.", 400, "bad_date");
+      }
+
+      let barberId = params.get("barber") ?? undefined;
+
+      if (member.profile.role === "barber") {
+        const own = await barberForUser(member.user.id);
+        if (!own) {
+          return apiError(
+            "Your account is not linked to a chair yet.",
+            403,
+            "no_chair",
+          );
+        }
+        barberId = own.id;
+      }
+
+      return NextResponse.json({
+        ok: true as const,
+        bookings: await agenda(date, barberId),
+      });
+    }
+
+    return NextResponse.json({
+      ok: true as const,
+      bookings: await myBookings(member.user.id),
+    });
+  } catch (error) {
+    console.error("[api] bookings list failed", error);
+    return apiError("Could not load bookings.", 502, "bookings_failed");
+  }
+}
+
+/** POST /api/bookings — reserve a slot. */
+export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return apiError("This request came from an unexpected origin.", 403, "bad_origin");
+  }
+
+  const member = await currentMember();
+  if (!member) return apiError("Sign in to book a chair.", 401, "signed_out");
+
+  const limit = rateLimit(`book:${member.user.id}`, 12, 60 * 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError("Invalid request body.", 400, "invalid_body");
+  }
+
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError("Check the booking details and try again.", 400, "invalid_booking");
+  }
+
+  try {
+    const result = await book({ ...parsed.data, user: member.user.id });
+
+    if (!result.ok) {
+      return apiError(result.message, result.status, result.code);
+    }
+
+    const [row] = await enrich([result.booking]);
+
+    return NextResponse.json({ ok: true as const, booking: row }, { status: 201 });
+  } catch (error) {
+    console.error("[api] booking failed", error);
+    return apiError("Could not save the booking.", 502, "booking_failed");
+  }
+}

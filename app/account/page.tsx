@@ -1,0 +1,59 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
+
+import { AccountView } from "@/components/account/account-view";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
+import { currentMember } from "@/lib/domain/member";
+
+export const metadata: Metadata = {
+  title: "Account",
+  robots: { index: false, follow: false },
+};
+
+async function AccountPanel() {
+  const member = await currentMember();
+
+  if (!member) {
+    redirect(`/sign-in?next=${encodeURIComponent("/account")}`);
+  }
+
+  return <AccountView user={member.user} profile={member.profile} />;
+}
+
+function AccountSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]" aria-hidden>
+      <div className="h-80 animate-pulse rounded-xl bg-muted" />
+      <div className="h-80 animate-pulse rounded-xl bg-muted" />
+    </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <SiteHeader />
+
+      <main id="main" className="flex-1">
+        <div className="mx-auto w-full max-w-5xl px-6 pt-10 pb-10">
+          <div className="mb-6 flex flex-col gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Good to see you.
+            </h1>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Your details, your chair and your visit history.
+            </p>
+          </div>
+
+          <Suspense fallback={<AccountSkeleton />}>
+            <AccountPanel />
+          </Suspense>
+        </div>
+      </main>
+
+      <SiteFooter />
+    </div>
+  );
+}
