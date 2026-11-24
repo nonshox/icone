@@ -99,8 +99,11 @@ In `@BotFather`:
 - `/setcommands` → optional, for bot menu copy.
 
 Without `/setdomain` the widget renders but Telegram refuses the login, showing
-"Bot domain invalid" inside its frame. The domain must match the `data-auth-url`
-host exactly.
+"Bot domain invalid" inside its frame — this is exactly what production showed
+before the domain was registered. The domain must match the `data-auth-url`
+host exactly. **This is the current cause of widget sign-in failing on
+`https://icone-uz.vercel.app`; run `/setdomain icone-uz.vercel.app` in
+`@BotFather` and wait a few minutes for it to propagate.**
 
 Because localhost can't be registered, `.env.local` sets
 `NEXT_PUBLIC_TELEGRAM_LOGIN_ENABLED=false`. That renders a designed fallback
@@ -108,12 +111,44 @@ Because localhost can't be registered, `.env.local` sets
 `true` on the deployed, registered domain. The callback route itself is always
 active, so the flow can be tested end-to-end regardless.
 
+### Mini App
+
+A Telegram Mini App is available at `/mini` and authenticates through
+`WebApp.initData`, which Telegram signs with the bot token. It does **not**
+depend on `/setdomain`, so it works even while the Login Widget domain is not
+registered.
+
+- `POST /api/auth/telegram/mini` verifies the signature with
+  `HMAC(botToken, key="WebAppData")`, checks `auth_date`, reuses
+  `signInWithTelegram()` and sets the same `icone_session` cookie as every
+  other sign-in method.
+- The bot menu button is set with `npm run tg:miniapp -- set`, which calls
+  `setChatMenuButton` with a `web_app` pointing at
+  `https://icone-uz.vercel.app/mini`. No BotFather step is needed for the API
+  call, but Telegram currently keeps the global button as `commands`; to make
+  it stick, set it once in `@BotFather` → Bot Settings → Menu Button with the
+  same URL.
+- `/start` replies with an inline `web_app` button as a second entry point that
+  needs no BotFather configuration.
+- Failures return `401 bad_signature` with a human message; the Mini App shows
+  a retry link to the bot and an email fallback.
+
 ### Webhook
 
-`TELEGRAM_WEBHOOK_SECRET` is reserved for the bot webhook (booking reminders,
-milestone 3). Register it with Telegram's `setWebhook` and compare the
-`X-Telegram-Bot-Api-Secret-Token` header on the receiving route. Do not add a
-webhook route until the booking milestone needs one.
+`TELEGRAM_WEBHOOK_SECRET` is registered as `secret_token` with Telegram and
+compared against `X-Telegram-Bot-Api-Secret-Token` on
+`POST /api/telegram/webhook` with a constant-time check. The route accepts only
+that header, acknowledges every valid update with `200`, and replies to
+`/start` with the booking URL. Reminders are not implemented yet; the endpoint
+is the place they will be triggered from.
+
+```powershell
+cmd /c "npm run tg:webhook"        # getWebhookInfo
+cmd /c "npm run tg:webhook -- set" # register against NEXT_PUBLIC_APP_URL
+```
+
+The script prints only non-secret webhook state; it never prints the bot token
+or secret. `GET /api/telegram/webhook` is a health check for after a deploy.
 
 ## Environment
 

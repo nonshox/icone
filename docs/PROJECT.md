@@ -55,13 +55,16 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/account` | partial | Signed-in profile, stats, shortcuts |
 | `/book` | partial | Booking flow (service → barber → date → time) |
 | `/bookings` | partial | Member visits, cancel, review |
+| `/mini` | static | Telegram Mini App (WebApp data → session) |
 | `/agenda` | partial | Staff day view (barber / admin only) |
 | `/robots.txt` | static | Crawler rules |
 | `/sitemap.xml` | static | Public URLs |
 | `POST /api/auth/email/start` | dynamic | Send the 6-digit code |
 | `POST /api/auth/email/verify` | dynamic | Code → session cookie |
 | `GET /api/auth/telegram/callback` | dynamic | Telegram widget redirect target |
+| `POST /api/auth/telegram/mini` | dynamic | Mini App data → session cookie |
 | `POST /api/auth/logout` | dynamic | Revoke session, clear cookie |
+| `GET/POST /api/telegram/webhook` | dynamic | Bot webhook health check / updates |
 | `GET /api/barbers` · `GET /api/barbers/:id` | dynamic | Chair list / detail, hours, reviews |
 | `GET /api/services` · `GET /api/services/:id` | dynamic | Menu |
 | `GET /api/availability` | dynamic | Free start times |
@@ -85,12 +88,13 @@ app/
   account/page.tsx      profile gate
   book/page.tsx         booking gate
   bookings/page.tsx     visits gate
+  mini/page.tsx         Telegram Mini App
   agenda/page.tsx       staff gate
   api/**                route handlers
   robots.ts sitemap.ts  crawler files
   globals.css           design tokens, glass utilities
 components/
-  account/ booking/ bookings/ agenda/   feature views (client)
+  account/ booking/ bookings/ agenda/ telegram/   feature views (client)
   auth/                 sign-in form, telegram widget, sign-out
   brand/                logo
   layout/               header, footer, theme toggle
@@ -112,6 +116,8 @@ scripts/setup-appwrite.mjs   creates tables, indexes and seed data
 scripts/staff.mjs            promote a member / link a chair
 qa-auth.mjs             end-to-end auth probe (dev only)
 qa-booking.mjs          end-to-end booking probe (dev only)
+scripts/telegram-webhook.mjs  inspect / register / delete the bot webhook
+scripts/telegram-miniapp.mjs  set the bot menu button to the Mini App
 ```
 
 ## Related docs

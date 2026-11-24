@@ -39,10 +39,12 @@ API key also needs database scopes — see [`docs/DATA.md`](./docs/DATA.md#setup
 
 ### Telegram
 
-The Login Widget only works for domains registered with the bot. Run
-`/setdomain icone-uz.vercel.app` in `@BotFather`, then keep
-`NEXT_PUBLIC_TELEGRAM_LOGIN_ENABLED=true` in production. Locally it is `false`
-so a clean fallback renders instead of Telegram's "Bot domain invalid" frame.
+The Login Widget needs `/setdomain icone-uz.vercel.app` in `@BotFather`; until
+that propagates it shows "Bot domain invalid" (this was the production failure).
+The Telegram Mini App at `/mini` does not need it — it signs in through
+`WebApp.initData`. The bot menu button opens it:
+`cmd /c "npm run tg:miniapp"`, then `cmd /c "npm run tg:miniapp -- set"`.
+Locally `NEXT_PUBLIC_TELEGRAM_LOGIN_ENABLED=false` renders a clean fallback.
 Details in [`docs/AUTH.md`](./docs/AUTH.md).
 
 ## Scripts
@@ -56,6 +58,8 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `cmd /c "npm run db:staff"` | promote a member / link a barber chair |
 | `cmd /c "npm run qa:auth"` | end-to-end auth probe (dev server required) |
 | `cmd /c "npm run qa:booking"` | end-to-end booking probe (needs DB scopes) |
+| `cmd /c "npm run tg:webhook"` | show Telegram webhook state (`-- set` / `-- delete`) |
+| `cmd /c "npm run tg:miniapp"` | show bot menu button (`-- set` / `-- reset`) |
 
 ## Routes
 
@@ -67,6 +71,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `/book` | booking flow |
 | `/bookings` | visits, cancel, reviews |
 | `/agenda` | staff day view |
+| `/mini` | Telegram Mini App |
 | `/api/barbers` · `/api/services` · `/api/availability` | catalogue + times |
 | `/api/bookings` · `/api/reviews` · `/api/me` | member operations |
 | `/api/auth/*` | sign-in and sign-out |

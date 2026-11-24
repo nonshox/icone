@@ -41,7 +41,10 @@ Every `POST`/`PATCH` checks `isSameOrigin(request)`. Requests without an
 | POST | `/api/auth/email/start` | `{ email }` | `{ ok: true }` + OTP cookie |
 | POST | `/api/auth/email/verify` | `{ code }` | `{ user }` + `icone_session` cookie |
 | GET | `/api/auth/telegram/callback` | Telegram widget query | `303 /account` + cookie |
+| POST | `/api/auth/telegram/mini` | `{ initData }` | `{ ok: true, user }` + cookie; `401 bad_signature` |
 | POST | `/api/auth/logout` | — | `{ ok: true }`, clears cookie |
+| GET | `/api/telegram/webhook` | — | `{ ok: true, service }` health check |
+| POST | `/api/telegram/webhook` | Telegram `Update` + `X-Telegram-Bot-Api-Secret-Token` | `200 { ok: true }`; `401` on bad secret |
 
 See [`AUTH.md`](./AUTH.md) for the session and Telegram details.
 

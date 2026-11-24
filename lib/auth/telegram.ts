@@ -95,6 +95,75 @@ export function verifyTelegramPayload(
 }
 
 /**
+ * Verify data sent by a Telegram Mini App (`WebApp.initData`). The key is
+ * derived differently from the Login Widget: HMAC(botToken, "WebAppData").
+ * https://core.telegram.org/widgets/login#validating-data-received-via-the-mini-app
+ */
+export function verifyWebAppInitData(
+  initData: string,
+  botToken: string,
+): TelegramUser | null {
+  const params = new URLSearchParams(initData);
+  const providedHash = params.get("hash");
+  if (!providedHash) return null;
+
+  params.delete("hash");
+  const checkString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+
+  const secretKey = createHmac("sha256", "WebAppData")
+    .update(botToken)
+    .digest();
+  const expectedHash = createHmac("sha256", secretKey)
+    .update(checkString)
+    .digest("hex");
+
+  const provided = Buffer.from(providedHash, "utf8");
+  const expected = Buffer.from(expectedHash, "utf8");
+  if (
+    provided.length !== expected.length ||
+    !timingSafeEqual(provided, expected)
+  ) {
+    return null;
+  }
+
+  const authDate = Number.parseInt(params.get("auth_date") ?? "", 10);
+  if (!Number.isFinite(authDate)) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    authDate > now + MAX_FUTURE_SKEW_SECONDS ||
+    now - authDate > MAX_AUTH_AGE_SECONDS
+  ) {
+    return null;
+  }
+
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(params.get("user") ?? "") as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  const id = String(raw?.id ?? "");
+  if (!/^\d{1,15}$/.test(id)) return null;
+
+  const clean = (value: unknown, max: number) =>
+    typeof value === "string" ? value.trim().slice(0, max) || null : null;
+
+  return {
+    id,
+    firstName: clean(raw.first_name, 64) ?? "Telegram",
+    lastName: clean(raw.last_name, 64),
+    username: clean(raw.username, 64),
+    photoUrl: clean(raw.photo_url, 512),
+    authDate,
+  };
+}
+
+/**
  * Find or create the Appwrite user behind a Telegram account, then return a
  * real session. Telegram users live under the deterministic id `tg_<id>`.
  */
