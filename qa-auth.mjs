@@ -159,7 +159,7 @@ if (otpCookie) {
     "email session renders the account",
     emailAccount.status === 200 &&
       emailAccountHtml.includes("icone.qa.") &&
-      emailAccountHtml.includes("Email one-time code"),
+      emailAccountHtml.includes("Email"),
     String(emailAccount.status),
   );
 

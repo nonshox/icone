@@ -1,22 +1,22 @@
-import { CalendarDays, Check, Clock3, Scissors, Star } from "lucide-react";
+import { ArrowRight, Check, Clock3, Scissors, Star } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
+import type { Barber, Service } from "@/lib/domain/types";
+import { formatPrice } from "@/lib/domain/time";
 import { cn } from "@/lib/utils";
 
-const days = [
-  { day: "Today", date: "24" },
-  { day: "Tue", date: "25" },
-  { day: "Wed", date: "26" },
-] as const;
+/** Live catalogue preview — every value comes from the database. */
+export function BookingPreview({
+  barbers,
+  services,
+}: {
+  barbers: Barber[];
+  services: Service[];
+}) {
+  const barber = barbers[0];
+  const service = services[0];
 
-const slots = ["17:30", "18:00", "18:30", "19:00", "19:30", "20:00"] as const;
-
-/**
- * A designed preview of the booking flow. It is intentionally static — the
- * real booking engine ships in the next milestone (see docs/PROJECT.md).
- */
-export function BookingPreview() {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
       <div
@@ -31,109 +31,86 @@ export function BookingPreview() {
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
-            Next available
+            Live catalogue
           </div>
           <span className="rounded-full border border-border/80 px-2.5 py-1 text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
-            Preview
+            icone
           </span>
         </div>
 
-        <div className="mt-5 flex items-center gap-3">
-          <div className="grid size-12 place-items-center rounded-2xl bg-[linear-gradient(140deg,oklch(0.87_0.09_84),oklch(0.62_0.11_52))] text-lg font-semibold text-[oklch(0.22_0.03_60)] shadow-inner">
-            B
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">Bekzod R.</p>
-            <p className="truncate text-xs text-muted-foreground">
-              Senior barber · Fades &amp; beard sculpting
-            </p>
-          </div>
-          <div className="flex items-center gap-1 rounded-full bg-foreground/[0.04] px-2 py-1 text-xs">
-            <Star className="size-3 fill-brand text-brand" aria-hidden />
-            4.9
-          </div>
-        </div>
-
-        <div className="mt-5 grid grid-cols-3 gap-2">
-          {days.map((item, index) => (
-            <div
-              key={item.day}
-              className={cn(
-                "rounded-xl border px-2 py-2.5 text-center transition-colors",
-                index === 0
-                  ? "border-brand/40 bg-brand/10"
-                  : "border-border/70 bg-foreground/[0.02]",
-              )}
-            >
-              <p className="text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
-                {item.day}
+        {barber ? (
+          <div className="mt-5 flex items-center gap-3">
+            <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand/12 text-lg font-semibold text-brand-strong">
+              {barber.name.slice(0, 1)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{barber.name}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {barber.shop || barber.title || "Barber"} · {barber.city}
               </p>
-              <p className="mt-0.5 text-sm font-medium">{item.date}</p>
             </div>
-          ))}
-        </div>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {slots.map((slot) => (
-            <div
-              key={slot}
-              className={cn(
-                "rounded-xl border py-2 text-center text-sm tabular-nums",
-                slot === "18:30"
-                  ? "border-transparent bg-primary text-primary-foreground shadow-sm"
-                  : "border-border/70 text-muted-foreground",
-              )}
-            >
-              {slot}
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-5 space-y-2.5 rounded-2xl bg-foreground/[0.035] p-3.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Scissors className="size-3.5" aria-hidden />
-              Skin fade + beard
-            </span>
-            <span className="font-medium tabular-nums">120 000 UZS</span>
+            {barber.rating > 0 ? (
+              <span className="flex items-center gap-1 rounded-full bg-foreground/[0.04] px-2 py-1 text-xs">
+                <Star className="size-3 fill-brand text-brand" aria-hidden />
+                {barber.rating.toFixed(1)}
+              </span>
+            ) : null}
           </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-2">
+        ) : (
+          <p className="mt-5 text-sm text-muted-foreground">No barbers yet.</p>
+        )}
+
+        {service ? (
+          <div className="mt-4 space-y-2.5 rounded-2xl bg-foreground/[0.035] p-3.5">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                <Scissors className="size-3.5 shrink-0" aria-hidden />
+                <span className="truncate">{service.name}</span>
+              </span>
+              <span className="shrink-0 font-medium tabular-nums">
+                {formatPrice(service.price)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock3 className="size-3.5" aria-hidden />
-              45 min · Today, 18:30
-            </span>
-            <span className="flex items-center gap-1.5 text-emerald-500">
-              <Check className="size-3.5" aria-hidden />
-              Chair held 10 min
-            </span>
+              {service.time} min
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {barbers.length > 1 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {barbers.slice(0, 3).map((item) => (
+              <Link
+                key={item.id}
+                href={`/barbers/${item.id}`}
+                className="rounded-full border border-border/70 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground"
+              >
+                {item.name}
+              </Link>
+            ))}
+          </div>
+        ) : null}
 
         <Link
-          href="/sign-in"
+          href={
+            barber && service
+              ? `/book?barber=${barber.id}&service=${service.id}`
+              : "/book"
+          }
           className={cn(
             buttonVariants({ size: "lg" }),
-            "mt-4 h-11 w-full gap-2 rounded-xl text-sm",
+            "mt-5 h-11 w-full gap-2 rounded-xl text-sm",
           )}
         >
-          <CalendarDays className="size-4" aria-hidden />
-          Sign in to book this chair
+          Check open times
+          <ArrowRight className="size-4" aria-hidden />
         </Link>
 
-        <p className="mt-3 text-center text-[0.7rem] text-muted-foreground">
-          No password, no card needed.
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[0.7rem] text-muted-foreground">
+          <Check className="size-3 text-emerald-500" aria-hidden />
+          Real barbers, real prices, live availability.
         </p>
-      </div>
-
-      <div className="glass absolute -top-5 -right-3 hidden items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-medium sm:flex">
-        <span className="grid size-6 place-items-center rounded-full bg-emerald-500/15 text-emerald-500">
-          <Check className="size-3.5" aria-hidden />
-        </span>
-        Chair confirmed
-      </div>
-
-      <div className="glass-soft absolute -bottom-5 -left-4 hidden rounded-2xl px-3.5 py-2.5 text-xs text-muted-foreground sm:block">
-        No queue. Just your time.
       </div>
     </div>
   );

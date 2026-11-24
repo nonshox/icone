@@ -73,6 +73,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | --- | --- |
 | `/` | landing page |
 | `/barbers` · `/barbers/:id` | public chair list and profile |
+| `/services` | service catalogue |
 | `/sign-in` | email one-time code + Telegram |
 | `/start` | role-based entry after sign-in |
 | `/customer` | customer dashboard |

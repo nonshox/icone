@@ -51,8 +51,9 @@ Do not start milestone 3 without an explicit instruction from the owner.
 
 | Path | Type | Purpose |
 | --- | --- | --- |
-| `/` | static | Landing page (marketing preview) |
+| `/` | partial | Landing page with live catalogue data |
 | `/barbers` · `/barbers/:id` | partial | Public chair list (search + speciality filter) and barber profile |
+| `/services` | partial | Public service catalogue |
 | `/sign-in` | partial | Email OTP + Telegram sign-in |
 | `/start` | partial | Role-based post-login entry point |
 | `/customer` | partial | Customer dashboard |
@@ -100,7 +101,8 @@ page validates the session (and role, for `/agenda` and `/admin`) during render.
 ```
 app/
   layout.tsx            fonts, metadata, providers, Analytics tag, skip link
-  page.tsx              landing page
+  page.tsx              landing page (live services + featured barbers)
+  services/page.tsx     public service catalogue
   barbers/page.tsx      public chair list
   barbers/[id]/page.tsx barber profile, hours, reviews
   sign-in/page.tsx      auth screen

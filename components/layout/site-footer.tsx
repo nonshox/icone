@@ -24,7 +24,7 @@ export function SiteFooter() {
             <span className="text-xs font-medium tracking-wider text-foreground/60 uppercase">
               Explore
             </span>
-            <Link href="/#services" className={linkClass}>
+            <Link href="/services" className={linkClass}>
               Services
             </Link>
             <Link href="/barbers" className={linkClass}>
@@ -41,6 +41,9 @@ export function SiteFooter() {
             </Link>
             <Link href="/become-barber" className={linkClass}>
               Become a barber
+            </Link>
+            <Link href="/sign-in" className={linkClass}>
+              Sign in
             </Link>
           </div>
           <div className="flex flex-col gap-2">
