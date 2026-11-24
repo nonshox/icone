@@ -67,7 +67,7 @@ export function TelegramLogin({ className }: TelegramLoginProps) {
     return (
       <div className={className}>
         <a
-          href={`https://t.me/${botUsername}`}
+          href={`https://t.me/${botUsername}?start=signin`}
           target="_blank"
           rel="noreferrer noopener"
           className="glass-soft flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors hover:bg-foreground/[0.05]"
@@ -76,8 +76,7 @@ export function TelegramLogin({ className }: TelegramLoginProps) {
           Continue in Telegram
         </a>
         <p className="mt-2 text-center text-[0.7rem] leading-relaxed text-muted-foreground">
-          Telegram sign-in opens with the public launch. Use an email code for
-          now — your account carries over.
+          Open the bot, then tap “Open icone” to sign in with Telegram.
         </p>
       </div>
     );

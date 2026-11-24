@@ -133,7 +133,7 @@ export default function SignInPage() {
           <p className="text-center text-[0.7rem] text-muted-foreground">
             Need a hand?{" "}
             <a
-              href="https://t.me/icone_app_bot"
+              href="https://t.me/icone_app_bot?start=signin"
               target="_blank"
               rel="noreferrer noopener"
               className="text-foreground underline-offset-4 hover:underline"

@@ -43,7 +43,7 @@ export function SiteFooter() {
               Elsewhere
             </span>
             <a
-              href="https://t.me/icone_app_bot"
+              href="https://t.me/icone_app_bot?start=signin"
               target="_blank"
               rel="noreferrer noopener"
               className={linkClass}
