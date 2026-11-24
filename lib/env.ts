@@ -18,6 +18,7 @@ const serverEnvSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(16),
   CRON_SECRET: z.string().min(16).optional(),
+  NEXT_PUBLIC_APP_VERSION: z.string().max(32).default("1.0.0"),
   NEXT_PUBLIC_APP_URL: z.string().url().default("https://icone-uz.vercel.app"),
 });
 

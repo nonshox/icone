@@ -3,9 +3,12 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { TABLES } from "@/lib/appwrite/db";
 import { book } from "@/lib/domain/book";
-import { barberForUser } from "@/lib/domain/data";
+import { barberForUser, getMany } from "@/lib/domain/data";
+import { createNotification } from "@/lib/domain/customer";
 import { currentMember, isStaff } from "@/lib/domain/member";
+import { ensurePayment } from "@/lib/domain/payments";
 import { formatDate, isDate, label } from "@/lib/domain/time";
 import { agenda, enrich, myBookings } from "@/lib/domain/views";
 import { serverEnv } from "@/lib/env";
@@ -99,7 +102,35 @@ export async function POST(request: NextRequest) {
       return apiError(result.message, result.status, result.code);
     }
 
+    // Open the shop payment row alongside the booking. Like the Telegram note
+    // below, this is best effort: a confirmed chair is never rolled back.
+    try {
+      await ensurePayment(result.booking.id, result.booking.price);
+    } catch (error) {
+      console.error("[booking] payment row failed", error);
+    }
+
     const [row] = await enrich([result.booking]);
+
+    // In-app confirmation for the customer and a new-booking alert for staff.
+    const body = `${row.serviceName} with ${row.barberName}, ${formatDate(row.date)} at ${label(row.start)}.`;
+    await createNotification({
+      user: member.user.id,
+      title: result.booking.status === "pending" ? "Booking requested" : "Chair booked",
+      body,
+      kind: "booking",
+    }).catch((error) => console.error("[booking] customer notice failed", error));
+
+    const chairRows = await getMany(TABLES.barbers, [parsed.data.barber]).catch(() => []);
+    const staffId = chairRows[0]?.user;
+    if (typeof staffId === "string" && staffId) {
+      await createNotification({
+        user: staffId,
+        title: "New booking request",
+        body,
+        kind: "booking",
+      }).catch((error) => console.error("[booking] staff notice failed", error));
+    }
 
     // Best-effort confirmation for Telegram members. A messaging failure must
     // never undo a confirmed chair — the reminder cron can still reach them.

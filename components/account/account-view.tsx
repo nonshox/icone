@@ -3,6 +3,7 @@
 import {
   CalendarDays,
   CheckCircle2,
+  LayoutDashboard,
   Loader2,
   Scissors,
   Settings2,
@@ -65,7 +66,8 @@ export function AccountView({
   const upcoming = todayDate
     ? all.filter(
         (booking) =>
-          booking.status === "booked" && booking.date >= todayDate,
+          ["pending", "accepted", "booked"].includes(booking.status) &&
+          booking.date >= todayDate,
       )
     : [];
   const done = all.filter((booking) => booking.status === "done");
@@ -238,6 +240,33 @@ export function AccountView({
 
         <Card size="sm">
           <CardContent className="space-y-2">
+            {profile.role === "client" ? (
+              <Link
+                href="/customer"
+                className="flex items-center gap-2 text-sm font-medium hover:underline"
+              >
+                <LayoutDashboard className="size-4" aria-hidden />
+                Customer home
+              </Link>
+            ) : null}
+            {profile.role === "barber" ? (
+              <Link
+                href="/barber"
+                className="flex items-center gap-2 text-sm font-medium hover:underline"
+              >
+                <LayoutDashboard className="size-4" aria-hidden />
+                Business dashboard
+              </Link>
+            ) : null}
+            {profile.role === "admin" ? (
+              <Link
+                href="/admin"
+                className="flex items-center gap-2 text-sm font-medium hover:underline"
+              >
+                <LayoutDashboard className="size-4" aria-hidden />
+                Admin dashboard
+              </Link>
+            ) : null}
             <Link
               href="/bookings"
               className="flex items-center gap-2 text-sm font-medium hover:underline"

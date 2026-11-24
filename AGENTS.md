@@ -40,9 +40,10 @@ Before the final response, run one reporting pass. If candidates remain, from th
 
 ### Hard rules
 
-1. **Scope:** auth, booking, barber and admin areas, catalogue management,
-   roles and Telegram reminders are built. The owner drives any further
-   feature; keep additions simple and production-ready.
+1. **Scope:** full barber marketplace — customer discovery/booking, barber
+   business management, admin platform management, messaging, payments and
+   notifications. The owner drives any further feature; keep additions simple
+   and production-ready.
 2. **Secrets:** `APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN` and
    `TELEGRAM_WEBHOOK_SECRET` are server-only. Never add a `NEXT_PUBLIC_`
    prefix to them, never log them, never send them to the client.

@@ -54,14 +54,20 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/` | static | Landing page (marketing preview) |
 | `/barbers` · `/barbers/:id` | partial | Public chair list (search + speciality filter) and barber profile |
 | `/sign-in` | partial | Email OTP + Telegram sign-in |
-| `/account` | partial | Signed-in profile, stats, shortcuts |
+| `/start` | partial | Role-based post-login entry point |
+| `/customer` | partial | Customer dashboard |
+| `/account` | partial | Shared account profile and settings links |
 | `/book` | partial | Booking flow (service → barber → date → time) |
 | `/bookings` | partial | Member visits, cancel, review |
 | `/bookings/:id` | partial | Shareable booking detail, cancel, review |
+| `/favorites` · `/notifications` · `/settings` | partial | Customer favorites, inbox, settings |
+| `/messages` | partial | Private booking conversations |
+| `/help` · `/support` · `/legal/*` | static | Help, contact, privacy and terms |
 | `/mini` | static | Telegram Mini App (WebApp data → session) |
 | `/agenda` | partial | Staff day view (barber / admin only) |
 | `/agenda/me` | partial | Barber self-service: chair, hours, days, upcoming |
-| `/admin` | partial | Admin catalogue manager (admin only) |
+| `/barber/**` | partial | Barber business dashboard and management |
+| `/admin/**` | partial | Admin platform management |
 | `/robots.txt` | static | Crawler rules |
 | `/sitemap.xml` | static | Public URLs |
 | `POST /api/auth/email/start` | dynamic | Send the 6-digit code |
@@ -104,14 +110,27 @@ app/
   agenda/page.tsx       staff gate
   agenda/me/page.tsx    barber self-service
   admin/page.tsx        admin gate
+  start/page.tsx        role-based post-login entry
+  customer/page.tsx     customer dashboard
+  favorites/ notifications/ settings/ messages/  customer areas
+  barber/**             barber business dashboard
+  help/ support/ legal/  static product pages
   api/admin/**          catalogue management + role handlers
   api/staff/**          barber self-service handlers
+  api/barber/**         barber business handlers
+  api/favorites/**      saved chairs
+  api/notifications/**  in-app inbox
+  api/settings/**       customer preferences
+  api/messages/**       private conversations
+  api/payments/**       payment state
+  api/health            readiness probe
   api/cron/reminders    protected reminder runner
   loading.tsx error.tsx global-error.tsx not-found.tsx  route UI
   robots.ts sitemap.ts  crawler files
   globals.css           design tokens, glass utilities
 components/
   account/ booking/ bookings/ agenda/ admin/ staff/ telegram/  feature views (client)
+  barber/ customer/ messages/               role-specific views
   auth/                 sign-in form, telegram widget, sign-out
   barbers/              public directory with search + filter
   brand/                logo
@@ -125,7 +144,8 @@ lib/
   auth/                 cookies, session, email, telegram, user mapper, types
   client/date.ts        hydration-safe shop date hook
   domain/               types, data, availability, booking, views, time, member,
-                        admin, staff, reminders, reminder-run
+                        admin, staff, barber-business, customer, messages,
+                        payments, reminders, reminder-run
   store/                zustand UI + booking draft
   env.ts                validated server env (server-only)
   http.ts rate-limit.ts JSON envelope, origin check, rate limits
@@ -137,6 +157,7 @@ qa-auth.mjs             end-to-end auth probe (dev only)
 qa-booking.mjs          end-to-end booking probe (dev only)
 qa-admin.mjs            admin / role probe (dev only)
 qa-cron.mjs             reminder cron probe (dev only)
+qa-marketplace.mjs      favorites, inbox, messaging, payments, barber API probe
 qa-staff.mjs            barber self-service probe (dev only)
 scripts/telegram-webhook.mjs  inspect / register / delete the bot webhook
 scripts/telegram-miniapp.mjs  set the bot menu button to the Mini App

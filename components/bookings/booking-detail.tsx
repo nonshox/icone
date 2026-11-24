@@ -1,6 +1,14 @@
 "use client";
 
-import { ArrowLeft, CalendarDays, Clock, Loader2, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Clock,
+  Loader2,
+  MessageCircle,
+  Star,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -31,6 +39,12 @@ import {
   useReviewBooking,
 } from "@/lib/api/booking-queries";
 import { ApiError } from "@/lib/api/client";
+import { usePayment } from "@/lib/api/message-queries";
+import { useProfile } from "@/lib/api/queries";
+import type {
+  PaymentMethod,
+  PaymentStatus,
+} from "@/lib/domain/payments";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
 import { STATUS_LABEL, type BookingRow, type Status } from "@/lib/domain/types";
 
@@ -38,10 +52,38 @@ const badgeVariant: Record<
   Status,
   "default" | "secondary" | "outline" | "destructive"
 > = {
+  pending: "outline",
+  accepted: "secondary",
   booked: "default",
   done: "secondary",
   cancel: "outline",
   noshow: "destructive",
+  rejected: "destructive",
+};
+
+const paymentLabel: Record<PaymentStatus, string> = {
+  pending: "Pending at shop",
+  paid: "Paid",
+  partial: "Partly paid",
+  refunded: "Refunded",
+  unpaid: "Unpaid",
+};
+
+const methodLabel: Record<PaymentMethod, string> = {
+  shop: "At the shop",
+  card: "Card",
+  transfer: "Transfer",
+};
+
+const paymentVariant: Record<
+  PaymentStatus,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  pending: "outline",
+  paid: "secondary",
+  partial: "outline",
+  refunded: "destructive",
+  unpaid: "destructive",
 };
 
 function message(error: unknown, fallback: string): string {
@@ -62,6 +104,8 @@ export function BookingDetail({ id }: { id: string }) {
   const booking = useBooking(id);
   const cancel = useCancelBooking();
   const review = useReviewBooking();
+  const profile = useProfile();
+  const payment = usePayment(booking.data?.id ?? "");
   const [rate, setRate] = useState("5");
   const [note, setNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -113,12 +157,23 @@ export function BookingDetail({ id }: { id: string }) {
           <ArrowLeft className="size-3.5" aria-hidden />
           My visits
         </Link>
-        <Link
-          href={`/book?barber=${booking.data?.barber ?? ""}&service=${booking.data?.service ?? ""}`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Book again
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {profile.data?.role === "client" && booking.data ? (
+            <Link
+              href={`/messages?barber=${booking.data.barber}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <MessageCircle aria-hidden />
+              Message barber
+            </Link>
+          ) : null}
+          <Link
+            href={`/book?barber=${booking.data?.barber ?? ""}&service=${booking.data?.service ?? ""}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Book again
+          </Link>
+        </div>
       </div>
 
       {actionError ? (
@@ -310,6 +365,79 @@ export function BookingDetail({ id }: { id: string }) {
                   </Button>
                 </div>
               )
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {row && profile.data?.role === "client" ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Wallet className="size-4 text-brand-strong" aria-hidden />
+                  Payment
+                </CardTitle>
+                <CardDescription>
+                  {payment.data
+                    ? "Keep this in mind when you pay at the shop."
+                    : "No payment has been recorded for this visit yet."}
+                </CardDescription>
+              </div>
+              {payment.data ? (
+                <Badge variant={paymentVariant[payment.data.status]}>
+                  {paymentLabel[payment.data.status]}
+                </Badge>
+              ) : null}
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            {payment.isPending ? (
+              <div className="space-y-2" aria-hidden>
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+            ) : null}
+
+            {payment.isError ? (
+              <p
+                role="alert"
+                aria-live="polite"
+                className="text-sm text-destructive"
+              >
+                {message(payment.error, "Could not load the payment.")}
+              </p>
+            ) : null}
+
+            {payment.data ? (
+              <dl className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                    Amount
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium tabular-nums">
+                    {formatPrice(payment.data.amount)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                    Method
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium">
+                    {methodLabel[payment.data.method]}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                    Status
+                  </dt>
+                  <dd className="mt-1 text-sm font-medium">
+                    {paymentLabel[payment.data.status]}
+                  </dd>
+                </div>
+              </dl>
             ) : null}
           </CardContent>
         </Card>

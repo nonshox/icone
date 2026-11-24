@@ -5,16 +5,36 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AdminBarber,
   AdminUser,
+  Announcement,
+  Audience,
+  BookingDetail,
+  Category,
+  DashboardData,
   DayOverride,
   Hour,
+  PortfolioItem,
+  ReportData,
 } from "@/lib/domain/admin";
-import type { Role, Service } from "@/lib/domain/types";
+import type { BookingRow, Role, Service, Status } from "@/lib/domain/types";
 
 import { api } from "./client";
 import { keys } from "./queries";
 
-export type { AdminBarber, AdminUser, DayOverride, Hour } from "@/lib/domain/admin";
-export type { Service } from "@/lib/domain/types";
+export type {
+  AdminBarber,
+  AdminUser,
+  Announcement,
+  Audience,
+  BookingDetail,
+  Category,
+  DashboardData,
+  DayOverride,
+  Hour,
+  PortfolioItem,
+  ReportData,
+} from "@/lib/domain/admin";
+export type { ReportPoint } from "@/lib/domain/admin";
+export type { BookingRow, Service, Status } from "@/lib/domain/types";
 
 export type NewBarber = { name: string; title: string; bio: string };
 export type NewService = {
@@ -50,7 +70,34 @@ export const adminKeys = {
   days: ["admin", "days"] as const,
   reviews: ["admin", "reviews"] as const,
   users: ["admin", "users"] as const,
+  dashboard: ["admin", "dashboard"] as const,
+  reports: (days: number) => ["admin", "reports", days] as const,
+  appointments: (filter: AppointmentFilter) =>
+    [
+      "admin",
+      "appointments",
+      filter.status ?? "",
+      filter.date ?? "",
+      filter.barber ?? "",
+    ] as const,
+  appointmentDetail: (id: string) => ["admin", "appointment", id] as const,
+  portfolio: (barber: string) => ["admin", "portfolio", barber] as const,
+  categories: ["admin", "categories"] as const,
+  announcements: ["admin", "announcements"] as const,
 };
+
+export type AppointmentFilter = {
+  status?: string;
+  date?: string;
+  barber?: string;
+};
+
+/** UI labels for the payment methods supported at the shop. */
+export const PAYMENT_METHODS = [
+  { id: "cash", label: "Cash at the shop", note: "Settle after the visit." },
+  { id: "card", label: "Card at the shop", note: "Pay by card on arrival." },
+  { id: "transfer", label: "Bank transfer", note: "Pay in advance by transfer." },
+] as const;
 
 /* ------------------------------------------------------------------ reads */
 
@@ -110,6 +157,85 @@ export function useAdminUsers() {
   });
 }
 
+export function useAdminDashboard() {
+  return useQuery({
+    queryKey: adminKeys.dashboard,
+    queryFn: () =>
+      api<{ stats: DashboardData }>("/api/admin/dashboard").then(
+        (result) => result.stats,
+      ),
+    staleTime: 60_000,
+  });
+}
+
+export function useAdminReports(days: number) {
+  return useQuery({
+    queryKey: adminKeys.reports(days),
+    queryFn: () =>
+      api<{ report: ReportData }>(`/api/admin/reports?days=${days}`).then(
+        (result) => result.report,
+      ),
+  });
+}
+
+export function useAdminAppointments(filter: AppointmentFilter = {}) {
+  const params = new URLSearchParams();
+  if (filter.status) params.set("status", filter.status);
+  if (filter.date) params.set("date", filter.date);
+  if (filter.barber) params.set("barber", filter.barber);
+  const suffix = params.toString();
+
+  return useQuery({
+    queryKey: adminKeys.appointments(filter),
+    queryFn: () =>
+      api<{ bookings: BookingRow[] }>(
+        `/api/admin/appointments${suffix ? `?${suffix}` : ""}`,
+      ).then((result) => result.bookings),
+  });
+}
+
+export function useAdminAppointmentDetail(id: string | null) {
+  return useQuery({
+    queryKey: adminKeys.appointmentDetail(id ?? ""),
+    queryFn: () =>
+      api<{ detail: BookingDetail }>(
+        `/api/admin/appointments/${encodeURIComponent(id ?? "")}`,
+      ).then((result) => result.detail),
+    enabled: Boolean(id),
+  });
+}
+
+export function useAdminPortfolio(barber = "") {
+  const suffix = barber ? `?barber=${encodeURIComponent(barber)}` : "";
+  return useQuery({
+    queryKey: adminKeys.portfolio(barber),
+    queryFn: () =>
+      api<{ items: PortfolioItem[] }>(`/api/admin/portfolio${suffix}`).then(
+        (result) => result.items,
+      ),
+  });
+}
+
+export function useAdminCategories() {
+  return useQuery({
+    queryKey: adminKeys.categories,
+    queryFn: () =>
+      api<{ categories: Category[] }>("/api/admin/categories").then(
+        (result) => result.categories,
+      ),
+  });
+}
+
+export function useAdminAnnouncements() {
+  return useQuery({
+    queryKey: adminKeys.announcements,
+    queryFn: () =>
+      api<{ announcements: Announcement[] }>("/api/admin/announcements").then(
+        (result) => result.announcements,
+      ),
+  });
+}
+
 /* ----------------------------------------------------------------- writes */
 
 export function useCreateBarber() {
@@ -144,9 +270,22 @@ export function useSetBarberActive() {
 
 export type BarberEdit = {
   id: string;
+  name?: string;
   title?: string;
   bio?: string;
   photo?: string;
+  cover?: string;
+  shop?: string;
+  address?: string;
+  city?: string;
+  years?: number;
+  skills?: string;
+  phone?: string;
+  social?: string;
+  facilities?: string;
+  policy?: string;
+  confirm?: boolean;
+  featured?: boolean;
   user?: string;
 };
 
@@ -317,4 +456,144 @@ export function useLinkBarberUser() {
       void client.invalidateQueries({ queryKey: keys.barbers });
     },
   });
+}
+
+export function useSetUserStatus() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; active: boolean }) =>
+      api<{ ok: true }>("/api/admin/users", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.users });
+      void client.invalidateQueries({ queryKey: adminKeys.dashboard });
+    },
+  });
+}
+
+export function useSetBarberFeatured() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; featured: boolean }) =>
+      api<{ barber: AdminBarber }>("/api/admin/barbers", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.barber),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.barbers });
+      void client.invalidateQueries({ queryKey: keys.barbers });
+      void client.invalidateQueries({ queryKey: adminKeys.dashboard });
+    },
+  });
+}
+
+export function useSetAppointmentStatus() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; status: Status }) =>
+      api<{ booking: BookingRow }>("/api/admin/appointments", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.booking),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["admin", "appointments"] });
+      void client.invalidateQueries({ queryKey: ["admin", "appointment"] });
+      void client.invalidateQueries({ queryKey: adminKeys.dashboard });
+      void client.invalidateQueries({ queryKey: ["admin", "reports"] });
+      void client.invalidateQueries({ queryKey: keys.bookings });
+      void client.invalidateQueries({ queryKey: ["agenda"] });
+    },
+  });
+}
+
+export function useDeletePortfolioItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ ok: true }>(`/api/admin/portfolio?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["admin", "portfolio"] });
+    },
+  });
+}
+
+export function useCreateCategory() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      api<{ category: Category }>("/api/admin/categories", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }).then((result) => result.category),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.categories });
+    },
+  });
+}
+
+export function useRenameCategory() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; name: string }) =>
+      api<{ category: Category }>("/api/admin/categories", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.category),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.categories });
+      void client.invalidateQueries({ queryKey: keys.services });
+    },
+  });
+}
+
+export function useSetCategoryActive() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; active: boolean }) =>
+      api<{ category: Category }>("/api/admin/categories", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.category),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.categories });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ ok: true }>(`/api/admin/categories?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.categories });
+    },
+  });
+}
+
+export function useSendAnnouncement() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { title: string; body: string; audience: Audience }) =>
+      api<{ sent: number }>("/api/admin/announcements", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }).then((result) => result.sent),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.announcements });
+    },
+  });
+}
+
+export function useRefreshAdmin() {
+  const client = useQueryClient();
+  return () => {
+    void client.invalidateQueries({ queryKey: ["admin"] });
+  };
 }

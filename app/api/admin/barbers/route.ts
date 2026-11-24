@@ -9,6 +9,7 @@ import {
   linkBarberUser,
   listAllBarbers,
   setBarberActive,
+  setBarberFeatured,
   updateBarber,
 } from "@/lib/domain/admin";
 import { currentMember, isStaff } from "@/lib/domain/member";
@@ -23,13 +24,18 @@ const createSchema = z.object({
 
 const barberId = z.string().trim().min(1, "Pick a barber.").max(36);
 
-/** `{ id, active }` or `{ id, title?, bio?, photo?, user? }` — never both. */
+/** One operation per request: active, featured, or a detail edit. */
 const patchSchema = z.preprocess(
   (value) => {
     if (!value || typeof value !== "object") return value;
     return {
       ...(value as Record<string, unknown>),
-      op: "active" in value ? "active" : "edit",
+      op:
+        "active" in value
+          ? "active"
+          : "featured" in value
+            ? "featured"
+            : "edit",
     };
   },
   z.discriminatedUnion("op", [
@@ -37,12 +43,28 @@ const patchSchema = z.preprocess(
       .object({ op: z.literal("active"), id: barberId, active: z.boolean() })
       .strict(),
     z
+      .object({ op: z.literal("featured"), id: barberId, featured: z.boolean() })
+      .strict(),
+    z
       .object({
         op: z.literal("edit"),
         id: barberId,
+        name: z.string().trim().min(1).max(64).optional(),
         title: z.string().trim().max(64).optional(),
         bio: z.string().trim().max(512).optional(),
         photo: z.string().trim().max(512).optional(),
+        cover: z.string().trim().max(512).optional(),
+        shop: z.string().trim().max(64).optional(),
+        address: z.string().trim().max(128).optional(),
+        city: z.string().trim().max(64).optional(),
+        years: z.number().int().min(0).max(80).optional(),
+        skills: z.string().trim().max(256).optional(),
+        phone: z.string().trim().max(32).optional(),
+        social: z.string().trim().max(256).optional(),
+        facilities: z.string().trim().max(256).optional(),
+        policy: z.string().trim().max(512).optional(),
+        confirm: z.boolean().optional(),
+        featured: z.boolean().optional(),
         user: z.string().trim().max(36).optional(),
       })
       .strict(),
@@ -147,33 +169,41 @@ export async function PATCH(request: NextRequest) {
 
     if (data.op === "active") {
       barber = await setBarberActive(data.id, data.active);
+    } else if (data.op === "featured") {
+      barber = await setBarberFeatured(data.id, data.featured);
     } else {
       const fields = {
+        name: data.name,
         title: data.title,
         bio: data.bio,
         photo: data.photo,
-        user: data.user,
+        cover: data.cover,
+        shop: data.shop,
+        address: data.address,
+        city: data.city,
+        years: data.years,
+        skills: data.skills,
+        phone: data.phone,
+        social: data.social,
+        facilities: data.facilities,
+        policy: data.policy,
+        confirm: data.confirm,
+        featured: data.featured,
       };
-      if (Object.values(fields).every((value) => value === undefined)) {
+      const hasDetails = Object.values(fields).some(
+        (value) => value !== undefined,
+      );
+      if (!hasDetails && data.user === undefined) {
         return apiError("Nothing to update.", 400, "invalid_barber");
       }
 
       // A chair change goes through the linker so the account leaves its old chair.
-      if (fields.user !== undefined) {
-        await linkBarberUser(fields.user ? data.id : "", fields.user);
+      if (data.user !== undefined) {
+        await linkBarberUser(data.user ? data.id : "", data.user);
       }
 
-      const hasDetails =
-        fields.title !== undefined ||
-        fields.bio !== undefined ||
-        fields.photo !== undefined;
-
       if (hasDetails) {
-        barber = await updateBarber(data.id, {
-          title: fields.title,
-          bio: fields.bio,
-          photo: fields.photo,
-        });
+        barber = await updateBarber(data.id, fields);
       } else {
         const current = await findBarber(data.id);
         if (!current) {

@@ -70,6 +70,18 @@ function toBarber(row: Row): Barber {
     photo: str(row.photo),
     rating: num(row.rating),
     active: bool(row.active, true),
+    shop: str(row.shop),
+    address: str(row.address),
+    city: str(row.city, "Tashkent"),
+    years: num(row.years),
+    skills: str(row.skills),
+    phone: str(row.phone),
+    social: str(row.social),
+    facilities: str(row.facilities),
+    policy: str(row.policy),
+    cover: str(row.cover),
+    confirm: bool(row.confirm),
+    featured: bool(row.featured),
   };
 }
 

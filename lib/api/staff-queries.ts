@@ -18,7 +18,24 @@ export type MyChairData = {
   upcoming?: BookingRow[];
 };
 
-export type ChairPatch = { title: string; bio: string; photo: string };
+export type ChairPatch = {
+  title: string;
+  bio: string;
+  photo: string;
+  shop?: string;
+  address?: string;
+  city?: string;
+  years?: number;
+  skills?: string;
+  phone?: string;
+  social?: string;
+  facilities?: string;
+  policy?: string;
+  cover?: string;
+  confirm?: boolean;
+  featured?: boolean;
+  active?: boolean;
+};
 export type HourInput = { day: number; start: number; end: number };
 export type DayInput = {
   date: string;

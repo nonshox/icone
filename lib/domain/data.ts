@@ -39,6 +39,18 @@ function toBarber(row: Row): Barber {
     photo: str(row.photo),
     rating: num(row.rating),
     active: bool(row.active, true),
+    shop: str(row.shop),
+    address: str(row.address),
+    city: str(row.city, "Tashkent"),
+    years: num(row.years),
+    skills: str(row.skills),
+    phone: str(row.phone),
+    social: str(row.social),
+    facilities: str(row.facilities),
+    policy: str(row.policy),
+    cover: str(row.cover),
+    confirm: bool(row.confirm),
+    featured: bool(row.featured),
   };
 }
 
@@ -50,6 +62,11 @@ function toService(row: Row): Service {
     price: num(row.price),
     time: num(row.time, 30),
     active: bool(row.active, true),
+    image: str(row.image),
+    category: str(row.category, "Hair"),
+    featured: bool(row.featured),
+    discount: num(row.discount),
+    barber: str(row.barber),
   };
 }
 
@@ -237,7 +254,7 @@ export async function listBusy(
   const rows = await list(TABLES.bookings, [
     Query.equal("barber", barberId),
     Query.equal("date", date),
-    Query.equal("status", ["booked", "done"]),
+    Query.equal("status", ["pending", "accepted", "booked", "done"]),
     Query.limit(100),
   ]);
   return rows.map(toBooking);
@@ -340,12 +357,13 @@ export async function createBooking(data: {
   end: number;
   price: number;
   note: string;
+  status: Status;
 }): Promise<Booking> {
   const row = await adminDb().createDocument({
     databaseId: databaseId(),
     collectionId: TABLES.bookings,
     documentId: ID.unique(),
-    data: { ...data, status: "booked" },
+    data,
   });
   return toBooking(row as Row);
 }

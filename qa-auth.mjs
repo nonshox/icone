@@ -204,7 +204,7 @@ const tgRes = await fetch(`${BASE}/api/auth/telegram/callback?${search}`, {
 const tgCookie = cookieValue(tgRes.headers.getSetCookie(), "icone_session");
 check(
   "GET /api/auth/telegram/callback",
-  tgRes.status === 303 && tgRes.headers.get("location")?.endsWith("/account"),
+  tgRes.status === 303 && tgRes.headers.get("location")?.endsWith("/start"),
   `${tgRes.status} ${tgRes.headers.get("location") ?? ""}`,
 );
 check("telegram callback sets session cookie", Boolean(tgCookie));

@@ -14,6 +14,7 @@
     "qa:admin": "node qa-admin.mjs",
     "qa:cron": "node qa-cron.mjs",
     "qa:staff": "node qa-staff.mjs",
+    "qa:marketplace": "node qa-marketplace.mjs",
     "tg:webhook": "node scripts/telegram-webhook.mjs",
     "tg:miniapp": "node scripts/telegram-miniapp.mjs"
   },

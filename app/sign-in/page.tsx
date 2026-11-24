@@ -22,7 +22,7 @@ const perks = [
 
 async function RedirectIfSignedIn() {
   const user = await getCurrentUser();
-  if (user) redirect("/account");
+  if (user) redirect("/start");
   return null;
 }
 

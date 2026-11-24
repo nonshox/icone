@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   try {
     const { session, user } = await signInWithTelegram(telegramUser);
     await safeEnsureProfile({ $id: user.$id, name: user.name });
-    const response = NextResponse.redirect(new URL("/account", baseUrl), 303);
+    const response = NextResponse.redirect(new URL("/start", baseUrl), 303);
     response.cookies.set(
       SESSION_COOKIE,
       session.secret,

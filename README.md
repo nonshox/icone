@@ -62,6 +62,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `cmd /c "npm run qa:admin"` | admin role + catalogue probe |
 | `cmd /c "npm run qa:cron"` | reminder cron probe |
 | `cmd /c "npm run qa:staff"` | barber self-service probe |
+| `cmd /c "npm run qa:marketplace"` | customer/barber/messaging/payment probe |
 | `cmd /c "npm run tg:webhook"` | show Telegram webhook state (`-- set` / `-- delete`) |
 | `cmd /c "npm run tg:miniapp"` | show bot menu button (`-- set` / `-- reset`) |
 
@@ -72,20 +73,22 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `/` | landing page |
 | `/barbers` · `/barbers/:id` | public chair list and profile |
 | `/sign-in` | email one-time code + Telegram |
-| `/account` | profile, stats, shortcuts |
-| `/book` | booking flow |
-| `/bookings` | visits, cancel, reviews |
-| `/bookings/:id` | single visit detail |
-| `/agenda` | staff day view |
-| `/agenda/me` | barber chair settings and schedule |
-| `/admin` | admin catalogue manager |
-| `/mini` | Telegram Mini App |
+| `/start` | role-based entry after sign-in |
+| `/customer` | customer dashboard |
+| `/account` | shared profile |
+| `/bookings` · `/bookings/:id` | visits and detail |
+| `/favorites` · `/notifications` · `/settings` | customer extras |
+| `/messages` | private booking conversations |
+| `/agenda` · `/agenda/me` · `/barber/**` | barber tools |
+| `/admin/**` | platform management |
+| `/help` · `/support` · `/legal/*` | help and policies |
 | `/api/barbers` · `/api/services` · `/api/availability` | catalogue + times |
 | `/api/bookings` · `/api/reviews` · `/api/me` | member operations |
 | `/api/auth/*` | sign-in and sign-out |
 | `/api/admin/*` | catalogue management |
 | `/api/cron/reminders` | protected reminder runner |
-| `/robots.txt` · `/sitemap.xml` | crawler files |
+| `/api/health` | readiness probe |
+| `/robots.txt` · `/sitemap.xml` · `/manifest.webmanifest` | crawler + PWA files |
 
 The full endpoint list is in [`docs/API.md`](./docs/API.md).
 
@@ -97,3 +100,4 @@ The full endpoint list is in [`docs/API.md`](./docs/API.md).
 - [`docs/DESIGN-SYSTEM.md`](./docs/DESIGN-SYSTEM.md) — tokens, glass, components
 - [`docs/ENGINEERING.md`](./docs/ENGINEERING.md) — Next 16 rules, conventions
 - [`docs/AUTH.md`](./docs/AUTH.md) — auth architecture, provider setup, threats
+- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — production setup, env, ops, backups

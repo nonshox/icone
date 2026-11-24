@@ -4,6 +4,10 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
+import {
+  BarberBusinessError,
+  updateBusinessProfile,
+} from "@/lib/domain/barber-business";
 import { currentMember } from "@/lib/domain/member";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -19,6 +23,24 @@ const patchSchema = z.object({
   title: z.string().trim().max(64, "Keep the title under 64 characters."),
   bio: z.string().trim().max(512, "Keep the bio under 512 characters."),
   photo: z.string().trim().max(512, "Keep the photo link under 512 characters."),
+  shop: z.string().trim().max(64).optional(),
+  address: z.string().trim().max(128).optional(),
+  city: z.string().trim().max(64).optional(),
+  years: z.number().int().min(0).max(80).optional(),
+  skills: z.string().trim().max(512).optional(),
+  phone: z
+    .string()
+    .trim()
+    .max(32)
+    .regex(/^[+\d\s()-]*$/, "Use digits and + ( ) - only.")
+    .optional(),
+  social: z.string().trim().max(512).optional(),
+  facilities: z.string().trim().max(512).optional(),
+  policy: z.string().trim().max(512).optional(),
+  cover: z.string().trim().max(512).optional(),
+  confirm: z.boolean().optional(),
+  featured: z.boolean().optional(),
+  active: z.boolean().optional(),
 });
 
 function firstIssue(error: z.ZodError, fallback: string): string {
@@ -27,6 +49,9 @@ function firstIssue(error: z.ZodError, fallback: string): string {
 
 function staffFailure(error: unknown, fallback: string, code: string) {
   if (error instanceof StaffError) {
+    return apiError(error.message, error.status, error.code);
+  }
+  if (error instanceof BarberBusinessError) {
     return apiError(error.message, error.status, error.code);
   }
   console.error("[staff] chair request failed", error);
@@ -99,8 +124,10 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const chair = await updateMyChair(member.user.id, parsed.data);
-    return apiOk({ chair });
+    const { title, bio, photo, ...extra } = parsed.data;
+    const chair = await updateMyChair(member.user.id, { title, bio, photo });
+    const saved = await updateBusinessProfile(member.user.id, extra);
+    return apiOk({ chair: { ...chair, ...saved } });
   } catch (error) {
     return staffFailure(error, "Could not save your chair profile.", "chair_failed");
   }

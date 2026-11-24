@@ -52,10 +52,23 @@ const schema = {
       { key: "rating", type: "float", default: 0 },
       { key: "active", type: "boolean", default: true },
       { key: "user", type: "string", size: 36, default: "" },
+      { key: "shop", type: "string", size: 64, default: "" },
+      { key: "address", type: "string", size: 128, default: "" },
+      { key: "city", type: "string", size: 64, default: "Tashkent" },
+      { key: "years", type: "integer", min: 0, max: 80, default: 0 },
+      { key: "skills", type: "string", size: 256, default: "" },
+      { key: "phone", type: "string", size: 32, default: "" },
+      { key: "social", type: "string", size: 256, default: "" },
+      { key: "facilities", type: "string", size: 256, default: "" },
+      { key: "policy", type: "string", size: 512, default: "" },
+      { key: "cover", type: "string", size: 512, default: "" },
+      { key: "confirm", type: "boolean", default: false },
+      { key: "featured", type: "boolean", default: false },
     ],
     indexes: [
       { key: "active", attributes: ["active"] },
       { key: "user", attributes: ["user"] },
+      { key: "city", attributes: ["city"] },
     ],
   },
 
@@ -66,8 +79,17 @@ const schema = {
       { key: "price", type: "integer", min: 0 },
       { key: "time", type: "integer", min: 5, max: 240 },
       { key: "active", type: "boolean", default: true },
+      { key: "image", type: "string", size: 512, default: "" },
+      { key: "category", type: "string", size: 32, default: "Hair" },
+      { key: "featured", type: "boolean", default: false },
+      { key: "discount", type: "integer", min: 0, max: 100, default: 0 },
+      { key: "barber", type: "string", size: 36, default: "" },
     ],
-    indexes: [{ key: "active", attributes: ["active"] }],
+    indexes: [
+      { key: "active", attributes: ["active"] },
+      { key: "owner", attributes: ["barber"] },
+      { key: "category", attributes: ["category"] },
+    ],
   },
 
   // Weekly opening hours, one row per barber per weekday.
@@ -142,6 +164,86 @@ const schema = {
       { key: "due", attributes: ["date", "state"] },
       { key: "once", attributes: ["booking"], type: "unique" },
     ],
+  },
+
+  favorites: {
+    attributes: [
+      { key: "user", type: "string", size: 36, required: true },
+      { key: "barber", type: "string", size: 36, required: true },
+    ],
+    indexes: [{ key: "mine", attributes: ["user", "barber"], type: "unique" }],
+  },
+
+  notifications: {
+    attributes: [
+      { key: "user", type: "string", size: 36, required: true },
+      { key: "title", type: "string", size: 96, required: true },
+      { key: "body", type: "string", size: 512, default: "" },
+      { key: "kind", type: "string", size: 24, default: "info" },
+      { key: "state", type: "string", size: 12, default: "new" },
+    ],
+    indexes: [{ key: "inbox", attributes: ["user", "state"] }],
+  },
+
+  messages: {
+    attributes: [
+      { key: "conversation", type: "string", size: 80, required: true },
+      { key: "sender", type: "string", size: 36, required: true },
+      { key: "body", type: "string", size: 1024, required: true },
+    ],
+    indexes: [{ key: "thread", attributes: ["conversation"] }],
+  },
+
+  promotions: {
+    attributes: [
+      { key: "barber", type: "string", size: 36, required: true },
+      { key: "name", type: "string", size: 64, required: true },
+      { key: "kind", type: "string", size: 12, default: "percent" },
+      { key: "amount", type: "integer", min: 0 },
+      { key: "start", type: "string", size: 10, default: "" },
+      { key: "end", type: "string", size: 10, default: "" },
+      { key: "uses", type: "integer", min: 0, default: 0 },
+      { key: "limit", type: "integer", min: 0, default: 0 },
+      { key: "note", type: "string", size: 256, default: "" },
+      { key: "active", type: "boolean", default: true },
+    ],
+    indexes: [{ key: "shop", attributes: ["barber", "active"] }],
+  },
+
+  notes: {
+    attributes: [
+      { key: "barber", type: "string", size: 36, required: true },
+      { key: "user", type: "string", size: 36, required: true },
+      { key: "note", type: "string", size: 512, default: "" },
+    ],
+    indexes: [{ key: "pair", attributes: ["barber", "user"], type: "unique" }],
+  },
+
+  payments: {
+    attributes: [
+      { key: "booking", type: "string", size: 36, required: true },
+      { key: "amount", type: "integer", min: 0 },
+      { key: "status", type: "string", size: 16, default: "pending" },
+      { key: "method", type: "string", size: 16, default: "shop" },
+    ],
+    indexes: [{ key: "for", attributes: ["booking"] }],
+  },
+
+  portfolio: {
+    attributes: [
+      { key: "barber", type: "string", size: 36, required: true },
+      { key: "url", type: "string", size: 512, required: true },
+      { key: "note", type: "string", size: 128, default: "" },
+    ],
+    indexes: [{ key: "owner", attributes: ["barber"] }],
+  },
+
+  categories: {
+    attributes: [
+      { key: "name", type: "string", size: 32, required: true },
+      { key: "active", type: "boolean", default: true },
+    ],
+    indexes: [{ key: "active", attributes: ["active"] }],
   },
 };
 
@@ -416,6 +518,56 @@ async function main() {
     log(`  + ${barbers.length * week.length} hour rows`);
   } else {
     log("  = hours already seeded");
+  }
+
+  // Backfill richer profile fields on the seed rows. Safe to re-run.
+  for (const barber of barbers) {
+    await db
+      .updateDocument({
+        databaseId,
+        collectionId: "barbers",
+        documentId: barber.id,
+        data: {
+          shop: `${barber.name}'s Chair`,
+          address: "12 Amir Temur Avenue, Yakkasaray",
+          city: "Tashkent",
+          years: 6,
+          skills: "Fades, beard sculpt, classic cuts",
+          phone: "+998 71 200 12 12",
+          facilities: "Waiting area, hot towel, refreshments",
+          policy: "Arrive 5 minutes early. Cancel at least 2 hours before your visit.",
+          confirm: false,
+        },
+      })
+      .catch(() => {});
+  }
+
+  for (const [index, service] of services.entries()) {
+    await db
+      .updateDocument({
+        databaseId,
+        collectionId: "services",
+        documentId: service.id,
+        data: {
+          category: ["Hair", "Beard", "Combo"][index] ?? "Hair",
+          featured: index === 2,
+          barber: barbers[index % barbers.length].id,
+          discount: 0,
+        },
+      })
+      .catch(() => {});
+  }
+
+  if (await isEmpty("categories")) {
+    for (const name of ["Hair", "Beard", "Combo", "Kids", "Styling"]) {
+      await db.createDocument({
+        databaseId,
+        collectionId: "categories",
+        documentId: ID.unique(),
+        data: { name, active: true },
+      });
+    }
+    log("  + 5 service categories");
   }
 
   const summary = await Promise.all(

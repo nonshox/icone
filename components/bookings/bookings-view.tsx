@@ -35,10 +35,13 @@ import { STATUS_LABEL, type BookingRow, type Status } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
 const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
+  pending: "outline",
+  accepted: "secondary",
   booked: "default",
   done: "secondary",
   cancel: "outline",
   noshow: "destructive",
+  rejected: "destructive",
 };
 
 function BookingCard({ booking }: { booking: BookingRow }) {
@@ -231,12 +234,15 @@ export function BookingsView() {
   if (all.length === 0) return <EmptyState />;
 
   const upcoming = all.filter(
-    (booking) => booking.status === "booked" && booking.date >= todayDate,
+    (booking) =>
+      ["pending", "accepted", "booked"].includes(booking.status) &&
+      booking.date >= todayDate,
   );
   const history = all
     .filter(
       (booking) =>
-        booking.status !== "booked" || booking.date < todayDate,
+        !["pending", "accepted", "booked"].includes(booking.status) ||
+        booking.date < todayDate,
     )
     .slice()
     .reverse();

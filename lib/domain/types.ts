@@ -1,13 +1,24 @@
 export type Role = "client" | "barber" | "admin";
 
-export const STATUSES = ["booked", "done", "cancel", "noshow"] as const;
+export const STATUSES = [
+  "pending",
+  "accepted",
+  "booked",
+  "done",
+  "cancel",
+  "noshow",
+  "rejected",
+] as const;
 export type Status = (typeof STATUSES)[number];
 
 export const STATUS_LABEL: Record<Status, string> = {
+  pending: "Pending",
+  accepted: "Accepted",
   booked: "Booked",
   done: "Completed",
   cancel: "Cancelled",
   noshow: "No-show",
+  rejected: "Rejected",
 };
 
 export type Profile = {
@@ -26,6 +37,18 @@ export type Barber = {
   photo: string;
   rating: number;
   active: boolean;
+  shop: string;
+  address: string;
+  city: string;
+  years: number;
+  skills: string;
+  phone: string;
+  social: string;
+  facilities: string;
+  policy: string;
+  cover: string;
+  confirm: boolean;
+  featured: boolean;
 };
 
 export type Service = {
@@ -35,6 +58,11 @@ export type Service = {
   price: number;
   time: number;
   active: boolean;
+  image: string;
+  category: string;
+  featured: boolean;
+  discount: number;
+  barber: string;
 };
 
 export type Booking = {

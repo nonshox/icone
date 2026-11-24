@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const result = await redeemWebLoginTicket(ticket);
     if (!result) return fail();
 
-    const response = NextResponse.redirect(new URL("/account", base), 303);
+    const response = NextResponse.redirect(new URL("/start", base), 303);
     response.cookies.set(
       SESSION_COOKIE,
       result.session.secret,

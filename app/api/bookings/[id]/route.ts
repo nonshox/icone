@@ -3,14 +3,25 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { getBooking, setBookingStatus } from "@/lib/domain/data";
+import { TABLES } from "@/lib/appwrite/db";
+import { createNotification } from "@/lib/domain/customer";
+import { getBooking, getMany, setBookingStatus } from "@/lib/domain/data";
 import { currentMember, isStaff } from "@/lib/domain/member";
-import { isPast } from "@/lib/domain/time";
+import { formatDate, isPast, label as labelTime } from "@/lib/domain/time";
+import { STATUS_LABEL } from "@/lib/domain/types";
 import { enrich } from "@/lib/domain/views";
 import { apiError, isSameOrigin } from "@/lib/http";
 
 const bodySchema = z.object({
-  status: z.enum(["cancel", "done", "noshow"]),
+  status: z.enum([
+    "pending",
+    "accepted",
+    "booked",
+    "rejected",
+    "cancel",
+    "done",
+    "noshow",
+  ]),
 });
 
 type Context = { params: Promise<{ id: string }> };
@@ -95,6 +106,27 @@ export async function PATCH(request: NextRequest, context: Context) {
 
     const updated = await setBookingStatus(id, parsed.data.status);
     const [row] = await enrich([updated], { withUser: staff });
+
+    const label = STATUS_LABEL[parsed.data.status];
+    await createNotification({
+      user: booking.user,
+      title: `Booking ${label.toLowerCase()}`,
+      body: `${row.serviceName} with ${row.barberName}, ${formatDate(row.date)} at ${labelTime(row.start)}.`,
+      kind: "booking",
+    }).catch((error) => console.error("[booking] status notice failed", error));
+
+    if (owner && !staff) {
+      const chairRows = await getMany(TABLES.barbers, [booking.barber]).catch(() => []);
+      const staffId = chairRows[0]?.user;
+      if (typeof staffId === "string" && staffId) {
+        await createNotification({
+          user: staffId,
+          title: "Booking cancelled",
+          body: `${row.userName ?? "A member"} cancelled ${formatDate(row.date)} at ${labelTime(row.start)}.`,
+          kind: "booking",
+        }).catch((error) => console.error("[booking] cancel notice failed", error));
+      }
+    }
 
     return NextResponse.json({ ok: true as const, booking: row });
   } catch (error) {

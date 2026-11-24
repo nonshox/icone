@@ -3,20 +3,25 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { linkBarberUser, listUsers, setUserRole } from "@/lib/domain/admin";
+import {
+  linkBarberUser,
+  listUsers,
+  setUserRole,
+  setUserStatus,
+} from "@/lib/domain/admin";
 import { currentMember, isStaff } from "@/lib/domain/member";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
 const userId = z.string().trim().min(1, "Pick a member.").max(36);
 
-/** `{ userId, role }` or `{ userId, barber }` — never both. */
+/** One operation per request: role, chair link, or account status. */
 const patchSchema = z.preprocess(
   (value) => {
     if (!value || typeof value !== "object") return value;
     return {
       ...(value as Record<string, unknown>),
-      op: "role" in value ? "role" : "barber",
+      op: "role" in value ? "role" : "barber" in value ? "barber" : "status",
     };
   },
   z.discriminatedUnion("op", [
@@ -29,6 +34,9 @@ const patchSchema = z.preprocess(
       .strict(),
     z
       .object({ op: z.literal("barber"), userId, barber: z.string().trim().max(36) })
+      .strict(),
+    z
+      .object({ op: z.literal("status"), userId, active: z.boolean() })
       .strict(),
   ]),
 );
@@ -89,8 +97,13 @@ export async function PATCH(request: NextRequest) {
   try {
     if (parsed.data.op === "role") {
       await setUserRole(parsed.data.userId, parsed.data.role);
-    } else {
+    } else if (parsed.data.op === "barber") {
       await linkBarberUser(parsed.data.barber, parsed.data.userId);
+    } else {
+      if (parsed.data.userId === member.user.id) {
+        return apiError("You cannot change your own account status.", 400, "self_status");
+      }
+      await setUserStatus(parsed.data.userId, parsed.data.active);
     }
     return NextResponse.json({ ok: true as const });
   } catch (error) {

@@ -70,7 +70,7 @@ export function SignInForm() {
   const nextPath =
     rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//")
       ? rawNext
-      : "/account";
+      : "/start";
 
   const errorParam = searchParams.get("error");
   const initialError = errorParam ? (TELEGRAM_ERRORS[errorParam] ?? null) : null;

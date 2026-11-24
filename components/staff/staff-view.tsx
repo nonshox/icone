@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -72,10 +73,13 @@ const statusVariant: Record<
   Status,
   "default" | "secondary" | "outline" | "destructive"
 > = {
+  pending: "outline",
+  accepted: "secondary",
   booked: "default",
   done: "secondary",
   cancel: "outline",
   noshow: "destructive",
+  rejected: "destructive",
 };
 
 type ChairState = {
@@ -128,6 +132,12 @@ export function StaffView() {
   return (
     <div className="space-y-6">
       <nav aria-label="Chair sections" className="flex flex-wrap gap-2">
+        <Link
+          href="/barber"
+          className="rounded-xl border border-brand/40 bg-brand/10 px-3 py-1.5 text-sm text-brand-strong transition-colors hover:bg-brand/15"
+        >
+          Business dashboard
+        </Link>
         {TABS.map((item) => (
           <Button
             key={item.id}
@@ -184,6 +194,19 @@ function ProfileForm({ chair }: { chair: Barber }) {
   const [title, setTitle] = useState(chair.title);
   const [bio, setBio] = useState(chair.bio);
   const [photo, setPhoto] = useState(chair.photo);
+  const [cover, setCover] = useState(chair.cover);
+  const [shop, setShop] = useState(chair.shop);
+  const [address, setAddress] = useState(chair.address);
+  const [city, setCity] = useState(chair.city);
+  const [years, setYears] = useState(String(chair.years));
+  const [skills, setSkills] = useState(chair.skills);
+  const [phone, setPhone] = useState(chair.phone);
+  const [social, setSocial] = useState(chair.social);
+  const [facilities, setFacilities] = useState(chair.facilities);
+  const [policy, setPolicy] = useState(chair.policy);
+  const [confirm, setConfirm] = useState(chair.confirm);
+  const [featured, setFeatured] = useState(chair.featured);
+  const [active, setActive] = useState(chair.active);
   const [formError, setFormError] = useState<string | null>(null);
 
   const error =
@@ -193,8 +216,31 @@ function ProfileForm({ chair }: { chair: Barber }) {
     event.preventDefault();
     setFormError(null);
 
+    const parsedYears = Number(years);
+    if (!Number.isInteger(parsedYears) || parsedYears < 0 || parsedYears > 80) {
+      setFormError("Years on the chair must be between 0 and 80.");
+      return;
+    }
+
     update.mutate(
-      { title, bio, photo },
+      {
+        title,
+        bio,
+        photo,
+        cover,
+        shop,
+        address,
+        city,
+        years: parsedYears,
+        skills,
+        phone,
+        social,
+        facilities,
+        policy,
+        confirm,
+        featured,
+        active,
+      },
       {
         onSuccess: () => toast.success("Chair profile saved"),
         onError: (cause) =>
@@ -237,6 +283,60 @@ function ProfileForm({ chair }: { chair: Barber }) {
           placeholder="A short line about your work."
           onChange={(event) => setBio(event.target.value)}
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="staff-shop">Shop</Label>
+        <Input id="staff-shop" value={shop} maxLength={64} onChange={(event) => setShop(event.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="staff-city">City</Label>
+        <Input id="staff-city" value={city} maxLength={64} onChange={(event) => setCity(event.target.value)} />
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="staff-address">Address</Label>
+        <Input id="staff-address" value={address} maxLength={128} onChange={(event) => setAddress(event.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="staff-years">Years on the chair</Label>
+        <Input id="staff-years" type="number" min={0} max={80} value={years} onChange={(event) => setYears(event.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="staff-phone">Phone</Label>
+        <Input id="staff-phone" value={phone} maxLength={32} onChange={(event) => setPhone(event.target.value)} />
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="staff-skills">Skills</Label>
+        <Input id="staff-skills" value={skills} maxLength={512} onChange={(event) => setSkills(event.target.value)} />
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="staff-social">Social links</Label>
+        <Input id="staff-social" value={social} maxLength={512} onChange={(event) => setSocial(event.target.value)} />
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="staff-facilities">Facilities</Label>
+        <Input id="staff-facilities" value={facilities} maxLength={512} onChange={(event) => setFacilities(event.target.value)} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="staff-cover">Cover link</Label>
+        <Input id="staff-cover" type="url" value={cover} maxLength={512} onChange={(event) => setCover(event.target.value)} />
+      </div>
+      <div className="flex flex-wrap gap-4 self-end sm:col-span-1">
+        <label htmlFor="staff-confirm" className="flex items-center gap-2 text-sm">
+          <input id="staff-confirm" type="checkbox" checked={confirm} onChange={(event) => setConfirm(event.target.checked)} className="size-4 accent-[var(--brand)]" />
+          Confirm bookings
+        </label>
+        <label htmlFor="staff-featured" className="flex items-center gap-2 text-sm">
+          <input id="staff-featured" type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} className="size-4 accent-[var(--brand)]" />
+          Featured
+        </label>
+        <label htmlFor="staff-active" className="flex items-center gap-2 text-sm">
+          <input id="staff-active" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="size-4 accent-[var(--brand)]" />
+          Active
+        </label>
+      </div>
+      <div className="space-y-1.5 sm:col-span-2">
+        <Label htmlFor="staff-policy">Booking policy</Label>
+        <Textarea id="staff-policy" value={policy} maxLength={512} onChange={(event) => setPolicy(event.target.value)} />
       </div>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <Button type="submit" className="h-10" disabled={update.isPending}>

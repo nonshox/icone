@@ -75,6 +75,8 @@ browser ──request──▶ server component ──▶ getCurrentUser() ─�
 - `lib/domain/*` is the only place that reads or writes Appwrite documents.
   It is server-only and shared by route handlers and server components.
 - Session failures are treated as signed out, never as errors.
+- After sign-in, `/start` resolves the role and lands the user in `/customer`,
+  `/barber` or `/admin`. Never hardcode a role home in a client form.
 - The UI receives `SessionUser` — a narrow DTO from `lib/auth/user.ts`. Never
   pass a raw Appwrite user or database document to a component.
 

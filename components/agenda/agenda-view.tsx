@@ -41,10 +41,13 @@ const badgeVariant: Record<
   Status,
   "default" | "secondary" | "outline" | "destructive"
 > = {
+  pending: "outline",
+  accepted: "secondary",
   booked: "default",
   done: "secondary",
   cancel: "outline",
   noshow: "destructive",
+  rejected: "destructive",
 };
 
 export function AgendaView({ role }: { role: Role }) {
@@ -222,8 +225,28 @@ export function AgendaView({ role }: { role: Role }) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {booking.status === "booked" ? (
-                        <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1">
+                        {booking.status === "pending" ? (
+                          <>
+                            <Button
+                              size="xs"
+                              disabled={setStatus.isPending}
+                              onClick={() => close(booking.id, "accepted")}
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="destructive"
+                              disabled={setStatus.isPending}
+                              onClick={() => close(booking.id, "rejected")}
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        ) : null}
+                        {booking.status === "accepted" || booking.status === "booked" ? (
+                          <>
                           <Button
                             size="xs"
                             variant="secondary"
@@ -240,6 +263,11 @@ export function AgendaView({ role }: { role: Role }) {
                           >
                             No-show
                           </Button>
+                          </>
+                        ) : null}
+                        {(booking.status === "pending" ||
+                          booking.status === "accepted" ||
+                          booking.status === "booked") ? (
                           <Button
                             size="xs"
                             variant="destructive"
@@ -247,15 +275,12 @@ export function AgendaView({ role }: { role: Role }) {
                             onClick={() => close(booking.id, "cancel")}
                           >
                             {setStatus.isPending ? (
-                              <Loader2
-                                className="size-3 animate-spin"
-                                aria-hidden
-                              />
+                              <Loader2 className="size-3 animate-spin" aria-hidden />
                             ) : null}
                             Cancel
                           </Button>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

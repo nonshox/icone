@@ -88,7 +88,7 @@ export async function book(input: {
   const mine = await listUserBookings(input.user);
   const clash = mine.some(
     (booking) =>
-      booking.status === "booked" &&
+      ["pending", "accepted", "booked"].includes(booking.status) &&
       booking.date === input.date &&
       input.start < booking.end &&
       booking.start < end,
@@ -107,6 +107,7 @@ export async function book(input: {
     end,
     price: service.price,
     note: input.note,
+    status: barber.confirm ? "pending" : "booked",
   });
 
   const overlapping = (await listBusy(input.barber, input.date))

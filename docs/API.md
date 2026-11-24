@@ -16,6 +16,10 @@ Status codes: `400` validation, `401` signed out, `403` forbidden / bad origin,
 `404` missing resource, `409` conflict, `429` rate limited, `502` upstream
 failure.
 
+Booking statuses: `pending` (awaiting barber approval), `accepted`, `booked`,
+`done`, `cancel`, `noshow`, `rejected`. Payment statuses: `pending`, `paid`,
+`partial`, `refunded`, `unpaid` — never treat anything but `paid` as collected.
+
 Every `POST`/`PATCH` checks `isSameOrigin(request)`. Requests without an
 `Origin` header (curl, server-to-server) are allowed; the session cookie is
 `SameSite=Lax`.
@@ -90,6 +94,19 @@ return `400 bad_time`; too-soon same-day slots return `409 too_soon`.
 
 Admin writes require `users.role = "admin"`; reads allow `barber` and `admin`.
 Day overrides upsert per chair/date so availability never has two winners.
+
+## Messaging & payments
+
+| Method | Path | Query / body | Response |
+| --- | --- | --- | --- |
+| GET | `/api/messages` | — | `{ threads }` (participant only; admin read-only) |
+| GET | `/api/messages?with=userId` | — | `{ messages }` |
+| POST | `/api/messages` | `{ to, body }` | `201 { message }` + recipient notification |
+| GET | `/api/payments?booking=id` | — | `{ payment }` (owner/staff/admin) |
+| PATCH | `/api/payments` | `{ booking, status, method? }` | `{ payment }` (barber owns chair) |
+
+Payment rows are created with `method: "shop"` and `status: "pending"` when a
+booking is confirmed. Only `status: "paid"` is ever shown as collected.
 
 ## Barber self-service
 
