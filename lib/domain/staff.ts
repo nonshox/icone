@@ -6,6 +6,7 @@ import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
 
 import {
   barberForUser,
+  ensureBarberChair,
   getMany,
   listAgenda,
 } from "./data";
@@ -145,7 +146,8 @@ async function ownChair(userId: string): Promise<Barber> {
 /* ------------------------------------------------------------------ reads */
 
 export async function getMyChair(userId: string): Promise<Barber | null> {
-  return barberForUser(userId);
+  // Self-heal a promoted member whose chair write was interrupted.
+  return ensureBarberChair(userId);
 }
 
 export async function listMyHours(userId: string): Promise<StaffHour[]> {

@@ -30,6 +30,11 @@ export function useMyApplication() {
       api<{ application: Application | null }>("/api/applications").then(
         (result) => result.application,
       ),
+    // Approval happens in the admin's browser, so this cache cannot be
+    // invalidated from there. Poll only while the outcome is still unknown.
+    refetchInterval: (query) =>
+      query.state.data?.state === "pending" ? 15_000 : false,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -78,7 +83,9 @@ export function useDecideApplication() {
       }).then((result) => result.application),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: applicationKeys.queue });
+      void client.invalidateQueries({ queryKey: applicationKeys.mine });
       void client.invalidateQueries({ queryKey: ["admin", "users"] });
+      void client.invalidateQueries({ queryKey: ["me"] });
       void client.invalidateQueries({ queryKey: ["barbers"] });
     },
   });

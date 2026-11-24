@@ -15,7 +15,7 @@
    `databases.read/write`, `collections.read/write`, `attributes.read/write`,
    `indexes.read/write`, `documents.read/write`, `users.read/write`,
    `files.read/write`.
-4. `npm run db:setup` — creates all 17 tables, attributes, indexes, seed data.
+4. `npm run db:setup` — creates all 18 tables, attributes, indexes, seed data.
    Idempotent; safe after a partial failure.
 5. `npm run db:staff -- <email> barber <barberId>` to link staff accounts.
 6. `npm run tg:webhook -- set` and `npm run tg:miniapp -- set`.
@@ -69,7 +69,7 @@ After deploy:
   Vercel monitoring / an external uptime probe.
 - **Analytics:** Vercel Analytics is a single `<Analytics />` in `app/layout.tsx`.
 - **Logs:** route handlers log with `[auth]`, `[api]`, `[admin]`, `[staff]`,
-  `[reminders]`, `[cron]` prefixes. Never log secrets, tokens or OTP codes.
+  `[reminders]`, `[cron]` prefixes. Never log secrets, tokens or login links.
 - **Backups:** export the Appwrite `database` collection set on a schedule from
   the Appwrite console (or via the server API). Keep at least 7 daily copies.
 - **Cron:** the reminder runner is idempotent (unique `booking`, `state`,

@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 export default function GlobalError({
   error: _error,
   reset,
@@ -23,6 +25,13 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: "center", padding: 24 }}>
+          <Image
+            src="/logotype/android-chrome-192x192.png"
+            alt="icone"
+            width={96}
+            height={96}
+            style={{ margin: "0 auto 12px", borderRadius: 10 }}
+          />
           <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>
             icone could not start
           </h1>

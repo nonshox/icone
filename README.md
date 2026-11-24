@@ -50,11 +50,11 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 
 ## Sign-in
 
-Email one-time code is the primary web sign-in: enter email, then the 6-digit
-code. Telegram is secondary — the bot's first `/start` gives a one-time website
-sign-in link; the Mini App signs in automatically and offers the same link for
-the browser/installed app. Both land on `/start`, which routes by role.
-Sessions are HttpOnly cookies, valid for a year.
+Telegram only. `/sign-in` has one button: **Continue in Telegram**. The bot's
+first `/start` gives a one-time website sign-in link; the Mini App signs in
+automatically and offers the same link for the browser/installed app. All paths
+create the same HttpOnly web session and land on `/start`, which routes by role.
+No password, no phone prompt, no email delivery dependency.
 
 ## Scripts
 
@@ -82,7 +82,7 @@ Sessions are HttpOnly cookies, valid for a year.
 | `/` | landing page |
 | `/barbers` · `/barbers/:id` | public chair list and profile |
 | `/services` | service catalogue |
-| `/sign-in` | email one-time code + Telegram |
+| `/sign-in` | Telegram only |
 | `/start` | role-based entry after sign-in |
 | `/customer` | customer dashboard |
 | `/become-barber` | apply to run a chair |

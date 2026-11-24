@@ -118,7 +118,7 @@ Every JSON route uses the envelope in `lib/http.ts`:
 - Every mutating handler calls `isSameOrigin(request)`.
 - Every handler that costs money or sends mail is rate limited via
   `rateLimit(key, limit, windowMs)`; keys are namespaced
-  (`email:start:ip:…`, `email:verify:user:…`).
+  (`telegram:mini:ip:…`, `applications:admin:…`).
 - Error messages are written for humans, never leak provider detail.
 - Log server-side with a `[auth]` prefix; never log secrets or codes.
 

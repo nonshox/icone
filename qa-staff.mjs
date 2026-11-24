@@ -3,21 +3,10 @@
  *
  *   node qa-staff.mjs
  */
-import fs from "node:fs";
-import { Account, Client, Databases, ID, Users } from "node-appwrite";
+import { Client, Databases, ID, Users } from "node-appwrite";
 
-const env = Object.fromEntries(
-  fs
-    .readFileSync(".env", "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
-    .map((line) => {
-      const index = line.indexOf("=");
-      return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
-    }),
-);
+import { call, env, signIn } from "./qa-telegram.mjs";
 
-const BASE = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const databaseId = env.APPWRITE_DATABASE_ID;
 const admin = new Client()
   .setEndpoint(env.APPWRITE_ENDPOINT)
@@ -32,33 +21,6 @@ function check(name, condition, extra = "") {
   console.log(`${condition ? "PASS" : "FAIL"}  ${name}${extra ? " — " + extra : ""}`);
 }
 
-function cookieValue(cookies, name) {
-  for (const item of cookies ?? []) {
-    const [pair] = item.split(";");
-    const [key, ...rest] = pair.trim().split("=");
-    if (key === name) return rest.join("=");
-  }
-  return "";
-}
-
-async function call(path, { method = "GET", body, secret } = {}) {
-  const response = await fetch(`${BASE}${path}`, {
-    method,
-    redirect: "manual",
-    headers: {
-      ...(secret ? { cookie: `icone_session=${secret}` } : {}),
-      ...(body ? { "content-type": "application/json" } : {}),
-      ...(body ? { origin: BASE } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return {
-    status: response.status,
-    json: await response.json().catch(() => null),
-  };
-}
-
-const email = `icone.qa.staff.${Date.now()}@mailinator.com`;
 let userId = "";
 let secret = "";
 let barberId = "";
@@ -82,29 +44,9 @@ async function cleanup() {
 }
 
 async function main() {
-  const start = await fetch(`${BASE}/api/auth/email/start`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: BASE },
-    body: JSON.stringify({ email }),
-  });
-  const otpCookie = cookieValue(start.headers.getSetCookie(), "icone_otp");
-  if (!otpCookie) throw new Error("email start did not set OTP cookie");
-
-  const token = await new Account(admin).createEmailToken({
-    userId: otpCookie,
-    email,
-  });
-  const verify = await fetch(`${BASE}/api/auth/email/verify`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      origin: BASE,
-      cookie: `icone_otp=${otpCookie}`,
-    },
-    body: JSON.stringify({ code: token.secret }),
-  });
-  userId = otpCookie;
-  secret = cookieValue(verify.headers.getSetCookie(), "icone_session");
+  const member = await signIn("staff");
+  userId = member.id;
+  secret = member.secret;
   check("QA barber signed in", Boolean(secret));
 
   const before = await call("/api/staff/chair", { secret });

@@ -34,6 +34,11 @@
 | `applications` | `user`, `name`, `shop`, `city`, `address`, `phone`, `bio`, `state`, `note` | `queue` (`state`), `mine` (`user`, unique) | Barber applications. `state`: `pending`, `approved`, `rejected`. |
 | `categories` | `name`, `active` | `active` | Platform service categories. |
 
+`ensureBarberChair()` in `lib/domain/data.ts` creates the `barbers` row for a
+staff account on first use. It is idempotent and race-safe, and is used both by
+application approval and by the staff entry points so an interrupted approval
+cannot leave a barber without a chair.
+
 ## Time model
 
 - Dates are plain `YYYY-MM-DD` strings. Times are minutes from midnight

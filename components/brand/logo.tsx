@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -13,17 +14,15 @@ export function Logo({
     <Link
       href={href}
       aria-label="icone — home"
-      className={cn(
-        "group inline-flex items-baseline gap-1.5 text-foreground",
-        className,
-      )}
+      className={cn("inline-flex items-center", className)}
     >
-      <span className="text-[1.32rem] leading-none font-semibold tracking-[-0.055em]">
-        icone
-      </span>
-      <span
-        aria-hidden
-        className="mb-[0.15em] size-1.5 rounded-full bg-brand shadow-[0_0_12px_-2px_var(--brand)] transition-transform duration-300 group-hover:-translate-y-0.5"
+      <Image
+        src="/logotype/android-chrome-192x192.png"
+        alt="icone"
+        width={192}
+        height={192}
+        priority
+        className="size-9 rounded-lg ring-1 ring-border/70 transition-opacity duration-300 hover:opacity-80"
       />
     </Link>
   );

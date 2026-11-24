@@ -165,6 +165,69 @@ export async function barberForUser(userId: string): Promise<Barber | null> {
   return rows.length > 0 ? toBarber(rows[0]) : null;
 }
 
+/** Fields a new chair can inherit from an application or the member profile. */
+export type ChairSeed = {
+  name?: string;
+  bio?: string;
+  phone?: string;
+  shop?: string;
+  address?: string;
+  city?: string;
+};
+
+/**
+ * The staff account's chair, created on first use. Approval is not atomic, so a
+ * promoted barber can be missing the chair. Every staff entry point calls this
+ * to repair the link instead of showing a broken dashboard.
+ */
+export async function ensureBarberChair(
+  userId: string,
+  seed: ChairSeed = {},
+): Promise<Barber> {
+  const existing = await barberForUser(userId);
+  if (existing) return existing;
+
+  const profile = await getProfile(userId);
+  const name = (seed.name || profile?.name || "Barber").trim().slice(0, 64) || "Barber";
+
+  try {
+    const row = await adminDb().createDocument({
+      databaseId: databaseId(),
+      collectionId: TABLES.barbers,
+      documentId: ID.unique(),
+      data: {
+        name,
+        title: "Barber",
+        bio: (seed.bio ?? "").slice(0, 512),
+        photo: "",
+        rating: 0,
+        active: true,
+        user: userId,
+        shop: (seed.shop ?? "").slice(0, 64),
+        address: (seed.address ?? "").slice(0, 128),
+        city: (seed.city || "Tashkent").slice(0, 64),
+        years: 0,
+        skills: "",
+        phone: (seed.phone ?? profile?.phone ?? "").slice(0, 32),
+        social: "",
+        facilities: "",
+        policy: "Arrive 5 minutes early. Cancel at least 2 hours before.",
+        cover: "",
+        confirm: false,
+        featured: false,
+      },
+    });
+    return toBarber(row as Row);
+  } catch (error) {
+    // Two staff requests can race here; the winner's chair is the right one.
+    if (error instanceof AppwriteException && error.code === 409) {
+      const created = await barberForUser(userId);
+      if (created) return created;
+    }
+    throw error;
+  }
+}
+
 export const getService = cache(async (id: string): Promise<Service | null> => {
   const row = await get(TABLES.services, id);
   return row ? toService(row) : null;

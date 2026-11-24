@@ -49,38 +49,42 @@ export function HeaderBreadcrumbs() {
   });
 
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className="mx-auto mt-2 flex max-w-6xl items-center gap-1.5 px-2 text-xs text-muted-foreground sm:px-4"
-    >
-      <button
-        type="button"
-        onClick={() => router.back()}
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
-      >
-        <ChevronLeft className="size-3.5" aria-hidden />
-        {t("nav.back")}
-      </button>
-      <ChevronRight className="size-3 opacity-50" aria-hidden />
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors hover:text-foreground"
-      >
-        <House className="size-3.5" aria-hidden />
-        {t("nav.home")}
-      </Link>
-      {crumbs.map((crumb) => (
-        <span key={crumb.href} className="flex items-center gap-1.5">
-          <ChevronRight className="size-3 opacity-50" aria-hidden />
-          {crumb.last ? (
-            <span className="truncate font-medium text-foreground">{crumb.label}</span>
-          ) : (
-            <Link href={crumb.href} className="truncate hover:text-foreground">
-              {crumb.label}
-            </Link>
-          )}
-        </span>
-      ))}
+    <nav aria-label="Breadcrumb">
+      <div className="glass mx-auto mt-2 flex h-12 max-w-6xl items-center gap-1 rounded-2xl px-1.5 text-xs text-muted-foreground sm:px-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label={t("nav.back")}
+          className="inline-grid size-9 shrink-0 place-items-center rounded-xl transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" aria-hidden />
+        </button>
+        <Link
+          href="/"
+          aria-label={t("nav.home")}
+          className="inline-grid size-9 shrink-0 place-items-center rounded-xl transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+        >
+          <House className="size-4" aria-hidden />
+        </Link>
+        {crumbs.length > 0 ? (
+          <div className="ml-1 hidden min-w-0 items-center gap-1.5 sm:flex">
+            {crumbs.map((crumb) => (
+              <span key={crumb.href} className="flex min-w-0 items-center gap-1.5">
+                <ChevronRight className="size-3 shrink-0 opacity-50" aria-hidden />
+                {crumb.last ? (
+                  <span className="truncate font-medium text-foreground">
+                    {crumb.label}
+                  </span>
+                ) : (
+                  <Link href={crumb.href} className="truncate hover:text-foreground">
+                    {crumb.label}
+                  </Link>
+                )}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </nav>
   );
 }

@@ -66,7 +66,15 @@ removed in the performance pass.
 - Vertical rhythm: section padding `pt-20 sm:pt-28`; inner card padding
   `p-6 sm:p-8`.
 - Header is a floating glass bar: `sticky top-0`, inset `px-3 pt-3`, inner
-  `h-14 rounded-2xl`.
+  `h-14 rounded-2xl`. The breadcrumb beneath it uses the same `.glass` surface
+  and `rounded-2xl` at `h-12`, aligned to the same `max-w-6xl` edges. Back and
+  home are icon-only buttons on every viewport; path labels appear from `sm` up.
+- One brand mark is used everywhere: the sparkle app icon in
+  `public/logotype/`. Render it in the UI with `next/image` and explicit width
+  and height (use `android-chrome-192x192.png`); use the size-specific PNGs for
+  favicon (`favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png`) and
+  PWA manifest (`android-chrome-192x192.png`, `android-chrome-512x512.png`).
+  Do not redraw the mark with text, a dot, or a separate SVG icon route.
 - Mobile first. Anything two-column collapses to one below `lg`. Tap targets
   are at least 36px; primary buttons are `h-11`/`h-12`.
 

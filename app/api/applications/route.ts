@@ -31,8 +31,12 @@ export async function GET() {
       application: await getMyApplication(member.user.id),
     });
   } catch (error) {
-    console.error("[applications] read failed", error);
-    return apiError("Could not load your application.", 502, "applications_failed");
+    console.error("[applications] read failed — check the applications collection in db:setup", error);
+    return apiError(
+      "Applications are unavailable right now. Please try again shortly.",
+      502,
+      "applications_failed",
+    );
   }
 }
 
@@ -71,7 +75,11 @@ export async function POST(request: NextRequest) {
     const application = await submitApplication(member.user.id, parsed.data);
     return NextResponse.json({ ok: true as const, application }, { status: 201 });
   } catch (error) {
-    console.error("[applications] submit failed", error);
-    return apiError("Could not send your application.", 502, "applications_failed");
+    console.error("[applications] submit failed — check the applications collection in db:setup", error);
+    return apiError(
+      "Could not send your application. Please try again shortly.",
+      502,
+      "applications_failed",
+    );
   }
 }

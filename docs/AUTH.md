@@ -1,18 +1,21 @@
 # icone — authentication
 
-Passwordless only. Two providers, one session model.
+Telegram only. One identity model, one session.
 
 | Provider | Flow | Appwrite user id |
 | --- | --- | --- |
-| Email | 6-digit one-time code | Appwrite-generated |
 | Telegram | Mini App (`WebApp.initData`) → server verify | `tg_<telegram_id>` |
+| Telegram | Widget callback → server verify | `tg_<telegram_id>` |
+| Telegram | Bot `/start` → one-time website ticket | `tg_<telegram_id>` |
+
+All three create the same HttpOnly web session. Email auth has been removed.
 
 ## Sign-in UX
 
-`/sign-in` puts Telegram first: one click opens the bot, the Mini App verifies
-signed `initData`, and the user lands on `/start`. If the page is already open
-inside Telegram, sign-in is automatic. Email OTP is a secondary expandable
-option for people without Telegram. No passwords, no phone prompt.
+`/sign-in` has one button: **Continue in Telegram**. It opens the bot; the
+first `/start` sends a one-time website sign-in link, and the Mini App signs in
+automatically. The bot never sends repeated buttons. No passwords, no phone
+prompt, no email delivery dependency.
 
 ## Session model
 
@@ -51,27 +54,6 @@ redirect — the panel simply never renders.
 Roles live in `users.role` (`client`, `barber`, `admin`). Set them with
 `npm run db:staff`; see [`DATA.md`](./DATA.md#staff). Details in
 [`API.md`](./API.md#staff).
-
-## Email one-time code
-
-1. `POST /api/auth/email/start { email }`
-   - rate limit: 8 / 10 min per IP, 5 / 10 min per address
-   - `account.createEmailToken({ userId: ID.unique(), email })`
-   - Appwrite creates the account when the address is new; when it exists the
-     supplied `userId` is ignored and `token.userId` is the real user
-   - the returned `userId` is stored in the `icone_otp` cookie (HttpOnly,
-     10 min) — the code itself is never stored
-   - response is always `{ ok: true }`, so account existence is not leaked
-2. `POST /api/auth/email/verify { code }`
-   - rate limit: 20 / 10 min per IP, 10 / 10 min per user
-   - `account.createSession({ userId, secret: code })`
-   - the fresh session is validated with `account.get()` before the cookie is
-     set
-   - `icone_otp` is cleared, `icone_session` is set
-   - invalid/expired code → `400 invalid_code`; Appwrite 429 → `429`
-
-Codes are 6 characters, valid 15 minutes at Appwrite; the UI says 10 minutes
-because the OTP cookie (the user id) expires first.
 
 ## Telegram sign-in
 
@@ -123,7 +105,7 @@ Bot Settings → Menu Button with `https://icone-uz.vercel.app/mini`.
 constant time and acknowledges every update with `200`. The first `/start`
 sends a **one-time website sign-in link** (5-minute signed ticket) instead of a
 Mini App button; repeated starts get a short hint, so the chat does not fill up
-with buttons. The link creates the same HttpOnly web session as email sign-in,
+with buttons. The link creates the same HttpOnly web session as the Mini App,
 so the user is logged into the website and installed PWA — not only Telegram.
 The Mini App also offers the same link explicitly.
 
@@ -168,8 +150,7 @@ error listing missing keys. Public values live in `lib/public-config.ts`.
 | --- | --- |
 | Session theft via JS | HttpOnly cookie, no session in `localStorage` |
 | CSRF | `SameSite=Lax` + `isSameOrigin()` on every mutation |
-| Account enumeration | identical response for new and existing emails |
-| OTP brute force | per-user and per-IP windows + Appwrite's own limits |
+| Replay of a signed widget callback | `auth_date` freshness window + `timingSafeEqual` |
 | Forged Telegram payload | HMAC with `WebAppData`, timing-safe compare, 24h freshness |
 | Replay of a Telegram update | `auth_date` freshness window |
 | Replay of a website login link | single-use nonce hash in user prefs, 5 min TTL |
@@ -183,8 +164,9 @@ error listing missing keys. Public values live in `lib/public-config.ts`.
   (Appwrite collection or Redis) or rely on platform WAF limits.
 - **No session refresh.** Appwrite sessions last a year; when one is revoked,
   the user is silently signed out on the next request.
-- **Email deliverability** depends on Appwrite's SMTP configuration. Verify a
-  sender domain in the Appwrite console before launch.
+- **Chair self-heal** writes a minimal `barbers` row on the first staff request
+  after an interrupted approval. The member completes the profile in
+  `/agenda/me`; public chair data is minimal until then.
 - **Telegram avatar URLs** are stored as-is; they can expire. Fetch and store
   the image in the Appwrite bucket if the UI starts relying on it.
 
@@ -193,10 +175,11 @@ error listing missing keys. Public values live in `lib/public-config.ts`.
 ```powershell
 cmd /c "npm run build"
 cmd /c "npm run dev"
-node qa-auth.mjs     # auth probe: OTP, Telegram callback, logout, guards
-node qa-booking.mjs  # booking probe (needs DB scopes)
+node qa-auth.mjs          # Telegram Mini App, callback, logout, guards
+node qa-applications.mjs  # apply → approve → role + chair + repair
+node qa-booking.mjs       # booking probe (needs DB scopes)
 ```
 
-`qa-auth.mjs` signs in through both providers with throwaway accounts, checks
-the redirect guards, and deletes the users it created. It needs the real
+`qa-auth.mjs` signs in with throwaway Telegram identities, checks the redirect
+guards, and deletes the users it created. It needs the real
 `.env`; never commit its output.

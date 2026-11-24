@@ -63,9 +63,9 @@ Before the final response, run one reporting pass. If candidates remain, from th
    390px-wide viewport.
 8. **Docs stay true:** if you change a route, token, env var or convention,
    update the matching file in `docs/` in the same change.
-9. **Auth:** email OTP is the primary web sign-in. Telegram is secondary and
-   must never create repeated bot buttons — `/start` gives one one-time web
-   login link, and the Mini App offers the same link for the browser/PWA.
+9. **Auth:** Telegram only. No email OTP, no phone prompt, no repeated bot
+   buttons. `/start` gives one one-time web login link; Mini App signs in
+   automatically and offers the same link for browser/PWA.
 10. **Client state:** TanStack Query owns server data (`lib/api/queries.ts`);
     Zustand holds only ephemeral UI state. Never seed client state from the
     clock during render — use `lib/client/date.ts`.

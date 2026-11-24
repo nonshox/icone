@@ -4,21 +4,10 @@
  *
  *   node qa-marketplace.mjs
  */
-import fs from "node:fs";
-import { Account, Client, Databases, ID, Query, Users } from "node-appwrite";
+import { Client, Databases, ID, Query, Users } from "node-appwrite";
 
-const env = Object.fromEntries(
-  fs
-    .readFileSync(".env", "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
-    .map((line) => {
-      const i = line.indexOf("=");
-      return [line.slice(0, i).trim(), line.slice(i + 1).trim()];
-    }),
-);
+import { call, env, signIn } from "./qa-telegram.mjs";
 
-const BASE = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const databaseId = env.APPWRITE_DATABASE_ID;
 const admin = new Client()
   .setEndpoint(env.APPWRITE_ENDPOINT)
@@ -26,62 +15,11 @@ const admin = new Client()
   .setKey(env.APPWRITE_API_KEY);
 const users = new Users(admin);
 const db = new Databases(admin);
-const account = new Account(admin);
 
 const results = [];
 function check(name, condition, extra = "") {
   results.push({ name, ok: Boolean(condition) });
   console.log(`${condition ? "PASS" : "FAIL"}  ${name}${extra ? " — " + extra : ""}`);
-}
-
-function cookieValue(cookies, name) {
-  for (const item of cookies ?? []) {
-    const [pair] = item.split(";");
-    const [key, ...rest] = pair.trim().split("=");
-    if (key === name) return rest.join("=");
-  }
-  return "";
-}
-
-async function call(path, { method = "GET", body, secret } = {}) {
-  const response = await fetch(`${BASE}${path}`, {
-    method,
-    redirect: "manual",
-    headers: {
-      ...(secret ? { cookie: `icone_session=${secret}` } : {}),
-      ...(body ? { "content-type": "application/json", origin: BASE } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return {
-    status: response.status,
-    json: await response.json().catch(() => null),
-  };
-}
-
-async function signIn(label) {
-  const email = `icone.qa.${label}.${Date.now()}@mailinator.com`;
-  const start = await fetch(`${BASE}/api/auth/email/start`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: BASE },
-    body: JSON.stringify({ email }),
-  });
-  const otp = cookieValue(start.headers.getSetCookie(), "icone_otp");
-  const token = await account.createEmailToken({ userId: otp, email });
-  const verify = await fetch(`${BASE}/api/auth/email/verify`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      origin: BASE,
-      cookie: `icone_otp=${otp}`,
-    },
-    body: JSON.stringify({ code: token.secret }),
-  });
-  return {
-    id: otp,
-    email,
-    secret: cookieValue(verify.headers.getSetCookie(), "icone_session"),
-  };
 }
 
 const ids = {

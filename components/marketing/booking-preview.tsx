@@ -1,4 +1,5 @@
 import { ArrowRight, Check, Clock3, Scissors, Star } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { T } from "@/components/i18n/t";
@@ -34,8 +35,14 @@ export function BookingPreview({
             </span>
             <T k="landing.liveCatalog" />
           </div>
-          <span className="rounded-full border border-border/80 px-2.5 py-1 text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
-            icone
+          <span className="inline-flex items-center rounded-full border border-border/80 px-2 py-1">
+            <Image
+              src="/logotype/android-chrome-192x192.png"
+              alt="icone"
+              width={192}
+              height={192}
+              className="size-4 rounded-[4px]"
+            />
           </span>
         </div>
 

@@ -4,6 +4,7 @@ import { AppwriteException, ID, Query, type Models } from "node-appwrite";
 
 import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
 import { createNotification } from "@/lib/domain/customer";
+import { ensureBarberChair } from "./data";
 
 const APPLICATIONS = "applications";
 
@@ -130,7 +131,7 @@ export async function listApplications(): Promise<Application[]> {
   return rows.map(toApplication);
 }
 
-/** Approve: create/link the chair and promote the member. Reject: close it. */
+/** Approve: promote the member, link a chair, then close the application. */
 export async function decideApplication(
   id: string,
   decision: "approved" | "rejected",
@@ -139,55 +140,39 @@ export async function decideApplication(
   const current = await list([Query.equal("$id", id), Query.limit(1)]);
   if (current.length === 0) throw new Error("Application not found.");
   const application = toApplication(current[0]);
+  let decisionNote = note;
 
   if (decision === "approved") {
-    const existingChair = await listDocs(TABLES.barbers, [
-      Query.equal("user", application.user),
-      Query.limit(1),
-    ]);
-
-    if (existingChair.length === 0) {
-      await adminDb().createDocument({
-        databaseId: databaseId(),
-        collectionId: TABLES.barbers,
-        documentId: ID.unique(),
-        data: {
-          name: application.name,
-          title: "Barber",
-          bio: application.bio,
-          photo: "",
-          rating: 0,
-          active: true,
-          user: application.user,
-          shop: application.shop,
-          address: application.address,
-          city: application.city,
-          years: 0,
-          skills: "",
-          phone: application.phone,
-          social: "",
-          facilities: "",
-          policy: "Arrive 5 minutes early. Cancel at least 2 hours before.",
-          cover: "",
-          confirm: false,
-          featured: false,
-        },
-      });
-    }
-
+    // The role is the switch itself. It must not be blocked by chair setup:
+    // an interrupted chair write is repaired on the member's first request.
     await adminDb().updateDocument({
       databaseId: databaseId(),
       collectionId: TABLES.users,
       documentId: application.user,
       data: { role: "barber" },
     });
+
+    try {
+      await ensureBarberChair(application.user, {
+        name: application.name,
+        bio: application.bio,
+        phone: application.phone,
+        shop: application.shop,
+        address: application.address,
+        city: application.city,
+      });
+    } catch (error) {
+      console.error(`[applications] chair setup failed for ${application.user}`, error);
+      const hint = "Chair setup will finish when you open the dashboard.";
+      decisionNote = decisionNote ? `${decisionNote} ${hint}` : hint;
+    }
   }
 
   const row = (await adminDb().updateDocument({
     databaseId: databaseId(),
     collectionId: APPLICATIONS,
     documentId: id,
-    data: { state: decision, note },
+    data: { state: decision, note: decisionNote },
   })) as Row;
 
   await createNotification({

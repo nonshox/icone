@@ -42,9 +42,7 @@ Every `POST`/`PATCH` checks `isSameOrigin(request)`. Requests without an
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| POST | `/api/auth/email/start` | `{ email }` | `{ ok: true }` + OTP cookie |
-| POST | `/api/auth/email/verify` | `{ code }` | `{ user }` + `icone_session` cookie |
-| GET | `/api/auth/telegram/callback` | Telegram widget query | `303 /account` + cookie |
+| GET | `/api/auth/telegram/callback` | Telegram widget query | `303 /start` + cookie |
 | POST | `/api/auth/telegram/mini` | `{ initData }` | `{ ok: true, user, webLoginUrl }` + cookie; `401 bad_signature` |
 | GET | `/api/auth/ticket` | `ticket` | one-time login → `303 /account` + cookie |
 | POST | `/api/auth/logout` | — | `{ ok: true }`, clears cookie |
@@ -111,8 +109,16 @@ booking is confirmed. Only `status: "paid"` is ever shown as collected.
 | GET/POST | `/api/applications` | application fields | own application / `201` |
 | GET/PATCH | `/api/admin/applications` | `{ id, decision, note? }` | review queue / approve or reject |
 
-Approving creates the linked `barbers` chair, sets `users.role = "barber"` and
-notifies the applicant. Rejecting only records the decision and note.
+`POST /api/applications` returns `403 forbidden` for anyone whose role is not
+`client`.
+
+Approving sets `users.role = "barber"` **first**, then creates the linked
+`barbers` chair and closes the application. Chair creation is not allowed to
+block the role switch: if it fails, the note records the problem and the chair
+is repaired on the member's first staff request (`barberAuth` or
+`GET /api/staff/chair`). The applicant's status query polls every 15 seconds
+while pending, since approval happens in the admin's browser. Rejecting only
+records the decision and note.
 
 ## Barber self-service
 
@@ -150,6 +156,7 @@ without a linked chair gets `403 no_chair`.
 ```
 ["barbers"]  ["services"]  ["availability", barber, date, service]
 ["bookings"] ["agenda", date, barber]  ["reviews", barber]  ["me"]
+["applications", "mine"]  ["applications", "queue"]
 ```
 
 Mutations invalidate the affected keys. `lib/store/booking.ts` holds only the

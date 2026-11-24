@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { SESSION_COOKIE } from "@/lib/auth/cookies";
 import { BarberBusinessError } from "@/lib/domain/barber-business";
+import { ensureBarberChair } from "@/lib/domain/data";
 import { currentMember } from "@/lib/domain/member";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -42,6 +43,10 @@ export async function barberAuth(
       response: apiError("Barber access only.", 403, "forbidden"),
     };
   }
+
+  // Approval is not atomic. Promote first, repair the chair here if the
+  // approval was interrupted between the role write and the chair write.
+  await ensureBarberChair(member.user.id);
 
   if (write) {
     const limit = rateLimit(`barber:${member.user.id}`, 90, 10 * 60_000);

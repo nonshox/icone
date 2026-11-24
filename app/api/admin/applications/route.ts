@@ -34,8 +34,12 @@ export async function GET() {
       applications: await listApplications(),
     });
   } catch (error) {
-    console.error("[applications] admin list failed", error);
-    return apiError("Could not load applications.", 502, "applications_failed");
+    console.error("[applications] admin list failed — check the applications collection in db:setup", error);
+    return apiError(
+      "Could not load applications. Please try again shortly.",
+      502,
+      "applications_failed",
+    );
   }
 }
 
@@ -72,7 +76,11 @@ export async function PATCH(request: NextRequest) {
     );
     return NextResponse.json({ ok: true as const, application });
   } catch (error) {
-    console.error("[applications] decision failed", error);
-    return apiError("Could not update the application.", 502, "decision_failed");
+    console.error("[applications] decision failed — check the barbers and users collections in db:setup", error);
+    return apiError(
+      "Could not review the application. Please try again shortly.",
+      502,
+      "decision_failed",
+    );
   }
 }

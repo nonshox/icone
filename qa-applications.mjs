@@ -1,22 +1,12 @@
 /**
- * Barber application probe: apply → approve → chair + role created.
+ * Barber application probe: apply → approve → role + chair + dashboard.
+ * It also deletes the chair to prove the staff entry point repairs the link.
  *   node qa-applications.mjs
  */
-import fs from "node:fs";
-import { Account, Client, Databases, Query, Users } from "node-appwrite";
+import { Client, Databases, Query, Users } from "node-appwrite";
 
-const env = Object.fromEntries(
-  fs
-    .readFileSync(".env", "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
-    .map((line) => {
-      const i = line.indexOf("=");
-      return [line.slice(0, i).trim(), line.slice(i + 1).trim()];
-    }),
-);
+import { call, env, signIn } from "./qa-telegram.mjs";
 
-const BASE = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const databaseId = env.APPWRITE_DATABASE_ID;
 const admin = new Client()
   .setEndpoint(env.APPWRITE_ENDPOINT)
@@ -24,7 +14,6 @@ const admin = new Client()
   .setKey(env.APPWRITE_API_KEY);
 const users = new Users(admin);
 const db = new Databases(admin);
-const account = new Account(admin);
 
 const results = [];
 function check(name, condition, extra = "") {
@@ -32,70 +21,43 @@ function check(name, condition, extra = "") {
   console.log(`${condition ? "PASS" : "FAIL"}  ${name}${extra ? " — " + extra : ""}`);
 }
 
-function cookieValue(cookies, name) {
-  for (const item of cookies ?? []) {
-    const [pair] = item.split(";");
-    const [key, ...rest] = pair.trim().split("=");
-    if (key === name) return rest.join("=");
-  }
-  return "";
-}
-
-async function call(path, { method = "GET", body, secret } = {}) {
-  const response = await fetch(`${BASE}${path}`, {
-    method,
-    redirect: "manual",
-    headers: {
-      ...(secret ? { cookie: `icone_session=${secret}` } : {}),
-      ...(body ? { "content-type": "application/json", origin: BASE } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
+async function chairFor(userId) {
+  const chairs = await db.listDocuments({
+    databaseId,
+    collectionId: "barbers",
+    queries: [Query.equal("user", userId), Query.limit(1)],
   });
-  return { status: response.status, json: await response.json().catch(() => null) };
-}
-
-async function signIn(label) {
-  const email = `icone.qa.apply.${label}.${Date.now()}@mailinator.com`;
-  const start = await fetch(`${BASE}/api/auth/email/start`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: BASE },
-    body: JSON.stringify({ email }),
-  });
-  const otp = cookieValue(start.headers.getSetCookie(), "icone_otp");
-  const token = await account.createEmailToken({ userId: otp, email });
-  const verify = await fetch(`${BASE}/api/auth/email/verify`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      origin: BASE,
-      cookie: `icone_otp=${otp}`,
-    },
-    body: JSON.stringify({ code: token.secret }),
-  });
-  return { id: otp, secret: cookieValue(verify.headers.getSetCookie(), "icone_session") };
+  return chairs.documents[0] ?? null;
 }
 
 let applicant = null;
 let adminUser = null;
 let applicationId = "";
-let chairId = "";
 
 async function cleanup() {
-  if (chairId) {
-    await db.deleteDocument({ databaseId, collectionId: "barbers", documentId: chairId }).catch(() => {});
+  if (applicant) {
+    for (const chair of [await chairFor(applicant.id).catch(() => null)].filter(Boolean)) {
+      await db
+        .deleteDocument({ databaseId, collectionId: "barbers", documentId: chair.$id })
+        .catch(() => {});
+    }
   }
   if (applicationId) {
-    await db.deleteDocument({ databaseId, collectionId: "applications", documentId: applicationId }).catch(() => {});
+    await db
+      .deleteDocument({ databaseId, collectionId: "applications", documentId: applicationId })
+      .catch(() => {});
   }
   for (const user of [applicant, adminUser]) {
     if (!user) continue;
-    await db.deleteDocument({ databaseId, collectionId: "users", documentId: user.id }).catch(() => {});
+    await db
+      .deleteDocument({ databaseId, collectionId: "users", documentId: user.id })
+      .catch(() => {});
     await users.delete({ userId: user.id }).catch(() => {});
   }
 }
 
 try {
-  applicant = await signIn("user");
+  applicant = await signIn("applicant");
   adminUser = await signIn("admin");
   await db.updateDocument({
     databaseId,
@@ -141,16 +103,22 @@ try {
   const profile = await db.getDocument({ databaseId, collectionId: "users", documentId: applicant.id });
   check("applicant role is barber", profile.role === "barber", `role ${profile.role}`);
 
-  const chairs = await db.listDocuments({
-    databaseId,
-    collectionId: "barbers",
-    queries: [Query.equal("user", applicant.id), Query.limit(1)],
-  });
-  chairId = chairs.documents[0]?.$id ?? "";
-  check("chair was created and linked", Boolean(chairId) && chairs.documents[0]?.shop === "QA Chair");
+  const chair = await chairFor(applicant.id);
+  check("chair was created and linked", Boolean(chair) && chair.shop === "QA Chair");
 
   const dashboard = await call("/api/barber/dashboard", { secret: applicant.secret });
   check("new barber can open business dashboard", dashboard.status === 200, `status ${dashboard.status}`);
+
+  if (chair) {
+    await db.deleteDocument({ databaseId, collectionId: "barbers", documentId: chair.$id });
+  }
+  const repaired = await call("/api/barber/dashboard", { secret: applicant.secret });
+  const newChair = await chairFor(applicant.id);
+  check(
+    "missing chair is repaired on first staff request",
+    repaired.status === 200 && Boolean(newChair),
+    `status ${repaired.status}`,
+  );
 } finally {
   await cleanup();
 }

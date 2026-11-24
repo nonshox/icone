@@ -21,8 +21,8 @@ agenda.
 
 ## Milestones
 
-1. **Auth (done)** — email OTP is the primary web sign-in; Telegram Mini App is
-   a secondary one-time web login. Role-based `/start`, HttpOnly sessions.
+1. **Auth (done)** — Telegram only: Mini App, bot `/start` ticket and widget
+   callback all create one HttpOnly web session. Role-based `/start`.
 2. **Booking (done)** — barbers, services, weekly hours and date overrides,
    live availability, conflict-safe booking, visits, reviews, staff agenda.
 3. **Reminders (done)** — Telegram reminder for tomorrow's booking, protected
@@ -55,7 +55,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/` | partial | Landing page with live catalogue data |
 | `/barbers` · `/barbers/:id` | partial | Public chair list (search + speciality filter) and barber profile |
 | `/services` | partial | Public service catalogue |
-| `/sign-in` | partial | Email OTP + Telegram sign-in |
+| `/sign-in` | partial | Telegram sign-in |
 | `/start` | partial | Role-based post-login entry point |
 | `/customer` | partial | Customer dashboard |
 | `/become-barber` | partial | Apply to run a chair |
@@ -74,8 +74,6 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/admin/applications` | partial | Barber application review |
 | `/robots.txt` | static | Crawler rules |
 | `/sitemap.xml` | static | Public URLs |
-| `POST /api/auth/email/start` | dynamic | Send the 6-digit code |
-| `POST /api/auth/email/verify` | dynamic | Code → session cookie |
 | `GET /api/auth/telegram/callback` | dynamic | Telegram widget redirect target |
 | `POST /api/auth/telegram/mini` | dynamic | Mini App data → session cookie + website link |
 | `GET /api/auth/ticket` | dynamic | One-time link → session cookie on the website |
@@ -146,7 +144,7 @@ components/
 lib/
   api/                  fetch wrapper + TanStack Query hooks
   appwrite/             admin/session clients + table ids
-  auth/                 cookies, session, email, telegram, user mapper, types
+  auth/                 cookies, session, telegram, web login, user mapper, types
   client/date.ts        hydration-safe shop date hook
   domain/               types, data, availability, booking, views, time, member,
                         admin, staff, barber-business, customer, messages,
@@ -163,7 +161,8 @@ qa-booking.mjs          end-to-end booking probe (dev only)
 qa-admin.mjs            admin / role probe (dev only)
 qa-cron.mjs             reminder cron probe (dev only)
 qa-marketplace.mjs      favorites, inbox, messaging, payments, barber API probe
-qa-applications.mjs     barber apply → approve flow
+qa-applications.mjs     barber apply → approve → role + chair + repair probe
+qa-telegram.mjs         shared Telegram sign-in helpers for the probes
 qa-staff.mjs            barber self-service probe (dev only)
 scripts/telegram-webhook.mjs  inspect / register / delete the bot webhook
 scripts/telegram-miniapp.mjs  set the bot menu button to the Mini App

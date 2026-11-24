@@ -8,26 +8,15 @@
  * catalogue route, then deletes the barber, service, hours, day override and
  * user again.
  */
-import fs from "node:fs";
-import { Account, Client, Databases, Query, Users } from "node-appwrite";
+import { Client, Databases, Query, Users } from "node-appwrite";
 
-const env = Object.fromEntries(
-  fs
-    .readFileSync(".env", "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
-    .map((line) => {
-      const index = line.indexOf("=");
-      return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
-    }),
-);
+import { BASE, call, env, signIn } from "./qa-telegram.mjs";
 
-const BASE = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-const endpoint = env.APPWRITE_ENDPOINT;
-const project = env.APPWRITE_PROJECT_ID;
 const databaseId = env.APPWRITE_DATABASE_ID;
-
-const admin = new Client().setEndpoint(endpoint).setProject(project).setKey(env.APPWRITE_API_KEY);
+const admin = new Client()
+  .setEndpoint(env.APPWRITE_ENDPOINT)
+  .setProject(env.APPWRITE_PROJECT_ID)
+  .setKey(env.APPWRITE_API_KEY);
 const users = new Users(admin);
 const db = new Databases(admin);
 
@@ -43,32 +32,6 @@ function addDays(date, days) {
     .slice(0, 10);
 }
 
-function cookieValue(cookies, name) {
-  for (const item of cookies ?? []) {
-    const [pair] = item.split(";");
-    const [key, ...rest] = pair.trim().split("=");
-    if (key === name) return rest.join("=");
-  }
-  return "";
-}
-
-async function call(path, { method = "GET", body, secret } = {}) {
-  const response = await fetch(`${BASE}${path}`, {
-    method,
-    redirect: "manual",
-    headers: {
-      origin: BASE,
-      ...(secret ? { cookie: `icone_session=${secret}` } : {}),
-      ...(body ? { "content-type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const json = await response.json().catch(() => null);
-  return { status: response.status, json };
-}
-
-const email = `icone.qa.admin.${Date.now()}@mailinator.com`;
 let userId = "";
 let secret = "";
 let barberId = "";
@@ -108,30 +71,11 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  // Sign in through the real OTP endpoint so the users profile row exists.
-  const start = await fetch(`${BASE}/api/auth/email/start`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: BASE },
-    body: JSON.stringify({ email }),
-  });
-  const otpCookie = cookieValue(start.headers.getSetCookie(), "icone_otp");
-  check("POST /api/auth/email/start", Boolean(otpCookie));
-  if (!otpCookie) throw new Error("QA email start did not set the OTP cookie");
-
-  const token = await new Account(admin).createEmailToken({ userId: otpCookie, email });
-  const verify = await fetch(`${BASE}/api/auth/email/verify`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      origin: BASE,
-      cookie: `icone_otp=${otpCookie}`,
-    },
-    body: JSON.stringify({ code: token.secret }),
-  });
-  userId = otpCookie;
-  secret = cookieValue(verify.headers.getSetCookie(), "icone_session");
-  check("email verify sets the session cookie", Boolean(secret));
-  if (!secret) throw new Error("QA email verify did not set the session cookie");
+  const member = await signIn("admin");
+  userId = member.id;
+  secret = member.secret;
+  check("QA admin signed in with Telegram", Boolean(secret));
+  if (!secret) throw new Error("QA Telegram sign-in failed");
 
   // --- guards before promotion -------------------------------------------
   const anonGet = await call("/api/admin/barbers");
