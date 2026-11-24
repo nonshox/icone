@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CalendarDays, Check, Scissors } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, ExternalLink, Scissors } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -21,6 +21,7 @@ export function MiniAppView() {
   const [status, setStatus] = useState<Status>("loading");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [webLoginUrl, setWebLoginUrl] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +48,7 @@ export function MiniAppView() {
         const data = (await response.json().catch(() => null)) as {
           ok?: boolean;
           user?: { name?: string };
+          webLoginUrl?: string | null;
           error?: { message?: string };
         } | null;
 
@@ -63,6 +65,7 @@ export function MiniAppView() {
             webapp.initDataUnsafe.user?.first_name ??
             "there",
         );
+        setWebLoginUrl(data.webLoginUrl ?? "");
         setStatus("ready");
       } catch (error) {
         if (cancelled) return;
@@ -143,7 +146,8 @@ export function MiniAppView() {
           Signed in as {name}
         </CardTitle>
         <CardDescription>
-          Your account carries over from Telegram. No password needed.
+          Your account carries over from Telegram. No password needed. Use the
+          one-time link below to stay signed in on the website too.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -164,6 +168,24 @@ export function MiniAppView() {
           <CalendarDays className="size-3.5" aria-hidden />
           My visits
         </Link>
+        {webLoginUrl ? (
+          <Button
+            type="button"
+            size="sm"
+            className="w-full rounded-lg"
+            onClick={() => {
+              const webapp = window.Telegram?.WebApp;
+              if (webapp?.openLink) {
+                webapp.openLink(webLoginUrl);
+              } else {
+                window.open(webLoginUrl, "_blank", "noopener");
+              }
+            }}
+          >
+            <ExternalLink className="size-3.5" aria-hidden />
+            Open in website
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"

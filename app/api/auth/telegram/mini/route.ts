@@ -12,6 +12,7 @@ import {
   verifyWebAppInitData,
 } from "@/lib/auth/telegram";
 import { toSessionUser } from "@/lib/auth/user";
+import { createWebLoginTicket } from "@/lib/auth/web-login";
 import { safeEnsureProfile } from "@/lib/domain/member";
 import { serverEnv } from "@/lib/env";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
@@ -68,9 +69,15 @@ export async function POST(request: NextRequest) {
     const { session, user } = await signInWithTelegram(telegramUser);
     await safeEnsureProfile({ $id: user.$id, name: user.name });
 
+    const webLoginUrl = await createWebLoginTicket(user.$id).catch((error) => {
+      console.error("[auth] could not create website login link", error);
+      return null;
+    });
+
     const response = NextResponse.json({
       ok: true as const,
       user: toSessionUser(user),
+      webLoginUrl,
     });
     response.cookies.set(
       SESSION_COOKIE,

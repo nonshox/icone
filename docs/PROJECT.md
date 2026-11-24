@@ -62,7 +62,8 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `POST /api/auth/email/start` | dynamic | Send the 6-digit code |
 | `POST /api/auth/email/verify` | dynamic | Code → session cookie |
 | `GET /api/auth/telegram/callback` | dynamic | Telegram widget redirect target |
-| `POST /api/auth/telegram/mini` | dynamic | Mini App data → session cookie |
+| `POST /api/auth/telegram/mini` | dynamic | Mini App data → session cookie + website link |
+| `GET /api/auth/ticket` | dynamic | One-time link → session cookie on the website |
 | `POST /api/auth/logout` | dynamic | Revoke session, clear cookie |
 | `GET/POST /api/telegram/webhook` | dynamic | Bot webhook health check / updates |
 | `GET /api/barbers` · `GET /api/barbers/:id` | dynamic | Chair list / detail, hours, reviews |

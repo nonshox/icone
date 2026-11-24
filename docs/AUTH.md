@@ -89,10 +89,17 @@ needed a BotFather-registered domain; both caused friction in production.
    - `users.createToken(...)` then `account.createSession(...)`
 4. The `icone_session` cookie is set on the site origin and the Mini App shows
    links to `/book` and `/bookings`.
+5. The response also contains a `webLoginUrl`: a one-time link that logs the
+   same member into a **normal browser**. It carries a signed, 5-minute nonce
+   (`HMAC` with `TELEGRAM_WEBHOOK_SECRET`); its hash is stored in the user's
+   Appwrite preferences. `GET /api/auth/ticket?ticket=…` verifies it, burns it,
+   and redirects to `/account` with a fresh HttpOnly session cookie. The
+   session secret is never in the URL.
 
 This is simple and safe: Telegram signs the payload, the server verifies it,
 and the only credential issued is the HttpOnly session cookie. A bad signature
-returns `401 bad_signature` and no cookie.
+returns `401 bad_signature` and no cookie. An expired or reused website link
+redirects to `/sign-in?error=link`.
 
 The old widget callback (`GET /api/auth/telegram/callback`) still exists for
 backwards compatibility, but no UI links to it.
@@ -149,6 +156,7 @@ error listing missing keys. Public values live in `lib/public-config.ts`.
 | OTP brute force | per-user and per-IP windows + Appwrite's own limits |
 | Forged Telegram payload | HMAC with `WebAppData`, timing-safe compare, 24h freshness |
 | Replay of a Telegram update | `auth_date` freshness window |
+| Replay of a website login link | single-use nonce hash in user prefs, 5 min TTL |
 | API key leakage | server-only module, never `NEXT_PUBLIC_*` |
 | Open redirect via `?next=` | only same-origin paths starting with a single `/` |
 

@@ -35,6 +35,7 @@ const TELEGRAM_ERRORS: Record<string, string> = {
     "Telegram sign-in didn't complete. Try again, or use an email code.",
   telegram_unavailable:
     "Telegram sign-in is temporarily unavailable. Use an email code instead.",
+  link: "That sign-in link expired or was already used. Open the bot again.",
 };
 
 async function postJson(url: string, body: unknown): Promise<ApiResponse> {
