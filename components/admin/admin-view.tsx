@@ -37,12 +37,14 @@ import {
   useAdminBarbers,
   useAdminDays,
   useAdminHours,
+  useAdminReviews,
   useAdminServices,
   useCreateBarber,
   useCreateHour,
   useCreateService,
   useDeleteDay,
   useDeleteHour,
+  useDeleteReview,
   useSaveDay,
   useSetBarberActive,
   useSetServiceActive,
@@ -58,6 +60,7 @@ const TABS = [
   { id: "services", label: "Services" },
   { id: "hours", label: "Hours" },
   { id: "days", label: "Days" },
+  { id: "reviews", label: "Reviews" },
 ] as const;
 
 type Tab = (typeof TABS)[number]["id"];
@@ -124,7 +127,78 @@ export function AdminView() {
       {tab === "services" ? <ServicesSection /> : null}
       {tab === "hours" ? <HoursSection /> : null}
       {tab === "days" ? <DaysSection /> : null}
+      {tab === "reviews" ? <ReviewsSection /> : null}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------- reviews */
+
+function ReviewsSection() {
+  const list = useAdminReviews();
+  const remove = useDeleteReview();
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Reviews</CardTitle>
+        <CardDescription>Remove anything that does not belong.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <FormError text={errorText} />
+        {list.isPending ? (
+          <LoadingRows />
+        ) : list.isError ? (
+          <FormError text="Could not load reviews." />
+        ) : (list.data ?? []).length === 0 ? (
+          <Empty>No reviews yet.</Empty>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Rating</TableHead>
+                <TableHead>Note</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(list.data ?? []).map((review) => (
+                <TableRow key={review.id}>
+                  <TableCell className="font-mono text-xs">
+                    {review.user.slice(0, 12)}
+                  </TableCell>
+                  <TableCell>{review.rate} / 5</TableCell>
+                  <TableCell className="max-w-64 whitespace-normal">
+                    {review.note || "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="destructive"
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        if (!window.confirm("Remove this review?")) return;
+                        remove.mutate(review.id, {
+                          onSuccess: () => setErrorText(null),
+                          onError: (error) =>
+                            setErrorText(message(error, "Could not remove the review.")),
+                        });
+                      }}
+                    >
+                      <Trash2 className="size-3" aria-hidden />
+                      Remove
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

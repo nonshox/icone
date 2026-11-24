@@ -1,8 +1,15 @@
 "use client";
 
-import { CalendarDays, Clock3, Loader2, Scissors } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Loader2,
+  Scissors,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +39,14 @@ import {
   useServices,
 } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
-import { formatDate, formatPrice, label, nextDates } from "@/lib/domain/time";
+import {
+  addDays,
+  formatDate,
+  formatMonth,
+  formatPrice,
+  label,
+  nextDates,
+} from "@/lib/domain/time";
 import { useBookingDraft } from "@/lib/store/booking";
 
 export function BookingForm() {
@@ -49,8 +63,18 @@ export function BookingForm() {
   const setStart = useBookingDraft((state) => state.setStart);
   const setNote = useBookingDraft((state) => state.setNote);
 
+  const [weekOffset, setWeekOffset] = useState(0);
   const shopDate = useShopDate();
-  const days = useMemo(() => (shopDate ? nextDates(14) : []), [shopDate]);
+  const days = useMemo(() => {
+    if (!shopDate) return [];
+    const from = addDays(shopDate, weekOffset * 7);
+    const to = addDays(from, 7);
+    return nextDates(60).filter((day) => day >= from && day < to);
+  }, [shopDate, weekOffset]);
+  const maxDate = useMemo(
+    () => (shopDate ? addDays(shopDate, 60) : ""),
+    [shopDate],
+  );
   const date = storedDate || days[0] || "";
 
   const services = useServices();
@@ -155,7 +179,34 @@ export function BookingForm() {
         </div>
 
         <div className="space-y-2">
-          <Label>Date</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Date</Label>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                aria-label="Previous week"
+                disabled={weekOffset === 0}
+                onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
+              >
+                <ChevronLeft className="size-3.5" aria-hidden />
+              </Button>
+              <span className="min-w-32 text-center text-xs font-medium text-muted-foreground">
+                {days.length > 0 ? formatMonth(days[0]) : "—"}
+              </span>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="outline"
+                aria-label="Next week"
+                disabled={weekOffset >= 8}
+                onClick={() => setWeekOffset((value) => Math.min(8, value + 1))}
+              >
+                <ChevronRight className="size-3.5" aria-hidden />
+              </Button>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2">
             {days.map((day) => (
               <Button
@@ -172,8 +223,14 @@ export function BookingForm() {
           <Input
             type="date"
             value={date}
-            min={days[0] ?? ""}
-            onChange={(event) => setDate(event.target.value)}
+            min={shopDate}
+            max={maxDate}
+            onChange={(event) => {
+              const value = event.target.value;
+              setDate(value);
+              const index = nextDates(60).indexOf(value);
+              if (index >= 0) setWeekOffset(Math.floor(index / 7));
+            }}
             className="h-9 w-44"
             aria-label="Or pick another date"
           />

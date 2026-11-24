@@ -57,6 +57,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/account` | partial | Signed-in profile, stats, shortcuts |
 | `/book` | partial | Booking flow (service → barber → date → time) |
 | `/bookings` | partial | Member visits, cancel, review |
+| `/bookings/:id` | partial | Shareable booking detail, cancel, review |
 | `/mini` | static | Telegram Mini App (WebApp data → session) |
 | `/agenda` | partial | Staff day view (barber / admin only) |
 | `/admin` | partial | Admin catalogue manager (admin only) |
@@ -76,7 +77,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `GET/PATCH /api/bookings/:id` | dynamic | One booking · status changes |
 | `GET/POST /api/reviews` | dynamic | Public reviews · rate a completed visit |
 | `GET/PATCH /api/me` | dynamic | Profile |
-| `GET/POST/PATCH/DELETE /api/admin/*` | dynamic | Staff catalogue management |
+| `GET/POST/PATCH/DELETE /api/admin/*` | dynamic | Staff catalogue management + review moderation |
 | `GET/POST /api/cron/reminders` | dynamic | Telegram reminder runner |
 
 Private pages (`/account`, `/book`, `/bookings`, `/agenda`, `/admin`) are guarded twice:
@@ -96,17 +97,19 @@ app/
   account/page.tsx      profile gate
   book/page.tsx         booking gate
   bookings/page.tsx     visits gate
+  bookings/[id]/page.tsx booking detail gate
   mini/page.tsx         Telegram Mini App
   agenda/page.tsx       staff gate
   admin/page.tsx        admin gate
   api/admin/**          catalogue management handlers
   api/cron/reminders    protected reminder runner
+  loading.tsx error.tsx global-error.tsx not-found.tsx  route UI
+  robots.ts sitemap.ts  crawler files
   api/**                route handlers
   robots.ts sitemap.ts  crawler files
   globals.css           design tokens, glass utilities
 components/
-  account/ booking/ bookings/ agenda/ admin/ telegram/   feature views (client)
-  auth/                 sign-in form, telegram widget, sign-out
+  account/ booking/ bookings/ agenda/ admin/ telegram/   feature views (client)  auth/                 sign-in form, telegram widget, sign-out
   brand/                logo
   layout/               header, footer, theme toggle
   marketing/            booking preview
@@ -128,6 +131,8 @@ scripts/setup-appwrite.mjs   creates tables, indexes and seed data
 scripts/staff.mjs            promote a member / link a chair
 qa-auth.mjs             end-to-end auth probe (dev only)
 qa-booking.mjs          end-to-end booking probe (dev only)
+qa-admin.mjs            admin / role probe (dev only)
+qa-cron.mjs             reminder cron probe (dev only)
 scripts/telegram-webhook.mjs  inspect / register / delete the bot webhook
 scripts/telegram-miniapp.mjs  set the bot menu button to the Mini App
 ```

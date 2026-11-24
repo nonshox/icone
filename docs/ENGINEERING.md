@@ -157,6 +157,8 @@ cmd /c "npm run db:setup"   # create Appwrite tables + seed data
 cmd /c "npm run db:staff"   # promote a member / link a chair
 cmd /c "npm run qa:auth"    # end-to-end auth probe (dev server required)
 cmd /c "npm run qa:booking" # booking probe (needs DB scopes)
+cmd /c "npm run qa:admin"   # admin role + CRUD probe
+cmd /c "npm run qa:cron"    # reminder cron probe
 ```
 
 Production URL: <https://icone-uz.vercel.app>. `.env.production` holds only

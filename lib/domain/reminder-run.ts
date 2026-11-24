@@ -4,12 +4,13 @@ import { Query } from "node-appwrite";
 
 import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
 import { getBooking } from "@/lib/domain/data";
-import { ensureReminder, listDue, markSent } from "@/lib/domain/reminders";
+import { ensureReminder, listDue, markFailed, markSent } from "@/lib/domain/reminders";
 import { addDays, label, shopClock, today } from "@/lib/domain/time";
 import { serverEnv } from "@/lib/env";
 import { sendTelegramMessage } from "@/lib/telegram/notify";
 
 const LEAD_MINUTES = 120;
+const MAX_TRIES = 3;
 
 export type ReminderCounts = {
   created: number;
@@ -91,11 +92,13 @@ export async function runReminders(): Promise<ReminderCounts> {
       await markSent(reminder.id);
       counts.sent += 1;
     } catch (error) {
-      // Leave it pending so the next cron run retries the delivery.
-      counts.failed += 1;
+      const closed = await markFailed(reminder.id, reminder.tries, MAX_TRIES);
+      if (closed) counts.skipped += 1;
+      else counts.failed += 1;
       console.error(
         "[reminders] send failed",
         reminder.id,
+        `try ${reminder.tries + 1}/${MAX_TRIES}`,
         error instanceof Error ? error.message : "unknown",
       );
     }

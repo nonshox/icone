@@ -16,6 +16,7 @@ export type Reminder = {
   date: string;
   at: number;
   state: string;
+  tries: number;
 };
 
 function str(value: unknown, fallback = ""): string {
@@ -34,6 +35,7 @@ function toReminder(row: Row): Reminder {
     date: str(row.date),
     at: num(row.at),
     state: str(row.state, "pending"),
+    tries: num(row.tries),
   };
 }
 
@@ -54,7 +56,7 @@ export async function ensureReminder(data: {
       databaseId: databaseId(),
       collectionId: REMINDERS,
       documentId: ID.unique(),
-      data: { ...data, state: "pending" },
+      data: { ...data, state: "pending", tries: 0 },
     });
     return true;
   } catch (error) {
@@ -92,4 +94,20 @@ export async function markSent(id: string): Promise<void> {
     documentId: id,
     data: { state: "sent" },
   });
+}
+
+/** Count a failed delivery. After the cap the row is closed for good. */
+export async function markFailed(
+  id: string,
+  tries: number,
+  maxTries: number,
+): Promise<boolean> {
+  const next = tries + 1;
+  await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: REMINDERS,
+    documentId: id,
+    data: next >= maxTries ? { tries: next, state: "sent" } : { tries: next },
+  });
+  return next >= maxTries;
 }

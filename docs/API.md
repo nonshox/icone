@@ -83,6 +83,8 @@ return `400 bad_time`; too-soon same-day slots return `409 too_soon`.
 | DELETE | `/api/admin/hours` | `id` query | `{ ok: true }` |
 | GET/POST | `/api/admin/days` | `{ barber, date, open, start, end, note }` | list / upsert |
 | DELETE | `/api/admin/days` | `id` query | `{ ok: true }` |
+| GET | `/api/admin/reviews` | — | `{ reviews }` for moderation |
+| DELETE | `/api/admin/reviews` | `id` query | `{ ok: true }` |
 
 Admin writes require `users.role = "admin"`; reads allow `barber` and `admin`.
 Day overrides upsert per chair/date so availability never has two winners.

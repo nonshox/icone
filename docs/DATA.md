@@ -23,7 +23,7 @@
 | `days` | `barber`, `date`, `open`, `start`, `end`, `note` | `lookup` (`barber`,`date`) | One-off override: closed day or different hours. |
 | `bookings` | `user`, `barber`, `service`, `date`, `start`, `end`, `price`, `status`, `note` | `slot` (`barber`,`date`,`status`), `mine` (`user`,`date`), `agenda` (`date`,`status`) | A reserved interval. `status`: `booked`, `done`, `cancel`, `noshow`. |
 | `reviews` | `user`, `barber`, `booking`, `rate`, `note` | `about` (`barber`), `once` (`booking`, unique) | One review per completed booking. `rate` 1–5. |
-| `reminders` | `user`, `booking`, `date`, `at`, `state` | `due` (`date`,`state`), `once` (`booking`, unique) | One Telegram reminder per booking. `state`: `pending`, `sent`. |
+| `reminders` | `user`, `booking`, `date`, `at`, `state`, `tries` | `due` (`date`,`state`), `once` (`booking`, unique) | One Telegram reminder per booking. `state`: `pending`, `sent`. `tries` caps retries at 3. |
 
 ## Time model
 

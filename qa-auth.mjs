@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { Account, Client, Users } from "node-appwrite";
+import { Account, Client, Databases, Users } from "node-appwrite";
 
 /**
  * End-to-end auth probe. Requires a running dev server and a filled
@@ -26,6 +26,17 @@ const botToken = env.TELEGRAM_BOT_TOKEN;
 
 const admin = new Client().setEndpoint(endpoint).setProject(project).setKey(key);
 const users = new Users(admin);
+const db = new Databases(admin);
+
+async function deleteProfile(userId) {
+  await db
+    .deleteDocument({
+      databaseId: env.APPWRITE_DATABASE_ID,
+      collectionId: "users",
+      documentId: userId,
+    })
+    .catch(() => {});
+}
 
 const results = [];
 function check(name, condition, extra = "") {
@@ -162,6 +173,7 @@ if (otpCookie) {
 // Clean up the email user created by Appwrite.
 if (otpCookie) {
   try {
+    await deleteProfile(otpCookie);
     await users.delete({ userId: otpCookie });
     check("email QA user cleaned up", true);
   } catch (error) {
@@ -235,6 +247,7 @@ check(
 );
 
 try {
+  await deleteProfile(`tg_${tgId}`);
   await users.delete({ userId: `tg_${tgId}` });
   check("telegram QA user cleaned up", true);
 } catch (error) {

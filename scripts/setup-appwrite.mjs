@@ -136,6 +136,7 @@ const schema = {
       { key: "date", type: "string", size: 10, required: true },
       { key: "at", type: "integer", min: 0, max: 1439, required: true },
       { key: "state", type: "string", size: 12, default: "pending" },
+      { key: "tries", type: "integer", min: 0, max: 100, default: 0 },
     ],
     indexes: [
       { key: "due", attributes: ["date", "state"] },

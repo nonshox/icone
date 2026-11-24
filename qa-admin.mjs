@@ -1,0 +1,281 @@
+/**
+ * End-to-end admin catalogue probe. Requires a running dev server and a
+ * filled `.env.local` whose API key has database scopes (see docs/DATA.md).
+ *
+ *   node qa-admin.mjs
+ *
+ * Creates a throwaway email user, promotes it to admin, exercises every admin
+ * catalogue route, then deletes the barber, service, hours, day override and
+ * user again.
+ */
+import fs from "node:fs";
+import { Account, Client, Databases, Query, Users } from "node-appwrite";
+
+const env = Object.fromEntries(
+  fs
+    .readFileSync(".env.local", "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
+    .map((line) => {
+      const index = line.indexOf("=");
+      return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
+    }),
+);
+
+const BASE = env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const endpoint = env.APPWRITE_ENDPOINT;
+const project = env.APPWRITE_PROJECT_ID;
+const databaseId = env.APPWRITE_DATABASE_ID;
+
+const admin = new Client().setEndpoint(endpoint).setProject(project).setKey(env.APPWRITE_API_KEY);
+const users = new Users(admin);
+const db = new Databases(admin);
+
+const results = [];
+function check(name, condition, extra = "") {
+  results.push({ name, ok: Boolean(condition), extra });
+  console.log(`${condition ? "PASS" : "FAIL"}  ${name}${extra ? " — " + extra : ""}`);
+}
+
+function addDays(date, days) {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function cookieValue(cookies, name) {
+  for (const item of cookies ?? []) {
+    const [pair] = item.split(";");
+    const [key, ...rest] = pair.trim().split("=");
+    if (key === name) return rest.join("=");
+  }
+  return "";
+}
+
+async function call(path, { method = "GET", body, secret } = {}) {
+  const response = await fetch(`${BASE}${path}`, {
+    method,
+    redirect: "manual",
+    headers: {
+      origin: BASE,
+      ...(secret ? { cookie: `icone_session=${secret}` } : {}),
+      ...(body ? { "content-type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const json = await response.json().catch(() => null);
+  return { status: response.status, json };
+}
+
+const email = `icone.qa.admin.${Date.now()}@mailinator.com`;
+let userId = "";
+let secret = "";
+let barberId = "";
+let serviceId = "";
+let hourId = "";
+let dayId = "";
+
+async function cleanup() {
+  if (hourId) await db.deleteDocument({ databaseId, collectionId: "hours", documentId: hourId }).catch(() => {});
+  if (dayId) await db.deleteDocument({ databaseId, collectionId: "days", documentId: dayId }).catch(() => {});
+  if (barberId) await db.deleteDocument({ databaseId, collectionId: "barbers", documentId: barberId }).catch(() => {});
+  if (serviceId) await db.deleteDocument({ databaseId, collectionId: "services", documentId: serviceId }).catch(() => {});
+  if (userId) await db.deleteDocument({ databaseId, collectionId: "users", documentId: userId }).catch(() => {});
+  if (userId) await users.delete({ userId }).catch(() => {});
+}
+
+async function main() {
+  // Fail early with the same actionable message as db:setup.
+  try {
+    await db.listCollections({ databaseId, queries: [Query.limit(1)] });
+  } catch (error) {
+    if (error.code === 401) {
+      console.error(
+        "The API key is missing database scopes. Fix it in the Appwrite console, " +
+          "then run `npm run db:setup` and `node qa-admin.mjs` again.",
+      );
+      process.exit(1);
+    }
+    throw error;
+  }
+
+  for (let i = 0; i < 40; i += 1) {
+    try {
+      const res = await fetch(BASE, { redirect: "manual" });
+      if (res.status < 500) break;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  // Sign in through the real OTP endpoint so the users profile row exists.
+  const start = await fetch(`${BASE}/api/auth/email/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: BASE },
+    body: JSON.stringify({ email }),
+  });
+  const otpCookie = cookieValue(start.headers.getSetCookie(), "icone_otp");
+  check("POST /api/auth/email/start", Boolean(otpCookie));
+  if (!otpCookie) throw new Error("QA email start did not set the OTP cookie");
+
+  const token = await new Account(admin).createEmailToken({ userId: otpCookie, email });
+  const verify = await fetch(`${BASE}/api/auth/email/verify`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: BASE,
+      cookie: `icone_otp=${otpCookie}`,
+    },
+    body: JSON.stringify({ code: token.secret }),
+  });
+  userId = otpCookie;
+  secret = cookieValue(verify.headers.getSetCookie(), "icone_session");
+  check("email verify sets the session cookie", Boolean(secret));
+  if (!secret) throw new Error("QA email verify did not set the session cookie");
+
+  // --- guards before promotion -------------------------------------------
+  const anonGet = await call("/api/admin/barbers");
+  check("unauthenticated admin read → 401", anonGet.status === 401, `status ${anonGet.status}`);
+
+  const anonPost = await call("/api/admin/barbers", {
+    method: "POST",
+    body: { name: "QA", title: "QA", bio: "QA" },
+  });
+  check("unauthenticated admin write → 401", anonPost.status === 401, `status ${anonPost.status}`);
+
+  const clientWrite = await call("/api/admin/barbers", {
+    method: "POST",
+    body: { name: "QA", title: "QA", bio: "QA" },
+    secret,
+  });
+  check("client-role admin write → 403", clientWrite.status === 403, `status ${clientWrite.status}`);
+
+  // Promote only after the client-role guard has been checked.
+  await db.updateDocument({
+    databaseId,
+    collectionId: "users",
+    documentId: userId,
+    data: { role: "admin" },
+  });
+  const me = await call("/api/me", { secret });
+  check("promoted profile has admin role", me.json?.profile?.role === "admin", `status ${me.status}`);
+
+  // --- create catalogue rows ---------------------------------------------
+  const newBarber = await call("/api/admin/barbers", {
+    method: "POST",
+    body: { name: "QA Admin Barber", title: "Probe", bio: "Created by qa-admin" },
+    secret,
+  });
+  barberId = newBarber.json?.barber?.id ?? "";
+  check("POST /api/admin/barbers", newBarber.status === 201 && Boolean(barberId), `status ${newBarber.status}`);
+  if (!barberId) return;
+
+  const newService = await call("/api/admin/services", {
+    method: "POST",
+    body: { name: "QA Admin Service", note: "Probe", price: 30_000, time: 30 },
+    secret,
+  });
+  serviceId = newService.json?.service?.id ?? "";
+  check("POST /api/admin/services", newService.status === 201 && Boolean(serviceId), `status ${newService.status}`);
+  if (!serviceId) return;
+
+  // Pick a date comfortably inside the booking horizon and away from today so
+  // the lead-time clamp cannot affect the window.
+  const date = addDays(new Date().toISOString().slice(0, 10), 3);
+  const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+
+  const beforeHour = await call(
+    `/api/availability?barber=${barberId}&date=${date}&service=${serviceId}`,
+  );
+  check(
+    "/api/availability has no slots before the hour row",
+    beforeHour.status === 200 && Array.isArray(beforeHour.json?.slots) && beforeHour.json.slots.length === 0,
+    `status ${beforeHour.status}`,
+  );
+
+  const newHour = await call("/api/admin/hours", {
+    method: "POST",
+    body: { barber: barberId, day, start: 600, end: 720 },
+    secret,
+  });
+  hourId = newHour.json?.hour?.id ?? "";
+  check("POST /api/admin/hours", newHour.status === 201 && Boolean(hourId), `status ${newHour.status}`);
+
+  const afterHour = await call(
+    `/api/availability?barber=${barberId}&date=${date}&service=${serviceId}`,
+  );
+  check(
+    "/api/availability respects the new hour row",
+    afterHour.status === 200 &&
+      Array.isArray(afterHour.json?.slots) &&
+      afterHour.json.slots.some((slot) => slot.start === 600),
+    `status ${afterHour.status}, ${afterHour.json?.slots?.length ?? 0} slots`,
+  );
+
+  const publicBarbers = await call("/api/barbers");
+  check(
+    "public /api/barbers includes the new barber",
+    publicBarbers.status === 200 &&
+      publicBarbers.json.barbers.some((row) => row.id === barberId),
+    `status ${publicBarbers.status}`,
+  );
+
+  // A same-day override narrows the weekly window to 10:00–10:30.
+  const newDay = await call("/api/admin/days", {
+    method: "POST",
+    body: { barber: barberId, date, open: true, start: 600, end: 630, note: "QA" },
+    secret,
+  });
+  dayId = newDay.json?.day?.id ?? "";
+  check("POST /api/admin/days", newDay.status === 201 && Boolean(dayId), `status ${newDay.status}`);
+
+  const afterDay = await call(
+    `/api/availability?barber=${barberId}&date=${date}&service=${serviceId}`,
+  );
+  check(
+    "date override narrows availability",
+    afterDay.status === 200 &&
+      afterDay.json.slots.length === 1 &&
+      afterDay.json.slots[0].start === 600,
+    `${afterDay.json?.slots?.length ?? 0} slots`,
+  );
+
+  // --- take the chair offline --------------------------------------------
+  const patched = await call("/api/admin/barbers", {
+    method: "PATCH",
+    body: { id: barberId, active: false },
+    secret,
+  });
+  check(
+    "PATCH /api/admin/barbers sets active false",
+    patched.status === 200 && patched.json?.barber?.active === false,
+    `status ${patched.status}`,
+  );
+
+  const offlineBarbers = await call("/api/barbers");
+  check(
+    "inactive barber is gone from public list",
+    offlineBarbers.status === 200 &&
+      !offlineBarbers.json.barbers.some((row) => row.id === barberId),
+    `status ${offlineBarbers.status}`,
+  );
+
+  // --- deletes ------------------------------------------------------------
+  const deletedHour = await call(`/api/admin/hours?id=${hourId}`, { method: "DELETE", secret });
+  check("DELETE /api/admin/hours", deletedHour.status === 200 && deletedHour.json?.ok === true, `status ${deletedHour.status}`);
+  hourId = "";
+
+  const deletedDay = await call(`/api/admin/days?id=${dayId}`, { method: "DELETE", secret });
+  check("DELETE /api/admin/days", deletedDay.status === 200 && deletedDay.json?.ok === true, `status ${deletedDay.status}`);
+  dayId = "";
+}
+
+try {
+  await main();
+} finally {
+  await cleanup();
+}
+
+const passed = results.filter((result) => result.ok).length;
+console.log(`\n${passed}/${results.length} checks passed`);
+process.exit(passed === results.length ? 0 : 1);

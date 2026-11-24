@@ -83,6 +83,14 @@ export function formatDate(date: string): string {
   }).format(new Date(`${date}T00:00:00Z`));
 }
 
+export function formatMonth(date: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
 export function formatPrice(price: number): string {
   return `${price.toLocaleString("ru-RU")} UZS`;
 }

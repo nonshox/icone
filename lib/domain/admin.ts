@@ -31,6 +31,16 @@ export type DayOverride = {
   note: string;
 };
 
+export type AdminReview = {
+  id: string;
+  user: string;
+  barber: string;
+  booking: string;
+  rate: number;
+  note: string;
+  created: string;
+};
+
 function str(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
@@ -86,6 +96,18 @@ function toDay(row: Row): DayOverride {
     start: num(row.start),
     end: num(row.end),
     note: str(row.note),
+  };
+}
+
+function toAdminReview(row: Row): AdminReview {
+  return {
+    id: row.$id,
+    user: str(row.user),
+    barber: str(row.barber),
+    booking: str(row.booking),
+    rate: num(row.rate, 5),
+    note: str(row.note),
+    created: row.$createdAt,
   };
 }
 
@@ -176,6 +198,15 @@ export async function listAllDays(): Promise<DayOverride[]> {
 export async function findBarber(id: string): Promise<AdminBarber | null> {
   const row = await get(TABLES.barbers, id);
   return row ? toAdminBarber(row) : null;
+}
+
+/** Every review, newest first, for moderation. */
+export async function listAllReviews(): Promise<AdminReview[]> {
+  const rows = await list(TABLES.reviews, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(100),
+  ]);
+  return rows.map(toAdminReview);
 }
 
 /* ----------------------------------------------------------------- writes */
@@ -298,4 +329,8 @@ export async function putDay(input: {
 
 export async function deleteDay(id: string): Promise<void> {
   await remove(TABLES.days, id);
+}
+
+export async function deleteReview(id: string): Promise<void> {
+  await remove(TABLES.reviews, id);
 }

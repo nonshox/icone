@@ -78,9 +78,50 @@ const marquee = [
   "Tashkent, UZ",
 ] as const;
 
+const site = process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "Barbershop",
+  name: "icone",
+  url: site,
+  telephone: "+998712001212",
+  priceRange: "$$",
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "12 Amir Temur Avenue, Yakkasaray",
+    addressLocality: "Tashkent",
+    addressCountry: "UZ",
+  },
+  openingHoursSpecification: [
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      opens: "09:00",
+      closes: "22:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Saturday"],
+      opens: "10:00",
+      closes: "22:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Sunday"],
+      opens: "10:00",
+      closes: "20:00",
+    },
+  ],
+};
+
 export default function HomePage() {
   return (
     <div className="flex min-h-dvh flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <SiteHeader />
 
       <main id="main" className="flex-1">

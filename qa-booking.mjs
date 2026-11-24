@@ -7,7 +7,7 @@
  * Creates throwaway users, bookings and reviews, then deletes them again.
  */
 import fs from "node:fs";
-import { Account, Client, Databases, ID, Query, Users } from "node-appwrite";
+import { Account, Client, Databases, Query, Users } from "node-appwrite";
 
 const env = Object.fromEntries(
   fs
@@ -78,7 +78,16 @@ async function cleanup() {
   for (const id of bookingIds) {
     await db.deleteDocument({ databaseId, collectionId: "bookings", documentId: id }).catch(() => {});
   }
-  if (userId) await users.delete({ userId }).catch(() => {});
+  if (userId) {
+    await db
+      .deleteDocument({
+        databaseId,
+        collectionId: "users",
+        documentId: userId,
+      })
+      .catch(() => {});
+    await users.delete({ userId }).catch(() => {});
+  }
 }
 
 async function main() {

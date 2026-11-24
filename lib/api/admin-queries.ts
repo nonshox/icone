@@ -28,11 +28,22 @@ export type NewDay = {
   note: string;
 };
 
+export type AdminReview = {
+  id: string;
+  user: string;
+  barber: string;
+  booking: string;
+  rate: number;
+  note: string;
+  created: string;
+};
+
 export const adminKeys = {
   barbers: ["admin", "barbers"] as const,
   services: ["admin", "services"] as const,
   hours: ["admin", "hours"] as const,
   days: ["admin", "days"] as const,
+  reviews: ["admin", "reviews"] as const,
 };
 
 /* ------------------------------------------------------------------ reads */
@@ -70,6 +81,16 @@ export function useAdminDays() {
     queryKey: adminKeys.days,
     queryFn: () =>
       api<{ days: DayOverride[] }>("/api/admin/days").then((result) => result.days),
+  });
+}
+
+export function useAdminReviews() {
+  return useQuery({
+    queryKey: adminKeys.reviews,
+    queryFn: () =>
+      api<{ reviews: AdminReview[] }>("/api/admin/reviews").then(
+        (result) => result.reviews,
+      ),
   });
 }
 
@@ -185,6 +206,21 @@ export function useDeleteDay() {
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: adminKeys.days });
+    },
+  });
+}
+
+export function useDeleteReview() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<{ ok: true }>(`/api/admin/reviews?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.reviews });
+      void client.invalidateQueries({ queryKey: ["reviews"] });
+      void client.invalidateQueries({ queryKey: keys.barbers });
     },
   });
 }
