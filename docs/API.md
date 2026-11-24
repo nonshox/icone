@@ -68,12 +68,35 @@ midnight; `price` is UZS.
 Booking conflicts return `409 slot_taken` or `409 already_booked`. Bad times
 return `400 bad_time`; too-soon same-day slots return `409 too_soon`.
 
-## Staff
+## Staff / admin
 
 | Method | Path | Query / body | Response |
 | --- | --- | --- | --- |
 | GET | `/api/bookings?date=YYYY-MM-DD` | optional `barber` | `{ bookings: BookingRow[] }` with `userName` |
 | PATCH | `/api/bookings/:id` | `{ status: "done" \| "noshow" \| "cancel" }` | `{ booking }` |
+| GET | `/api/admin/barbers` | — | `{ barbers }` incl. inactive (staff) |
+| POST | `/api/admin/barbers` | `{ name, title, bio }` | `201 { barber }` (admin) |
+| PATCH | `/api/admin/barbers` | `{ id, active }` | `{ barber }` (admin) |
+| GET/POST | `/api/admin/services` | `{ name, note, price, time }` | list / `201` create |
+| PATCH | `/api/admin/services` | `{ id, active }` | `{ service }` |
+| GET/POST | `/api/admin/hours` | `{ barber, day, start, end }` | list / `201` create |
+| DELETE | `/api/admin/hours` | `id` query | `{ ok: true }` |
+| GET/POST | `/api/admin/days` | `{ barber, date, open, start, end, note }` | list / upsert |
+| DELETE | `/api/admin/days` | `id` query | `{ ok: true }` |
+
+Admin writes require `users.role = "admin"`; reads allow `barber` and `admin`.
+Day overrides upsert per chair/date so availability never has two winners.
+
+## Cron
+
+| Method | Path | Header | Response |
+| --- | --- | --- | --- |
+| GET/POST | `/api/cron/reminders` | `x-cron-secret: <TELEGRAM_WEBHOOK_SECRET>` | `{ ok: true, counts }` |
+
+`vercel.json` schedules this at 06:00 UTC daily. Vercel Cron sends
+`Authorization: Bearer $CRON_SECRET`; set `CRON_SECRET` in Vercel to the same
+value as `TELEGRAM_WEBHOOK_SECRET`. The route also accepts that Bearer header.
+A 60-second in-process cooldown prevents accidental double runs.
 
 Requires `users.role` = `barber` or `admin`. A `barber` is forced to own
 chair (from `barbers.user`); an `admin` may pass any `barber`. A `barber`

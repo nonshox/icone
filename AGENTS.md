@@ -40,9 +40,8 @@ Before the final response, run one reporting pass. If candidates remain, from th
 
 ### Hard rules
 
-1. **Scope:** auth and booking are shipped. Notifications (Telegram reminders)
-   and the visual design pass are not started — don't add them until the owner
-   explicitly asks.
+1. **Scope:** auth, booking, admin catalogue and Telegram reminders are built.
+   The owner drives any further feature; keep additions simple and production-ready.
 2. **Secrets:** `APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN` and
    `TELEGRAM_WEBHOOK_SECRET` are server-only. Never add a `NEXT_PUBLIC_`
    prefix to them, never log them, never send them to the client.
@@ -71,3 +70,5 @@ Before the final response, run one reporting pass. If candidates remain, from th
 11. **Production:** `https://icone-uz.vercel.app`. Public values are in
     `.env.production`; Vercel Analytics is one `<Analytics />` tag in the root
     layout, nothing more. Private pages are covered by `proxy.ts`.
+12. **Cron:** `vercel.json` schedules `/api/cron/reminders`. Keep it protected
+    by the shared secret and idempotent — never send a reminder twice.

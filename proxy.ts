@@ -36,5 +36,7 @@ export const config = {
     "/bookings/:path*",
     "/agenda",
     "/agenda/:path*",
+    "/admin",
+    "/admin/:path*",
   ],
 };

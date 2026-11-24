@@ -127,6 +127,14 @@ cmd /c "npm run tg:webhook -- set" # register against NEXT_PUBLIC_APP_URL
 The script prints only non-secret webhook state; it never prints the bot token
 or secret. `GET /api/telegram/webhook` is a health check for after a deploy.
 
+### Reminders
+
+`GET/POST /api/cron/reminders` runs at 06:00 UTC (`vercel.json`). It plans one
+`reminders` row per tomorrow booking for Telegram members, delivers due rows
+through the bot with a Mini App link, and marks them `sent`. Failures stay
+`pending` for the next run. The endpoint requires `x-cron-secret` (or Vercel's
+`Authorization: Bearer $CRON_SECRET`) set to `TELEGRAM_WEBHOOK_SECRET`.
+
 ## Environment
 
 | Variable | Scope | Notes |

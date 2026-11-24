@@ -28,6 +28,9 @@ export function SiteFooter() {
             <Link href="/#services" className={linkClass}>
               Services
             </Link>
+            <Link href="/barbers" className={linkClass}>
+              Barbers
+            </Link>
             <Link href="/book" className={linkClass}>
               Book a chair
             </Link>

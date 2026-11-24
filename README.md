@@ -34,8 +34,10 @@ URL, Appwrite project, Telegram flag) and is safe to commit; Vercel secrets
 are set in the project dashboard.
 
 Server-only secrets (`APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN`,
-`TELEGRAM_WEBHOOK_SECRET`) must never carry a `NEXT_PUBLIC_` prefix. The Appwrite
-API key also needs database scopes — see [`docs/DATA.md`](./docs/DATA.md#setup).
+`TELEGRAM_WEBHOOK_SECRET`) must never carry a `NEXT_PUBLIC_` prefix. Set Vercel's
+`CRON_SECRET` to the same value as `TELEGRAM_WEBHOOK_SECRET` so the reminder cron
+can authenticate. The Appwrite API key also needs database scopes — see
+[`docs/DATA.md`](./docs/DATA.md#setup).
 
 ### Telegram
 
@@ -65,15 +67,19 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | Path | Purpose |
 | --- | --- |
 | `/` | landing page |
+| `/barbers` · `/barbers/:id` | public chair list and profile |
 | `/sign-in` | email one-time code + Telegram |
 | `/account` | profile, stats, shortcuts |
 | `/book` | booking flow |
 | `/bookings` | visits, cancel, reviews |
 | `/agenda` | staff day view |
+| `/admin` | admin catalogue manager |
 | `/mini` | Telegram Mini App |
 | `/api/barbers` · `/api/services` · `/api/availability` | catalogue + times |
 | `/api/bookings` · `/api/reviews` · `/api/me` | member operations |
 | `/api/auth/*` | sign-in and sign-out |
+| `/api/admin/*` | catalogue management |
+| `/api/cron/reminders` | protected reminder runner |
 | `/robots.txt` · `/sitemap.xml` | crawler files |
 
 The full endpoint list is in [`docs/API.md`](./docs/API.md).

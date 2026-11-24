@@ -41,6 +41,15 @@ function addDays(date, days) {
     .slice(0, 10);
 }
 
+function cookieValue(cookies, name) {
+  for (const item of cookies ?? []) {
+    const [pair] = item.split(";");
+    const [key, ...rest] = pair.trim().split("=");
+    if (key === name) return rest.join("=");
+  }
+  return "";
+}
+
 async function call(path, { method = "GET", body, secret } = {}) {
   const response = await fetch(`${BASE}${path}`, {
     method,
@@ -56,8 +65,7 @@ async function call(path, { method = "GET", body, secret } = {}) {
   return { status: response.status, json };
 }
 
-const email = `icone.qa.${Date.now()}@example.com`;
-const password = "QaPassw0rd!!";
+const email = `icone.qa.${Date.now()}@mailinator.com`;
 let userId = "";
 let secret = "";
 const bookingIds = [];
@@ -96,20 +104,32 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  const created = await users.create({
-    userId: ID.unique(),
-    email,
-    password,
-    name: "QA Member",
+  // Sign in through the real OTP endpoint so the profile row is created too.
+  const start = await fetch(`${BASE}/api/auth/email/start`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: BASE },
+    body: JSON.stringify({ email }),
   });
-  userId = created.$id;
+  const otpCookie = cookieValue(start.headers.getSetCookie(), "icone_otp");
+  if (!otpCookie) throw new Error("QA email start did not set the OTP cookie");
 
-  const anon = new Client().setEndpoint(endpoint).setProject(project);
-  const session = await new Account(anon).createEmailPasswordSession({
+  const token = await new Account(admin).createEmailToken({
+    userId: otpCookie,
     email,
-    password,
   });
-  secret = session.secret;
+
+  const verify = await fetch(`${BASE}/api/auth/email/verify`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: BASE,
+      cookie: `icone_otp=${otpCookie}`,
+    },
+    body: JSON.stringify({ code: token.secret }),
+  });
+  userId = otpCookie;
+  secret = cookieValue(verify.headers.getSetCookie(), "icone_session");
+  if (!secret) throw new Error("QA email verify did not set the session cookie");
 
   const barbers = await call("/api/barbers");
   const services = await call("/api/services");

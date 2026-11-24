@@ -25,8 +25,9 @@ agenda.
    Appwrite sessions, HttpOnly cookie, light/dark UI.
 2. **Booking (done)** — barbers, services, weekly hours and date overrides,
    live availability, conflict-safe booking, visits, reviews, staff agenda.
-3. **Notifications (not started)** — Telegram reminders before a visit.
-4. **Polish (not started)** — visual design pass on the functional UI.
+3. **Reminders (done)** — Telegram reminder for tomorrow's booking, protected
+   cron endpoint, one reminder per booking.
+4. **Polish (in progress)** — visual cleanup, performance pass, broader admin UI.
 
 Do not start milestone 3 without an explicit instruction from the owner.
 
@@ -51,12 +52,14 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | Path | Type | Purpose |
 | --- | --- | --- |
 | `/` | static | Landing page (marketing preview) |
+| `/barbers` · `/barbers/:id` | partial | Public chair list and barber profile |
 | `/sign-in` | partial | Email OTP + Telegram sign-in |
 | `/account` | partial | Signed-in profile, stats, shortcuts |
 | `/book` | partial | Booking flow (service → barber → date → time) |
 | `/bookings` | partial | Member visits, cancel, review |
 | `/mini` | static | Telegram Mini App (WebApp data → session) |
 | `/agenda` | partial | Staff day view (barber / admin only) |
+| `/admin` | partial | Admin catalogue manager (admin only) |
 | `/robots.txt` | static | Crawler rules |
 | `/sitemap.xml` | static | Public URLs |
 | `POST /api/auth/email/start` | dynamic | Send the 6-digit code |
@@ -73,10 +76,12 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `GET/PATCH /api/bookings/:id` | dynamic | One booking · status changes |
 | `GET/POST /api/reviews` | dynamic | Public reviews · rate a completed visit |
 | `GET/PATCH /api/me` | dynamic | Profile |
+| `GET/POST/PATCH/DELETE /api/admin/*` | dynamic | Staff catalogue management |
+| `GET/POST /api/cron/reminders` | dynamic | Telegram reminder runner |
 
-Private pages (`/account`, `/book`, `/bookings`, `/agenda`) are guarded twice:
+Private pages (`/account`, `/book`, `/bookings`, `/agenda`, `/admin`) are guarded twice:
 `proxy.ts` returns a real `307` when the session cookie is missing, and the
-page validates the session (and role, for `/agenda`) during render. See
+page validates the session (and role, for `/agenda` and `/admin`) during render. See
 [`AUTH.md`](./AUTH.md#route-protection) and [`API.md`](./API.md).
 
 ## Source map
@@ -85,17 +90,22 @@ page validates the session (and role, for `/agenda`) during render. See
 app/
   layout.tsx            fonts, metadata, providers, Analytics tag, skip link
   page.tsx              landing page
+  barbers/page.tsx      public chair list
+  barbers/[id]/page.tsx barber profile, hours, reviews
   sign-in/page.tsx      auth screen
   account/page.tsx      profile gate
   book/page.tsx         booking gate
   bookings/page.tsx     visits gate
   mini/page.tsx         Telegram Mini App
   agenda/page.tsx       staff gate
+  admin/page.tsx        admin gate
+  api/admin/**          catalogue management handlers
+  api/cron/reminders    protected reminder runner
   api/**                route handlers
   robots.ts sitemap.ts  crawler files
   globals.css           design tokens, glass utilities
 components/
-  account/ booking/ bookings/ agenda/ telegram/   feature views (client)
+  account/ booking/ bookings/ agenda/ admin/ telegram/   feature views (client)
   auth/                 sign-in form, telegram widget, sign-out
   brand/                logo
   layout/               header, footer, theme toggle
@@ -107,7 +117,8 @@ lib/
   appwrite/             admin/session clients + table ids
   auth/                 cookies, session, email, telegram, user mapper, types
   client/date.ts        hydration-safe shop date hook
-  domain/               types, data, availability, booking, views, time, member
+  domain/               types, data, availability, booking, views, time, member,
+                        admin, reminders, reminder-run
   store/                zustand UI + booking draft
   env.ts                validated server env (server-only)
   http.ts rate-limit.ts JSON envelope, origin check, rate limits

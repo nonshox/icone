@@ -126,6 +126,22 @@ const schema = {
       { key: "once", attributes: ["booking"], type: "unique" },
     ],
   },
+
+  // One queued Telegram reminder per booking. `date` is the day it is due,
+  // `at` the minute-of-day target; `once` makes repeated runs harmless.
+  reminders: {
+    attributes: [
+      { key: "user", type: "string", size: 36, required: true },
+      { key: "booking", type: "string", size: 36, required: true },
+      { key: "date", type: "string", size: 10, required: true },
+      { key: "at", type: "integer", min: 0, max: 1439, required: true },
+      { key: "state", type: "string", size: 12, default: "pending" },
+    ],
+    indexes: [
+      { key: "due", attributes: ["date", "state"] },
+      { key: "once", attributes: ["booking"], type: "unique" },
+    ],
+  },
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

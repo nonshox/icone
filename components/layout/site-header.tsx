@@ -2,7 +2,6 @@
 
 import { CalendarDays, Menu, UserRound, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import { Logo } from "@/components/brand/logo";
@@ -13,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/#services", label: "Services" },
+  { href: "/barbers", label: "Barbers" },
   { href: "/#how", label: "How it works" },
   { href: "/#hours", label: "Hours" },
 ] as const;
@@ -24,14 +24,9 @@ const mobileLinks = [
 ] as const;
 
 export function SiteHeader() {
-  const pathname = usePathname();
   const open = useUIStore((state) => state.mobileNavOpen);
   const setOpen = useUIStore((state) => state.setMobileNavOpen);
   const toggle = useUIStore((state) => state.toggleMobileNav);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname, setOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -106,6 +101,7 @@ export function SiteHeader() {
             <Link
               key={link.href}
               href={link.href}
+              onClick={() => setOpen(false)}
               className="flex items-center justify-between rounded-xl px-3 py-3 text-sm text-foreground/90 transition-colors hover:bg-foreground/[0.05]"
             >
               {link.label}

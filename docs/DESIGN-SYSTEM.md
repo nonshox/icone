@@ -37,17 +37,16 @@ for dots and indicators, `bg-brand/10..15` for tinted chips.
 
 | Utility | What it does |
 | --- | --- |
-| `.glass` | 24px blur + saturate, 1px hairline, inset top highlight, deep soft shadow. The default panel. |
-| `.glass-soft` | 14px blur, no shadow. Use for chips, secondary buttons, nav pills. |
+| `.glass` | 12px blur, 1px hairline. The default panel. |
+| `.glass-soft` | 8px blur, no shadow. Use for chips, secondary buttons, nav pills. |
 | `.hairline` | border only, for nested dividers. |
-| `.noise-sheen` | adds a top-light sheen inside a rounded panel. |
 | `.brand-glow` | brass ring + coloured shadow for the one primary element on a screen. |
 | `.text-gradient-brand` | brass gradient clipped to text. Headline accents only. |
-| `.animate-float` / `.animate-float-delayed` | 9–11s vertical drift for floating cards. |
 
 **Rule of glass:** at most **two** glass layers visible at once (page panel +
-one floating chip). Three reads as mud. Backdrop blur is expensive — never put
-`.glass` on a long list row.
+one floating chip). Backdrop blur is expensive — never put `.glass` on a long
+list row. Looping float animations and the full-page ambient gradient were
+removed in the performance pass.
 
 ### Radii and type
 
@@ -94,7 +93,7 @@ an explicit `h-11` / `h-12`.
 
 - Entrances: `animate-in fade-in-0 slide-in-from-bottom-1 duration-200`.
 - Hover on cards: `transition-transform hover:-translate-y-1` — never scale.
-- No looping animation except `.animate-float` on decorative chips.
+- No looping animations — the decorative float utilities were removed.
 - `prefers-reduced-motion` is globally neutralised in `globals.css`; don't
   re-introduce motion with inline styles.
 

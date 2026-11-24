@@ -2,6 +2,8 @@ import "server-only";
 
 import { AppwriteException, ID, Query, type Models } from "node-appwrite";
 
+import { cache } from "react";
+
 import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
 
 import type {
@@ -114,28 +116,28 @@ async function list(table: string, queries: string[]): Promise<Row[]> {
 
 /* ------------------------------------------------------------------ reads */
 
-export async function listBarbers(): Promise<Barber[]> {
+export const listBarbers = cache(async (): Promise<Barber[]> => {
   const rows = await list(TABLES.barbers, [
     Query.equal("active", true),
     Query.orderAsc("name"),
     Query.limit(50),
   ]);
   return rows.map(toBarber);
-}
+});
 
-export async function listServices(): Promise<Service[]> {
+export const listServices = cache(async (): Promise<Service[]> => {
   const rows = await list(TABLES.services, [
     Query.equal("active", true),
     Query.orderAsc("price"),
     Query.limit(50),
   ]);
   return rows.map(toService);
-}
+});
 
-export async function getBarber(id: string): Promise<Barber | null> {
+export const getBarber = cache(async (id: string): Promise<Barber | null> => {
   const row = await get(TABLES.barbers, id);
   return row ? toBarber(row) : null;
-}
+});
 
 /** The chair linked to a staff account, if any. */
 export async function barberForUser(userId: string): Promise<Barber | null> {
@@ -146,10 +148,10 @@ export async function barberForUser(userId: string): Promise<Barber | null> {
   return rows.length > 0 ? toBarber(rows[0]) : null;
 }
 
-export async function getService(id: string): Promise<Service | null> {
+export const getService = cache(async (id: string): Promise<Service | null> => {
   const row = await get(TABLES.services, id);
   return row ? toService(row) : null;
-}
+});
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const row = await get(TABLES.users, userId);

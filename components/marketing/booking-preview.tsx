@@ -24,7 +24,7 @@ export function BookingPreview() {
         className="absolute -inset-8 -z-10 rounded-[3rem] bg-brand/12 blur-3xl"
       />
 
-      <div className="glass noise-sheen relative rounded-[1.75rem] p-4 sm:p-6">
+      <div className="glass relative rounded-[1.75rem] p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             <span className="relative flex size-2">
@@ -125,14 +125,14 @@ export function BookingPreview() {
         </p>
       </div>
 
-      <div className="glass animate-float absolute -top-5 -right-3 hidden items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-medium sm:flex">
+      <div className="glass absolute -top-5 -right-3 hidden items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-medium sm:flex">
         <span className="grid size-6 place-items-center rounded-full bg-emerald-500/15 text-emerald-500">
           <Check className="size-3.5" aria-hidden />
         </span>
         Chair confirmed
       </div>
 
-      <div className="glass-soft animate-float-delayed absolute -bottom-5 -left-4 hidden rounded-2xl px-3.5 py-2.5 text-xs text-muted-foreground sm:block">
+      <div className="glass-soft absolute -bottom-5 -left-4 hidden rounded-2xl px-3.5 py-2.5 text-xs text-muted-foreground sm:block">
         <span className="font-medium text-foreground">No queue.</span> Just a
         time that fits.
       </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { BookingForm } from "@/components/booking/booking-form";
+import { DraftSync } from "@/components/booking/draft-sync";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { requireUser } from "@/lib/auth/session";
@@ -38,6 +39,9 @@ export default function BookPage() {
         </p>
 
         <div className="mt-6">
+          <Suspense fallback={null}>
+            <DraftSync />
+          </Suspense>
           <Suspense fallback={<FormSkeleton />}>
             <BookGate />
           </Suspense>

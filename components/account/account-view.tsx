@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Loader2,
   Scissors,
+  Settings2,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -258,6 +259,15 @@ export function AccountView({
               >
                 <CheckCircle2 className="size-4" aria-hidden />
                 Staff agenda
+              </Link>
+            ) : null}
+            {profile.role === "admin" ? (
+              <Link
+                href="/admin"
+                className="flex items-center gap-2 text-sm font-medium hover:underline"
+              >
+                <Settings2 className="size-4" aria-hidden />
+                Manage chairs
               </Link>
             ) : null}
           </CardContent>
