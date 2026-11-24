@@ -1,0 +1,26 @@
+name: Reminders
+
+# Free daily schedule on GitHub Actions. Vercel Cron is no longer used.
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC, same time as the old Vercel schedule
+  workflow_dispatch:
+
+jobs:
+  reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run the reminder cron
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://icone-uz.vercel.app' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Set a repository secret named CRON_SECRET equal to TELEGRAM_WEBHOOK_SECRET."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "x-cron-secret: $CRON_SECRET" \
+            "$APP_URL/api/cron/reminders"

@@ -73,8 +73,9 @@ Before the final response, run one reporting pass. If candidates remain, from th
     `.env.example` exist — both list every key; Vercel sets the public values
     and secrets. Vercel Analytics is one `<Analytics />` tag in the root layout.
     Private pages are covered by `proxy.ts`.
-12. **Cron:** `vercel.json` schedules `/api/cron/reminders`. Keep it protected
-    by the shared secret and idempotent — never send a reminder twice.
+12. **Cron:** `.github/workflows/reminders.yml` schedules
+    `/api/cron/reminders` daily at 06:00 UTC with the `CRON_SECRET` repo secret.
+    Keep it protected and idempotent — never send a reminder twice.
 13. **Languages:** Uzbek is default; Russian and English are available through
     the header switcher. Add new copy to `lib/i18n/dictionaries.ts` for all
     three languages, and use `<T k="..." />` for static strings.

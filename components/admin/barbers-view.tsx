@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -308,26 +309,22 @@ export function BarbersView() {
                                 onChange={(event) => patch("policy", event.target.value)}
                               />
                             </Field>
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
+                            <div className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                id="barber-confirm"
                                 checked={draft.confirm}
-                                onChange={(event) =>
-                                  patch("confirm", event.target.checked)
-                                }
+                                onCheckedChange={(value) => patch("confirm", value)}
                               />
-                              Requires confirmation
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
+                              <Label htmlFor="barber-confirm" className="cursor-pointer">Requires confirmation</Label>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                id="barber-featured"
                                 checked={draft.featured}
-                                onChange={(event) =>
-                                  patch("featured", event.target.checked)
-                                }
+                                onCheckedChange={(value) => patch("featured", value)}
                               />
-                              Featured listing
-                            </label>
+                              <Label htmlFor="barber-featured" className="cursor-pointer">Featured listing</Label>
+                            </div>
                             <div className="flex gap-2 sm:col-span-2">
                               <Button type="submit" size="sm" disabled={update.isPending}>
                                 {update.isPending ? (

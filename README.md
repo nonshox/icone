@@ -35,8 +35,9 @@ Server secrets are set in the Vercel dashboard.
 
 Server-only secrets (`APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN`,
 `TELEGRAM_WEBHOOK_SECRET`) must never carry a `NEXT_PUBLIC_` prefix. Set Vercel's
-`CRON_SECRET` to the same value as `TELEGRAM_WEBHOOK_SECRET` so the reminder cron
-can authenticate. The Appwrite API key also needs database scopes — see
+GitHub's `CRON_SECRET` repository secret to the same value as
+`TELEGRAM_WEBHOOK_SECRET` so the daily reminder job can authenticate. The
+Appwrite API key also needs database scopes — see
 [`docs/DATA.md`](./docs/DATA.md#setup).
 
 ### Telegram
@@ -55,25 +56,6 @@ first `/start` gives a one-time website sign-in link; the Mini App signs in
 automatically and offers the same link for the browser/installed app. All paths
 create the same HttpOnly web session and land on `/start`, which routes by role.
 No password, no phone prompt, no email delivery dependency.
-
-## Scripts
-
-| Command | Purpose |
-| --- | --- |
-| `cmd /c "npm run dev"` | dev server |
-| `cmd /c "npm run build"` | type-check + production build (the gate) |
-| `cmd /c "npm run lint"` | ESLint |
-| `cmd /c "npm run db:setup"` | create tables, indexes and seed data |
-| `cmd /c "npm run db:staff"` | promote a member / link a barber chair |
-| `cmd /c "npm run qa:auth"` | end-to-end auth probe (dev server required) |
-| `cmd /c "npm run qa:booking"` | end-to-end booking probe (needs DB scopes) |
-| `cmd /c "npm run qa:admin"` | admin role + catalogue probe |
-| `cmd /c "npm run qa:cron"` | reminder cron probe |
-| `cmd /c "npm run qa:staff"` | barber self-service probe |
-| `cmd /c "npm run qa:marketplace"` | customer/barber/messaging/payment probe |
-| `cmd /c "npm run qa:applications"` | barber application probe |
-| `cmd /c "npm run tg:webhook"` | show Telegram webhook state (`-- set` / `-- delete`) |
-| `cmd /c "npm run tg:miniapp"` | show bot menu button (`-- set` / `-- reset`) |
 
 ## Routes
 
@@ -100,18 +82,6 @@ No password, no phone prompt, no email delivery dependency.
 | `/api/cron/reminders` | protected reminder runner |
 | `/api/health` | readiness probe |
 | `/robots.txt` · `/sitemap.xml` · `/manifest.webmanifest` | crawler + PWA files |
-
-The full endpoint list is in [`docs/API.md`](./docs/API.md).
-
-## Documentation
-
-- [`docs/PROJECT.md`](./docs/PROJECT.md) — brief, milestones, source map
-- [`docs/DATA.md`](./docs/DATA.md) — tables, keys, indexes, seed, staff setup
-- [`docs/API.md`](./docs/API.md) — endpoints, envelopes, status codes
-- [`docs/DESIGN-SYSTEM.md`](./docs/DESIGN-SYSTEM.md) — tokens, glass, components
-- [`docs/ENGINEERING.md`](./docs/ENGINEERING.md) — Next 16 rules, conventions
-- [`docs/AUTH.md`](./docs/AUTH.md) — auth architecture, provider setup, threats
-- [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — production setup, env, ops, backups
 
 ## Languages
 

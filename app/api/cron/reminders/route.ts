@@ -29,7 +29,8 @@ function isAuthorized(request: NextRequest): boolean {
   const direct = request.headers.get("x-cron-secret");
   if (matches(direct)) return true;
 
-  // Vercel Cron sends `Authorization: Bearer $CRON_SECRET`.
+  // Also accept a Bearer header for manual calls; the GitHub workflow uses
+  // `x-cron-secret` above.
   const bearer = request.headers.get("authorization");
   return matches(bearer?.startsWith("Bearer ") ? bearer.slice(7) : null);
 }

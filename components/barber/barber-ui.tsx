@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function message(error: unknown, fallback: string): string {
@@ -52,20 +54,19 @@ export function ToggleRow({
   id: string;
 }) {
   return (
-    <label htmlFor={id} className="flex items-start gap-3 py-2 text-sm">
-      <input
+    <div className="flex items-start gap-3 py-2 text-sm">
+      <Checkbox
         id={id}
-        type="checkbox"
         checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 size-4 accent-[var(--brand)]"
+        onCheckedChange={(value) => onChange(value)}
+        className="mt-0.5"
       />
-      <span>
-        <span className="block font-medium">{label}</span>
-        {hint ? (
-          <span className="block text-xs text-muted-foreground">{hint}</span>
-        ) : null}
-      </span>
-    </label>
+      <div className="space-y-0.5">
+        <Label htmlFor={id} className="cursor-pointer font-medium">
+          {label}
+        </Label>
+        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
+    </div>
   );
 }

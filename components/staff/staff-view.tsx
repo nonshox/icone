@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -318,18 +319,30 @@ function ProfileForm({ chair }: { chair: Barber }) {
         <Input id="staff-cover" type="url" value={cover} maxLength={512} onChange={(event) => setCover(event.target.value)} />
       </div>
       <div className="flex flex-wrap gap-4 self-end sm:col-span-1">
-        <label htmlFor="staff-confirm" className="flex items-center gap-2 text-sm">
-          <input id="staff-confirm" type="checkbox" checked={confirm} onChange={(event) => setConfirm(event.target.checked)} className="size-4 accent-[var(--brand)]" />
-          Confirm bookings
-        </label>
-        <label htmlFor="staff-featured" className="flex items-center gap-2 text-sm">
-          <input id="staff-featured" type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} className="size-4 accent-[var(--brand)]" />
-          Featured
-        </label>
-        <label htmlFor="staff-active" className="flex items-center gap-2 text-sm">
-          <input id="staff-active" type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="size-4 accent-[var(--brand)]" />
-          Active
-        </label>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="staff-confirm"
+            checked={confirm}
+            onCheckedChange={(value) => setConfirm(value)}
+          />
+          <Label htmlFor="staff-confirm" className="cursor-pointer text-sm">Confirm bookings</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="staff-featured"
+            checked={featured}
+            onCheckedChange={(value) => setFeatured(value)}
+          />
+          <Label htmlFor="staff-featured" className="cursor-pointer text-sm">Featured</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="staff-active"
+            checked={active}
+            onCheckedChange={(value) => setActive(value)}
+          />
+          <Label htmlFor="staff-active" className="cursor-pointer text-sm">Active</Label>
+        </div>
       </div>
       <div className="space-y-1.5 sm:col-span-2">
         <Label htmlFor="staff-policy">Booking policy</Label>
