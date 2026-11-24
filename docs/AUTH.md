@@ -5,7 +5,7 @@ Passwordless only. Two providers, one session model.
 | Provider | Flow | Appwrite user id |
 | --- | --- | --- |
 | Email | 6-digit one-time code | Appwrite-generated |
-| Telegram | Login Widget → server callback | `tg_<telegram_id>` |
+| Telegram | Mini App (`WebApp.initData`) → server verify | `tg_<telegram_id>` |
 
 ## Session model
 
@@ -66,72 +66,42 @@ Roles live in `users.role` (`client`, `barber`, `admin`). Set them with
 Codes are 6 characters, valid 15 minutes at Appwrite; the UI says 10 minutes
 because the OTP cookie (the user id) expires first.
 
-## Telegram Login Widget
+## Telegram sign-in
 
-1. `/sign-in` loads `https://telegram.org/js/telegram-widget.js?22` into a
-   container, with `data-telegram-login=<bot>`,
-   `data-auth-url=<origin>/api/auth/telegram/callback`,
-   `data-request-access=write`.
-2. Telegram redirects to the callback with signed fields.
-3. `verifyTelegramPayload()`:
-   - `secret_key = SHA256(bot_token)`
+The Login Widget is **not used**. It asked for extra phone permissions and
+needed a BotFather-registered domain; both caused friction in production.
+`/sign-in` links to the bot with `?start=signin`, the bot replies with an inline
+`web_app` button, and the Mini App at `/mini` signs the user in.
+
+1. `/mini` loads `https://telegram.org/js/telegram-web-app.js`, calls `ready()`
+   and `expand()`, then POSTs `WebApp.initData` to
+   `POST /api/auth/telegram/mini`.
+2. `verifyWebAppInitData()`:
+   - `secret_key = HMAC_SHA256(bot_token, "WebAppData")`
    - `hash = HMAC_SHA256(data_check_string, secret_key)`, where
-     `data_check_string` is every field except `hash` and `state`, sorted by
-     key, joined as `key=value` with `\n`
-   - comparison uses `timingSafeEqual`
-   - `auth_date` must be within 24h (5 min future skew allowed)
-4. `signInWithTelegram()`:
+     `data_check_string` is every field except `hash`, sorted by key, joined as
+     `key=value` with a newline
+   - comparison uses `timingSafeEqual`, `auth_date` must be within 24h
+3. `signInWithTelegram()` is the same create-or-login path for both Telegram
+   entry points:
    - find `tg_<id>`; create it when missing (no email, no phone, no password)
    - store `telegramId`, `telegramUsername`, `telegramPhotoUrl` in user prefs
-   - `users.createToken({ userId, length: 64, expire: 120 })` then
-     `account.createSession({ userId, secret })`
-5. Session cookie is set and the browser lands on `/account`.
+   - `users.createToken(...)` then `account.createSession(...)`
+4. The `icone_session` cookie is set on the site origin and the Mini App shows
+   links to `/book` and `/bookings`.
 
-Failures redirect to `/sign-in?error=telegram` or `?error=telegram_unavailable`;
-the form maps those codes to human copy.
+This is simple and safe: Telegram signs the payload, the server verifies it,
+and the only credential issued is the HttpOnly session cookie. A bad signature
+returns `401 bad_signature` and no cookie.
 
-### Bot setup (required before Telegram works in production)
+The old widget callback (`GET /api/auth/telegram/callback`) still exists for
+backwards compatibility, but no UI links to it.
 
-In `@BotFather`:
+### Bot setup
 
-- `/setdomain` → the exact production host (no scheme, no path). Repeat for the
-  dev host if you need Telegram locally.
-- `/setcommands` → optional, for bot menu copy.
-
-Without `/setdomain` the widget renders but Telegram refuses the login, showing
-"Bot domain invalid" inside its frame — this is exactly what production showed
-before the domain was registered. The domain must match the `data-auth-url`
-host exactly. **This is the current cause of widget sign-in failing on
-`https://icone-uz.vercel.app`; run `/setdomain icone-uz.vercel.app` in
-`@BotFather` and wait a few minutes for it to propagate.**
-
-Because localhost can't be registered, `.env.local` sets
-`NEXT_PUBLIC_TELEGRAM_LOGIN_ENABLED=false`. That renders a designed fallback
-("Continue in Telegram" → the bot) instead of Telegram's error frame. Flip it to
-`true` on the deployed, registered domain. The callback route itself is always
-active, so the flow can be tested end-to-end regardless.
-
-### Mini App
-
-A Telegram Mini App is available at `/mini` and authenticates through
-`WebApp.initData`, which Telegram signs with the bot token. It does **not**
-depend on `/setdomain`, so it works even while the Login Widget domain is not
-registered.
-
-- `POST /api/auth/telegram/mini` verifies the signature with
-  `HMAC(botToken, key="WebAppData")`, checks `auth_date`, reuses
-  `signInWithTelegram()` and sets the same `icone_session` cookie as every
-  other sign-in method.
-- The bot menu button is set with `npm run tg:miniapp -- set`, which calls
-  `setChatMenuButton` with a `web_app` pointing at
-  `https://icone-uz.vercel.app/mini`. No BotFather step is needed for the API
-  call, but Telegram currently keeps the global button as `commands`; to make
-  it stick, set it once in `@BotFather` → Bot Settings → Menu Button with the
-  same URL.
-- `/start` replies with an inline `web_app` button as a second entry point that
-  needs no BotFather configuration.
-- Failures return `401 bad_signature` with a human message; the Mini App shows
-  a retry link to the bot and an email fallback.
+No `/setdomain` is required. Send `/start` to `@icone_app_bot` to get the inline
+Mini App button. Optionally set the persistent menu button in `@BotFather` →
+Bot Settings → Menu Button with `https://icone-uz.vercel.app/mini`.
 
 ### Webhook
 
@@ -139,8 +109,8 @@ registered.
 compared against `X-Telegram-Bot-Api-Secret-Token` on
 `POST /api/telegram/webhook` with a constant-time check. The route accepts only
 that header, acknowledges every valid update with `200`, and replies to
-`/start` with the booking URL. Reminders are not implemented yet; the endpoint
-is the place they will be triggered from.
+`/start` with an inline `web_app` button. Reminders are not implemented yet;
+the endpoint is the place they will be triggered from.
 
 ```powershell
 cmd /c "npm run tg:webhook"        # getWebhookInfo
@@ -158,7 +128,6 @@ or secret. `GET /api/telegram/webhook` is a health check for after a deploy.
 | `NEXT_PUBLIC_APPWRITE_ENDPOINT` | public | `https://fra.cloud.appwrite.io/v1` |
 | `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | public | `icone` |
 | `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` | public | `icone_app_bot` |
-| `NEXT_PUBLIC_TELEGRAM_LOGIN_ENABLED` | public | `"true"` once the domain is registered with `/setdomain`; `"false"` on localhost and preview hosts |
 | `APPWRITE_ENDPOINT` | server | same value as the public endpoint |
 | `APPWRITE_PROJECT_ID` | server | `icone` |
 | `APPWRITE_API_KEY` | server | **secret** — rotate if leaked |
@@ -178,8 +147,8 @@ error listing missing keys. Public values live in `lib/public-config.ts`.
 | CSRF | `SameSite=Lax` + `isSameOrigin()` on every mutation |
 | Account enumeration | identical response for new and existing emails |
 | OTP brute force | per-user and per-IP windows + Appwrite's own limits |
-| Forged Telegram payload | HMAC with `SHA256(bot_token)`, timing-safe compare, 24h freshness |
-| Replay of a Telegram callback | `auth_date` freshness window |
+| Forged Telegram payload | HMAC with `WebAppData`, timing-safe compare, 24h freshness |
+| Replay of a Telegram update | `auth_date` freshness window |
 | API key leakage | server-only module, never `NEXT_PUBLIC_*` |
 | Open redirect via `?next=` | only same-origin paths starting with a single `/` |
 
@@ -200,7 +169,8 @@ error listing missing keys. Public values live in `lib/public-config.ts`.
 ```powershell
 cmd /c "npm run build"
 cmd /c "npm run dev"
-node qa-auth.mjs   # end-to-end probe: OTP, Telegram, logout, guards
+node qa-auth.mjs     # auth probe: OTP, Telegram callback, logout, guards
+node qa-booking.mjs  # booking probe (needs DB scopes)
 ```
 
 `qa-auth.mjs` signs in through both providers with throwaway accounts, checks

@@ -39,12 +39,11 @@ API key also needs database scopes — see [`docs/DATA.md`](./docs/DATA.md#setup
 
 ### Telegram
 
-The Login Widget needs `/setdomain icone-uz.vercel.app` in `@BotFather`; until
-that propagates it shows "Bot domain invalid" (this was the production failure).
-The Telegram Mini App at `/mini` does not need it — it signs in through
-`WebApp.initData`. The bot menu button opens it:
+Telegram sign-in happens in the Mini App at `/mini` — no Login Widget, no phone
+prompt, no `/setdomain`. Open the bot with `?start=signin` (links on `/sign-in`)
+and tap **Open icone**; the server verifies Telegram's signature, then logs in
+the `tg_<id>` account or creates it. Bot menu button:
 `cmd /c "npm run tg:miniapp"`, then `cmd /c "npm run tg:miniapp -- set"`.
-Locally `NEXT_PUBLIC_TELEGRAM_LOGIN_ENABLED=false` renders a clean fallback.
 Details in [`docs/AUTH.md`](./docs/AUTH.md).
 
 ## Scripts

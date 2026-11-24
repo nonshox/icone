@@ -21,7 +21,7 @@ agenda.
 
 ## Milestones
 
-1. **Auth (done)** — email one-time code, Telegram Login Widget, server-side
+1. **Auth (done)** — email one-time code, Telegram Mini App, server-side
    Appwrite sessions, HttpOnly cookie, light/dark UI.
 2. **Booking (done)** — barbers, services, weekly hours and date overrides,
    live availability, conflict-safe booking, visits, reviews, staff agenda.
