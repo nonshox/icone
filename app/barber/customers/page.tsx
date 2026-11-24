@@ -12,7 +12,7 @@ export default function BarberCustomersPage() {
   return (
     <BarberShell
       title="Customers"
-      description="Visits, spend and notes that stay private to you."
+      description="Visits and private notes."
     >
       <BarberCustomers />
     </BarberShell>

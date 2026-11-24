@@ -31,6 +31,7 @@
 | `notes` | `barber`, `user`, `note` | `pair` (`barber`,`user`, unique) | Private barber notes — never returned to customers. |
 | `payments` | `booking`, `amount`, `status`, `method` | `for` (`booking`) | Payment state. `status`: `pending`, `paid`, `partial`, `refunded`, `unpaid`. |
 | `portfolio` | `barber`, `url`, `note` | `owner` (`barber`) | Public haircut gallery images. |
+| `applications` | `user`, `name`, `shop`, `city`, `address`, `phone`, `bio`, `state`, `note` | `queue` (`state`), `mine` (`user`, unique) | Barber applications. `state`: `pending`, `approved`, `rejected`. |
 | `categories` | `name`, `active` | `active` | Platform service categories. |
 
 ## Time model
@@ -62,7 +63,7 @@ cmd /c "npm run db:setup"
 ```
 
 `scripts/setup-appwrite.mjs` is idempotent: it creates the database (if
-missing), all 17 collections, attributes, indexes and seeds three services,
+missing), all 18 collections, attributes, indexes and seeds three services,
 three barbers and their weekly hours. Re-running it leaves existing data alone.
 
 The server API key needs these scopes in the Appwrite console:

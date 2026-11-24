@@ -112,7 +112,7 @@ export function BarberDirectory({ barbers }: { barbers: Barber[] }) {
               </CardHeader>
               <CardContent className="flex h-full flex-col justify-between gap-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {barber.bio || "Precision cuts and a calm chair."}
+                  {barber.bio || "Precision cuts, calm chair."}
                 </p>
                 <Link
                   href={`/barbers/${barber.id}`}

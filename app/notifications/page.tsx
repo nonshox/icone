@@ -38,9 +38,6 @@ export default function NotificationsPage() {
 
       <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-6 pt-10 pb-10">
         <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Updates about your visits, kept in one place.
-        </p>
 
         <div className="mt-6">
           <Suspense fallback={<NotificationsSkeleton />}>

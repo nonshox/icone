@@ -152,7 +152,7 @@ function ReviewsSection() {
     <Card>
       <CardHeader>
         <CardTitle>Reviews</CardTitle>
-        <CardDescription>Remove anything that does not belong.</CardDescription>
+        <CardDescription>Remove off-topic reviews.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <FormError text={errorText} />
@@ -313,9 +313,7 @@ function BarbersSection() {
     <Card>
       <CardHeader>
         <CardTitle>Barbers</CardTitle>
-        <CardDescription>
-          Add a chair, then take it online or offline.
-        </CardDescription>
+        <CardDescription>Add and manage chairs.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
@@ -345,7 +343,7 @@ function BarbersSection() {
               id="barber-bio"
               value={bio}
               maxLength={512}
-              placeholder="A short line about their work."
+              placeholder="Short bio."
               onChange={(event) => setBio(event.target.value)}
             />
           </div>
@@ -473,7 +471,7 @@ function BarbersSection() {
                               id={`barber-edit-bio-${barber.id}`}
                               value={editBio}
                               maxLength={512}
-                              placeholder="A short line about their work."
+                              placeholder="Short bio."
                               onChange={(event) => setEditBio(event.target.value)}
                             />
                           </div>
@@ -577,9 +575,7 @@ function TeamSection() {
     <Card>
       <CardHeader>
         <CardTitle>Team</CardTitle>
-        <CardDescription>
-          Set who can book, work a chair or manage the catalogue.
-        </CardDescription>
+        <CardDescription>Roles and chairs.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <FormError text={error} />
@@ -771,9 +767,7 @@ function ServicesSection() {
     <Card>
       <CardHeader>
         <CardTitle>Services</CardTitle>
-        <CardDescription>
-          Prices in UZS, duration in minutes. Inactive items stay off the menu.
-        </CardDescription>
+        <CardDescription>Prices in UZS, duration in minutes.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
@@ -793,7 +787,7 @@ function ServicesSection() {
               id="service-note"
               value={note}
               maxLength={256}
-              placeholder="What the visit includes."
+              placeholder="What's included."
               onChange={(event) => setNote(event.target.value)}
             />
           </div>
@@ -1046,9 +1040,7 @@ function HoursSection() {
     <Card>
       <CardHeader>
         <CardTitle>Weekly hours</CardTitle>
-        <CardDescription>
-          Regular opening windows. A barber can have more than one a day.
-        </CardDescription>
+        <CardDescription>Regular weekly windows.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
@@ -1242,9 +1234,7 @@ function DaysSection() {
     <Card>
       <CardHeader>
         <CardTitle>Date overrides</CardTitle>
-        <CardDescription>
-          Close a chair for a date, or set different hours. One per chair and date.
-        </CardDescription>
+        <CardDescription>Close or change one date.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">

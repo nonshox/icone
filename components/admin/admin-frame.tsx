@@ -31,9 +31,6 @@ export function AdminFrame({
 
       <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Platform overview and management.
-        </p>
 
         <div className="mt-6">
           <AdminNav />

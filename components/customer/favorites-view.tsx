@@ -36,9 +36,6 @@ export function FavoritesView({ profile }: { profile: Profile }) {
             <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
               Saved chairs
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              The barbers you want to book again, one tap away.
-            </p>
           </div>
           {favorites.data && favorites.data.length > 0 ? (
             <Badge variant="secondary" className="tabular-nums">
@@ -65,9 +62,7 @@ export function FavoritesView({ profile }: { profile: Profile }) {
                 <Heart className="size-4 text-brand-strong" aria-hidden />
                 Nothing saved yet
               </CardTitle>
-              <CardDescription>
-                Tap the heart on a barber profile to keep them here.
-              </CardDescription>
+              <CardDescription>Save a barber from their profile.</CardDescription>
             </CardHeader>
             <CardContent>
               <Link

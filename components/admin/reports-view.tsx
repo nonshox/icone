@@ -66,12 +66,12 @@ export function ReportsView() {
             <StatCard
               label="New users"
               value={String(report.totals.users)}
-              note="Profiles created in range"
+              note="New profiles"
             />
             <StatCard
               label="Barber registrations"
               value={String(report.totals.barbers)}
-              note="New barber-role profiles"
+              note="New barbers"
             />
             <StatCard
               label="Bookings"
@@ -81,7 +81,7 @@ export function ReportsView() {
             <StatCard
               label="Revenue"
               value={formatPrice(report.totals.revenue)}
-              note="Paid payments in range"
+              note="Paid"
             />
             <StatCard
               label="Cancellation rate"
@@ -96,16 +96,16 @@ export function ReportsView() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Section title="User growth" description="New profiles per period.">
+            <Section title="User growth">
               <Bars points={report.series.users} />
             </Section>
-            <Section title="Barber registrations" description="New barber accounts per period.">
+            <Section title="Barber registrations">
               <Bars points={report.series.barbers} />
             </Section>
-            <Section title="Booking trends" description="Visits created per period.">
+            <Section title="Booking trends">
               <Bars points={report.series.bookings} />
             </Section>
-            <Section title="Revenue" description="Paid amounts per period.">
+            <Section title="Revenue">
               <Bars points={report.series.revenue} mode="value" format={formatPrice} />
             </Section>
           </div>

@@ -13,43 +13,43 @@ export const metadata: Metadata = {
 const sections = [
   {
     title: "Using icone",
-    body: "icone connects members with barbers in Tashkent. We provide the booking service; the barber provides the cut. By booking, you agree to these terms and to arrive on time for the chair you reserved.",
+    body: "icone connects members with barbers in Tashkent. We run the booking service; the barber provides the cut. Booking means you agree to arrive on time.",
   },
   {
     title: "Accounts",
-    body: "You sign in with an email code or through Telegram. Give accurate details and keep access to your inbox or Telegram account. One person per account. If something looks wrong, contact support so we can help.",
+    body: "Sign in with an email code or Telegram. Give accurate details and keep access to your inbox or Telegram account. One person per account.",
   },
   {
     title: "Bookings",
-    body: "A slot is held only once it appears under My visits. Same-day bookings need at least 30 minutes of lead time and the calendar opens 60 days ahead. If two people request the same time, the earlier request keeps it.",
+    body: "A slot is held once it appears under My visits. Same-day bookings need 30 minutes of lead time; the calendar opens 60 days ahead. The earlier request wins a contested slot.",
   },
   {
     title: "Changes and cancellations",
-    body: "Cancel a future booking from My visits. Do it as early as you can so the barber can offer the chair to someone else. Repeated no-shows may limit your ability to book.",
+    body: "Cancel a future booking from My visits as early as you can. Repeated no-shows may limit your ability to book.",
   },
   {
     title: "Prices and payment",
-    body: "Prices are shown in UZS before you confirm. Payment is settled with the barber at the shop unless a promotion states otherwise. The amount shown in your booking is the quoted price for that service at the time of booking.",
+    body: "Prices are in UZS before you confirm. Payment is settled with the barber at the shop unless an offer states otherwise.",
   },
   {
     title: "Reviews",
-    body: "You can review a visit once it is marked completed, one review per booking. Reviews must describe your own experience. We may hide a review that is abusive or unrelated to the visit.",
+    body: "One review per completed booking. Reviews must describe your own visit; we may hide abusive or unrelated ones.",
   },
   {
     title: "Promotions",
-    body: "Offers are published by barbers with their own conditions, such as a start date, end date or limit on uses. The conditions shown on the barber profile apply to that offer.",
+    body: "Barbers publish offers with their own dates and usage limits. The conditions on the barber profile apply.",
   },
   {
     title: "Availability of the service",
-    body: "We work to keep icone running, but hours, schedules and barbers can change. If a visit cannot go ahead as booked, we will tell you and help you find another time.",
+    body: "Hours, schedules and barbers can change. If a visit cannot go ahead, we will tell you and help find another time.",
   },
   {
     title: "Responsibility",
-    body: "The barber is responsible for the service they provide. icone is responsible for the booking platform. Neither party is liable for losses that could not reasonably be expected from a haircut appointment.",
+    body: "The barber is responsible for the cut; icone for the booking platform. Neither is liable for losses not reasonably expected from a haircut appointment.",
   },
   {
     title: "Changes to these terms",
-    body: "We may update these terms as the service grows. The current version is always the one on this page, with the date shown below.",
+    body: "We may update these terms. The current version is always on this page with the date below.",
   },
 ];
 
@@ -68,12 +68,6 @@ export default function TermsPage() {
             Updated 1 January 2026 · icone, Tashkent
           </p>
         </div>
-
-        <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-          These terms cover booking a chair through icone. They are the
-          agreement between you and icone, and they sit alongside our privacy
-          policy.
-        </p>
 
         <div className="mt-8 space-y-4">
           {sections.map((section) => (

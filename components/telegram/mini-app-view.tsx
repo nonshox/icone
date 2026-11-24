@@ -146,8 +146,7 @@ export function MiniAppView() {
           Signed in as {name}
         </CardTitle>
         <CardDescription>
-          Your account carries over from Telegram. No password needed. Use the
-          one-time link below to stay signed in on the website too.
+          Signed in with Telegram. Use the link below on the website.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

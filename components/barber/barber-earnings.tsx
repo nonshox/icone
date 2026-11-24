@@ -72,7 +72,7 @@ export function BarberEarnings() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>Filters</CardTitle>
-          <CardDescription>Real bookings and payments from your chair.</CardDescription>
+          <CardDescription>From your chair.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-4">
           <div className="space-y-1.5">
@@ -144,7 +144,7 @@ export function BarberEarnings() {
             <Card className="glass">
               <CardHeader>
                 <CardTitle>Popular services</CardTitle>
-                <CardDescription>By booking count in this range.</CardDescription>
+                <CardDescription>By bookings.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {earnings.data.popularServices.length === 0 ? (
@@ -168,7 +168,7 @@ export function BarberEarnings() {
             <Card className="glass">
               <CardHeader>
                 <CardTitle>Popular times</CardTitle>
-                <CardDescription>Hours with the most bookings.</CardDescription>
+                <CardDescription>Busiest hours.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {earnings.data.popularTimes.length === 0 ? (

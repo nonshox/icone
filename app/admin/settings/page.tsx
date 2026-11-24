@@ -12,7 +12,7 @@ export default function AdminSettingsPage() {
   return (
     <AdminFrame
       title="Platform settings"
-      description="Categories, featured listings, payment methods and booking policy."
+      description="Categories and platform defaults."
     >
       <SettingsView />
     </AdminFrame>

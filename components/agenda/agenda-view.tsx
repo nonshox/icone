@@ -154,10 +154,7 @@ export function AgendaView({ role }: { role: Role }) {
             {date ? formatDate(date) : "Pick a day"}
           </CardTitle>
           <CardDescription>
-            {role === "barber"
-              ? "Your chair for the day."
-              : "Every chair for the day."}{" "}
-            Cancel, complete or mark a no-show.
+            {role === "barber" ? "Your chair for the day." : "Every chair for the day."}
           </CardDescription>
           {role === "barber" ? (
             <Link

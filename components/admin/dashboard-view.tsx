@@ -23,9 +23,9 @@ import {
 } from "./admin-ui";
 
 function growthNote(value: number): string {
-  if (value > 0) return `+${value}% vs prior 30 days`;
-  if (value < 0) return `${value}% vs prior 30 days`;
-  return "Flat vs prior 30 days";
+  if (value > 0) return `+${value}% vs 30 days`;
+  if (value < 0) return `${value}% vs 30 days`;
+  return "Flat vs 30 days";
 }
 
 function ActivityMark({ kind }: { kind: string }) {
@@ -79,7 +79,7 @@ export function DashboardView() {
         <StatCard
           label="Barbers"
           value={String(stats.totals.barbers)}
-          note={`${stats.totals.chairs} chairs · ${stats.totals.activeBusinesses} active businesses`}
+          note={`${stats.totals.chairs} chairs · ${stats.totals.activeBusinesses} active`}
         />
         <StatCard
           label="Appointments"
@@ -94,12 +94,12 @@ export function DashboardView() {
         <StatCard
           label="Booked value"
           value={formatPrice(stats.totals.bookedValue)}
-          note="Non-cancelled bookings"
+          note="Active bookings"
         />
         <StatCard
           label="Cancellation rate"
           value={`${stats.cancellationRate}%`}
-          note="Cancelled / all appointments"
+          note="Of all appointments"
         />
         <StatCard
           label="Reviews"
@@ -109,7 +109,7 @@ export function DashboardView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Appointments by status" description="Every booking, counted once.">
+        <Section title="Appointments by status">
           <Table>
             <TableHeader>
               <TableRow>
@@ -130,7 +130,7 @@ export function DashboardView() {
           </Table>
         </Section>
 
-        <Section title="Recent activity" description="Newest records across the platform.">
+        <Section title="Recent activity">
           {stats.recent.length === 0 ? (
             <Empty>No activity recorded yet.</Empty>
           ) : (

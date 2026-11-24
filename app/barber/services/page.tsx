@@ -12,7 +12,7 @@ export default function BarberServicesPage() {
   return (
     <BarberShell
       title="Services"
-      description="Your menu. Active services flow into booking."
+      description="Your menu."
     >
       <BarberServices />
     </BarberShell>

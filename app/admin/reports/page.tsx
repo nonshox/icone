@@ -12,7 +12,7 @@ export default function AdminReportsPage() {
   return (
     <AdminFrame
       title="Reports"
-      description="Growth, bookings, revenue and retention from real records."
+      description="Growth and revenue."
     >
       <ReportsView />
     </AdminFrame>

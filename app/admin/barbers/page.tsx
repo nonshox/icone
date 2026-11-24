@@ -12,7 +12,7 @@ export default function AdminBarbersPage() {
   return (
     <AdminFrame
       title="Barbers"
-      description="Review chairs, feature listings and moderate submitted work."
+      description="Chairs and submitted work."
     >
       <BarbersView />
     </AdminFrame>

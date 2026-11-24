@@ -130,9 +130,7 @@ export function SettingsView({
           <Card>
             <CardHeader>
               <CardTitle>Your details</CardTitle>
-              <CardDescription>
-                How your name and contact appear on bookings.
-              </CardDescription>
+              <CardDescription>Shown on your bookings.</CardDescription>
             </CardHeader>
             <CardContent>
               {settings.isPending ? (
@@ -161,7 +159,7 @@ export function SettingsView({
                       onChange={(event) => setPhone(event.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Only used to reach you about a visit.
+                      For visit updates only.
                     </p>
                   </div>
 
@@ -176,7 +174,7 @@ export function SettingsView({
                       onChange={(event) => setAvatar(event.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      A public image URL. Leave empty to use your initials.
+                      Leave empty for initials.
                     </p>
                   </div>
 
@@ -215,9 +213,7 @@ export function SettingsView({
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Save settings to apply your choices.
-              </p>
+
             </CardContent>
           </Card>
         </div>
@@ -229,7 +225,7 @@ export function SettingsView({
                 <ShieldCheck className="size-4 text-brand-strong" aria-hidden />
                 Account
               </CardTitle>
-              <CardDescription>How you sign in and what you can access.</CardDescription>
+              <CardDescription>Sign-in and access.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between gap-3 text-sm">

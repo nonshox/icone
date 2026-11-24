@@ -138,7 +138,7 @@ export function AccountView({
                   onChange={(event) => setPhone(event.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Only used to reach you about a visit.
+                  For visit updates only.
                 </p>
               </div>
 
@@ -162,9 +162,9 @@ export function AccountView({
               {user.provider === "telegram"
                 ? "Telegram"
                 : user.provider === "email"
-                  ? "Email one-time code"
-                  : "Member"}{" "}
-              · session in an HttpOnly cookie.
+                  ? "Email code"
+                  : "Member"}
+              {" · secure cookie session"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -177,7 +177,7 @@ export function AccountView({
         <Card>
           <CardHeader>
             <CardTitle>Next visit</CardTitle>
-            <CardDescription>Your next reserved chair.</CardDescription>
+            <CardDescription>Your next visit.</CardDescription>
           </CardHeader>
           <CardContent>
             {bookings.isPending || !todayDate ? (
@@ -281,6 +281,15 @@ export function AccountView({
               <Scissors className="size-4" aria-hidden />
               Book a chair
             </Link>
+            {profile.role === "client" ? (
+              <Link
+                href="/become-barber"
+                className="flex items-center gap-2 text-sm font-medium hover:underline"
+              >
+                <UserRound className="size-4" aria-hidden />
+                Become a barber
+              </Link>
+            ) : null}
             {profile.role !== "client" ? (
               <Link
                 href="/agenda"

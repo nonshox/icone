@@ -49,10 +49,7 @@ export function BarberDashboard() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>Revenue</CardTitle>
-          <CardDescription>
-            Booked money is reserved, completed money is earned and paid money has
-            been received.
-          </CardDescription>
+          <CardDescription>Booked, completed and paid.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[28rem] text-sm">
@@ -86,9 +83,7 @@ export function BarberDashboard() {
         <Card className="glass">
           <CardHeader>
             <CardTitle>Recent reviews</CardTitle>
-            <CardDescription>
-              Average rating {data.rating.toFixed(1)} from member reviews.
-            </CardDescription>
+            <CardDescription>Average rating {data.rating.toFixed(1)}.</CardDescription>
           </CardHeader>
           <CardContent>
             {data.reviews.length === 0 ? (
@@ -113,7 +108,7 @@ export function BarberDashboard() {
         <Card className="glass">
           <CardHeader>
             <CardTitle>Recent activity</CardTitle>
-            <CardDescription>Latest bookings on your chair.</CardDescription>
+            <CardDescription>Latest bookings.</CardDescription>
           </CardHeader>
           <CardContent>
             {data.activity.length === 0 ? (
@@ -137,7 +132,7 @@ export function BarberDashboard() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>Next 14 days</CardTitle>
-          <CardDescription>Your chair, day by day.</CardDescription>
+          <CardDescription>Day by day.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           {data.calendar.map((day) => (

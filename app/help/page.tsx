@@ -15,52 +15,46 @@ export const metadata: Metadata = {
 const steps = [
   {
     title: "Pick a service",
-    body: "Choose a cut from the menu. Each entry shows the price in UZS and how long the chair is held.",
+    body: "Choose a cut. Prices are in UZS and each entry shows the duration.",
   },
   {
     title: "Choose your barber",
-    body: "Browse the chairs, read real reviews and open a profile for hours, services and recent work.",
+    body: "Browse chairs, reviews, hours and recent work.",
   },
   {
     title: "Reserve a time",
-    body: "Free slots appear on a 15-minute grid. Same-day bookings need at least 30 minutes of lead time.",
+    body: "Free slots appear on a 15-minute grid, with 30 minutes of lead time for same-day visits.",
   },
   {
     title: "Show up",
-    body: "Your booking appears under My visits with the address and time. No calls, no queue.",
+    body: "Your booking appears under My visits with the address and time.",
   },
 ];
 
 const questions = [
   {
     question: "How do I sign in?",
-    answer:
-      "There is no password. Enter your email and we send a six-digit code, or open the Telegram bot and continue in the Mini App. Your session is kept in an HttpOnly cookie.",
+    answer: "No password: use an email code or the Telegram Mini App. Your session stays in an HttpOnly cookie.",
   },
   {
     question: "Can I cancel a booking?",
-    answer:
-      "Yes. Open My visits and cancel a future booking. If the chair already confirmed, tell the shop as well so they can release it.",
+    answer: "Yes. Cancel a future booking under My visits.",
   },
   {
     question: "How far ahead can I book?",
-    answer:
-      "The calendar opens 60 days ahead. Hours come from each barber's weekly schedule and any date overrides they have set.",
+    answer: "Up to 60 days, based on each barber's weekly hours and date overrides.",
   },
   {
     question: "What if a slot disappears?",
-    answer:
-      "Two people can see the same free time. The earlier request keeps the slot and the other is asked to pick another time.",
+    answer: "Two people can see the same time; the earlier request keeps it.",
   },
   {
     question: "When can I leave a review?",
-    answer:
-      "After a visit is marked completed. One review per booking, so ratings stay honest.",
+    answer: "Once the visit is marked completed, one review per booking.",
   },
   {
     question: "Where do I change my details?",
-    answer:
-      "Open Settings to update your name, phone, avatar and notification choices.",
+    answer: "In Settings: name, phone, avatar and notification choices.",
   },
 ];
 
@@ -77,10 +71,6 @@ export default function HelpPage() {
           <h1 className="text-3xl font-semibold tracking-[-0.04em]">
             Booking, step by step.
           </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            icone keeps a chair ready without phone calls. Here is how the whole
-            flow works and what to do when something changes.
-          </p>
         </div>
 
         <section className="mt-10 space-y-4">
@@ -122,9 +112,7 @@ export default function HelpPage() {
           <Card size="sm">
             <CardHeader>
               <CardTitle>Still stuck?</CardTitle>
-              <CardDescription>
-                Tell us what happened and we will look into it.
-              </CardDescription>
+              <CardDescription>Ask us directly.</CardDescription>
             </CardHeader>
             <CardContent>
               <Link
@@ -138,9 +126,7 @@ export default function HelpPage() {
           <Card size="sm">
             <CardHeader>
               <CardTitle>Your account</CardTitle>
-              <CardDescription>
-                Details, notification choices and sign-out live in Settings.
-              </CardDescription>
+              <CardDescription>Details and sign-out live here.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
               <Link

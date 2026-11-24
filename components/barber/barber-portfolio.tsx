@@ -93,7 +93,7 @@ export function BarberPortfolio() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>{editing ? "Edit photo" : "Add a photo"}</CardTitle>
-          <CardDescription>Paste a direct image link and a short caption.</CardDescription>
+          <CardDescription>Add a photo with a caption.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">

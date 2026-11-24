@@ -116,9 +116,7 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
       { booking: booking.id, rate: Number(rate), note: note.trim() },
       {
         onSuccess: () =>
-          toast.success("Thanks for the review", {
-            description: "It helps the next person pick a chair.",
-          }),
+          toast.success("Thanks for the review"),
         onError: (error) =>
           toast.error("Could not save the review", {
             description:
@@ -186,12 +184,7 @@ function EmptyState() {
         <span className="grid size-10 place-items-center rounded-full bg-muted">
           <CalendarDays className="size-5" aria-hidden />
         </span>
-        <div>
-          <p className="font-medium">No visits yet</p>
-          <p className="text-sm text-muted-foreground">
-            Your first chair is a few taps away.
-          </p>
-        </div>
+        <p className="font-medium">No visits yet</p>
         <Link
           href="/book"
           className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
@@ -257,8 +250,8 @@ export function BookingsView() {
             <h2 className="text-lg font-medium">Upcoming</h2>
             <p className="text-sm text-muted-foreground">
               {upcoming.length === 0
-                ? "Nothing on the books."
-                : `${upcoming.length} chair${upcoming.length === 1 ? "" : "s"} reserved.`}
+                ? "Nothing booked."
+                : `${upcoming.length} upcoming.`}
             </p>
           </div>
           <Link
@@ -272,7 +265,7 @@ export function BookingsView() {
         {upcoming.length === 0 ? (
           <Card size="sm">
             <CardContent className="py-5 text-sm text-muted-foreground">
-              Pick a service and a time — the calendar is open 60 days out.
+              Book a service to see it here.
             </CardContent>
           </Card>
         ) : (
@@ -297,7 +290,7 @@ export function BookingsView() {
         {history.length === 0 ? (
           <Card size="sm">
             <CardContent className="py-5 text-sm text-muted-foreground">
-              Completed visits will show up here.
+              No past visits.
             </CardContent>
           </Card>
         ) : (

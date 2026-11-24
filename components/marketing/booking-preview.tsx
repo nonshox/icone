@@ -121,7 +121,7 @@ export function BookingPreview() {
         </Link>
 
         <p className="mt-3 text-center text-[0.7rem] text-muted-foreground">
-          One-time email code or Telegram. No password, no card needed.
+          No password, no card needed.
         </p>
       </div>
 
@@ -133,8 +133,7 @@ export function BookingPreview() {
       </div>
 
       <div className="glass-soft absolute -bottom-5 -left-4 hidden rounded-2xl px-3.5 py-2.5 text-xs text-muted-foreground sm:block">
-        <span className="font-medium text-foreground">No queue.</span> Just a
-        time that fits.
+        No queue. Just your time.
       </div>
     </div>
   );

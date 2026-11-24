@@ -63,6 +63,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `cmd /c "npm run qa:cron"` | reminder cron probe |
 | `cmd /c "npm run qa:staff"` | barber self-service probe |
 | `cmd /c "npm run qa:marketplace"` | customer/barber/messaging/payment probe |
+| `cmd /c "npm run qa:applications"` | barber application probe |
 | `cmd /c "npm run tg:webhook"` | show Telegram webhook state (`-- set` / `-- delete`) |
 | `cmd /c "npm run tg:miniapp"` | show bot menu button (`-- set` / `-- reset`) |
 
@@ -75,6 +76,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `/sign-in` | email one-time code + Telegram |
 | `/start` | role-based entry after sign-in |
 | `/customer` | customer dashboard |
+| `/become-barber` | apply to run a chair |
 | `/account` | shared profile |
 | `/bookings` · `/bookings/:id` | visits and detail |
 | `/favorites` · `/notifications` · `/settings` | customer extras |

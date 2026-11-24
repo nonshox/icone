@@ -108,6 +108,12 @@ Day overrides upsert per chair/date so availability never has two winners.
 Payment rows are created with `method: "shop"` and `status: "pending"` when a
 booking is confirmed. Only `status: "paid"` is ever shown as collected.
 
+| GET/POST | `/api/applications` | application fields | own application / `201` |
+| GET/PATCH | `/api/admin/applications` | `{ id, decision, note? }` | review queue / approve or reject |
+
+Approving creates the linked `barbers` chair, sets `users.role = "barber"` and
+notifies the applicant. Rejecting only records the decision and note.
+
 ## Barber self-service
 
 Every route resolves the caller's own chair through `barbers.user`. A barber

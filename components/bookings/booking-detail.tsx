@@ -135,9 +135,7 @@ export function BookingDetail({ id }: { id: string }) {
       { booking: visit.id, rate: Number(rate), note: note.trim() },
       {
         onSuccess: () =>
-          toast.success("Thanks for the review", {
-            description: "It helps the next person pick a chair.",
-          }),
+          toast.success("Thanks for the review"),
         onError: (error) => {
           const text = message(error, "Please try again.");
           setActionError(text);
@@ -196,9 +194,7 @@ export function BookingDetail({ id }: { id: string }) {
                 ? "Visit not found"
                 : "Could not load this visit"}
             </CardTitle>
-            <CardDescription>
-              We couldn&apos;t open the details right now.
-            </CardDescription>
+            <CardDescription>Try again shortly.</CardDescription>
           </CardHeader>
           <CardContent>
             <p
@@ -290,7 +286,7 @@ export function BookingDetail({ id }: { id: string }) {
                     Cancel booking
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Plans change. Cancel before your visit starts.
+                    Cancel before the visit starts.
                   </p>
                 </div>
               </>
@@ -305,7 +301,7 @@ export function BookingDetail({ id }: { id: string }) {
                       className="size-4 text-brand-strong"
                       aria-hidden
                     />
-                    You reviewed this visit. Thanks for sharing.
+                    You reviewed this visit.
                   </p>
                 </>
               ) : (
@@ -380,9 +376,7 @@ export function BookingDetail({ id }: { id: string }) {
                   Payment
                 </CardTitle>
                 <CardDescription>
-                  {payment.data
-                    ? "Keep this in mind when you pay at the shop."
-                    : "No payment has been recorded for this visit yet."}
+                  {payment.data ? "Settle this at the shop." : "No payment recorded."}
                 </CardDescription>
               </div>
               {payment.data ? (

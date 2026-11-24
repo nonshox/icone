@@ -93,7 +93,7 @@ export function SettingsView() {
     <div className="space-y-6">
       <Section
         title="Service categories"
-        description="Names used to group the menu. Inactive categories are hidden."
+        description="Inactive categories are hidden."
       >
         <form onSubmit={add} className="mb-4 flex flex-wrap items-end gap-3">
           <div className="min-w-48 flex-1 space-y-1.5">
@@ -220,7 +220,7 @@ export function SettingsView() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Section
           title="Featured listings"
-          description="Chairs promoted on the public directory."
+          description="Promoted on the directory."
         >
           {barbers.isPending ? (
             <LoadingRows />
@@ -267,7 +267,7 @@ export function SettingsView() {
 
         <Section
           title="Payment methods"
-          description="Supported ways to settle a visit, shown on bookings."
+          description="Ways to settle a visit."
         >
           <ul className="space-y-2">
             {PAYMENT_METHODS.map((method) => (
@@ -283,8 +283,8 @@ export function SettingsView() {
       </div>
 
       <Section
-        title="Booking policy defaults"
-        description="The cancellation policy each chair publishes on its profile."
+        title="Booking policies"
+        description="Per-chair cancellation policy."
       >
         {barbers.isPending ? (
           <LoadingRows />
@@ -304,7 +304,7 @@ export function SettingsView() {
         )}
       </Section>
 
-      <Section title="Announcements" description="Broadcast to all members or one role.">
+      <Section title="Announcements">
         <p className="text-sm text-muted-foreground">
           <Link
             href="/admin/moderation"

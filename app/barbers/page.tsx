@@ -53,7 +53,7 @@ export default function BarbersPage() {
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">The chairs</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick the hands you trust. Every cut starts with a consultation.
+          Every cut starts with a consultation.
         </p>
 
         <div className="mt-6">

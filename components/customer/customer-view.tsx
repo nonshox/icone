@@ -88,16 +88,13 @@ export function CustomerView({
           <h2 className="text-2xl font-semibold tracking-[-0.04em]">
             Good to see you, {firstName}.
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {contact ? `${contact} · ` : ""}Your next chair, saved barbers and
-            the latest updates in one place.
-          </p>
+          {contact ? <p className="text-sm text-muted-foreground">{contact}</p> : null}
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Next appointment</CardTitle>
-            <CardDescription>The chair you have reserved next.</CardDescription>
+            <CardDescription>Your next booking.</CardDescription>
           </CardHeader>
           <CardContent>
             {warm && bookings.isPending ? (
@@ -128,9 +125,6 @@ export function CustomerView({
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                   <p className="font-medium">No chair reserved yet.</p>
-                  <p className="text-sm text-muted-foreground">
-                    Pick a time and we will hold it for you.
-                  </p>
                 </div>
                 <Link
                   href="/book"
@@ -155,16 +149,14 @@ export function CustomerView({
           <Card>
             <CardHeader>
               <CardTitle>Saved barbers</CardTitle>
-              <CardDescription>Chairs you come back to.</CardDescription>
+              <CardDescription>Your shortlist.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {favorites.isPending ? (
                 <Skeleton className="h-16 w-full" />
               ) : (favorites.data ?? []).length === 0 ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    No saved barbers yet. Keep a favourite close for next time.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Nothing saved yet.</p>
                   <Link
                     href="/barbers"
                     className="text-sm font-medium text-brand-strong hover:underline"
@@ -211,15 +203,13 @@ export function CustomerView({
           <Card>
             <CardHeader>
               <CardTitle>Latest updates</CardTitle>
-              <CardDescription>What changed since your last visit.</CardDescription>
+              <CardDescription>New since your last visit.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {notifications.isPending ? (
                 <Skeleton className="h-16 w-full" />
               ) : (notifications.data?.notifications ?? []).length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing new for now. We will let you know when there is.
-                </p>
+                <p className="text-sm text-muted-foreground">Nothing new.</p>
               ) : (
                 <>
                   <ul className="divide-y divide-border/60">
@@ -252,13 +242,11 @@ export function CustomerView({
         <Card>
           <CardHeader>
             <CardTitle>Activity</CardTitle>
-            <CardDescription>Your recent visits, reviews and updates.</CardDescription>
+            <CardDescription>Your latest activity.</CardDescription>
           </CardHeader>
           <CardContent>
             {activity.length === 0 ? (
-              <p className="py-2 text-sm text-muted-foreground">
-                Nothing here yet. Your bookings will appear as you go.
-              </p>
+              <p className="py-2 text-sm text-muted-foreground">Nothing here yet.</p>
             ) : (
               <ol className="space-y-3">
                 {activity.map((item) => (
@@ -294,6 +282,10 @@ export function CustomerView({
             <Link href="/help" className="flex items-center gap-2 text-sm font-medium hover:underline">
               <Bell className="size-4 text-brand-strong" aria-hidden />
               Help
+            </Link>
+            <Link href="/become-barber" className="flex items-center gap-2 text-sm font-medium hover:underline">
+              <Scissors className="size-4 text-brand-strong" aria-hidden />
+              Become a barber
             </Link>
           </CardContent>
         </Card>

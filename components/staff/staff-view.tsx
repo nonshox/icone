@@ -168,9 +168,7 @@ function ProfileSection({ state }: { state: ChairState }) {
     <Card>
       <CardHeader>
         <CardTitle>Your chair</CardTitle>
-        <CardDescription>
-          This is what members see on your public profile.
-        </CardDescription>
+        <CardDescription>Visible to members.</CardDescription>
       </CardHeader>
       <CardContent>
         {state.isPending ? (
@@ -178,9 +176,7 @@ function ProfileSection({ state }: { state: ChairState }) {
         ) : state.isError ? (
           <FormError text={state.errorMessage} />
         ) : !chair ? (
-          <Empty>
-            No chair is linked to your account yet. Ask an admin to connect it.
-          </Empty>
+          <Empty>No chair linked. Ask an admin to connect it.</Empty>
         ) : (
           <ProfileForm key={chair.id} chair={chair} />
         )}
@@ -280,7 +276,7 @@ function ProfileForm({ chair }: { chair: Barber }) {
           id="staff-bio"
           value={bio}
           maxLength={512}
-          placeholder="A short line about your work."
+          placeholder="Short bio."
           onChange={(event) => setBio(event.target.value)}
         />
       </div>
@@ -407,9 +403,7 @@ function HoursSection({ state }: { state: ChairState }) {
     <Card>
       <CardHeader>
         <CardTitle>Weekly hours</CardTitle>
-        <CardDescription>
-          Regular windows for your chair. You can add more than one a day.
-        </CardDescription>
+        <CardDescription>Add more than one window a day.</CardDescription>
       </CardHeader>
       <CardContent>
         {state.isPending ? (
@@ -471,7 +465,7 @@ function HoursSection({ state }: { state: ChairState }) {
             <Separator className="my-6" />
 
             {hours.length === 0 ? (
-              <Empty>No weekly hours yet. Add a window above.</Empty>
+              <Empty>No weekly hours yet.</Empty>
             ) : (
               <Table>
                 <TableHeader>
@@ -584,9 +578,7 @@ function DaysSection({ state }: { state: ChairState }) {
     <Card>
       <CardHeader>
         <CardTitle>Date overrides</CardTitle>
-        <CardDescription>
-          Close your chair for a date, or set different hours. One per date.
-        </CardDescription>
+        <CardDescription>Close a date or set special hours.</CardDescription>
       </CardHeader>
       <CardContent>
         {state.isPending ? (
@@ -740,7 +732,7 @@ function UpcomingSection() {
     <Card>
       <CardHeader>
         <CardTitle>Upcoming</CardTitle>
-        <CardDescription>Your chair for the next 14 days.</CardDescription>
+        <CardDescription>Next 14 days.</CardDescription>
       </CardHeader>
       <CardContent>
         {upcoming.isPending ? (

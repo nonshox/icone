@@ -12,7 +12,7 @@ export default function BarberSettingsPage() {
   return (
     <BarberShell
       title="Business settings"
-      description="Profile, booking policies, notifications and sign out."
+      description="Profile and preferences."
     >
       <BarberSettings />
     </BarberShell>

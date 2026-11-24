@@ -12,7 +12,7 @@ export default function AdminAppointmentsPage() {
   return (
     <AdminFrame
       title="Appointments"
-      description="Every visit on the platform, with status control and dispute details."
+      description="All visits and status control."
     >
       <AppointmentsView />
     </AdminFrame>

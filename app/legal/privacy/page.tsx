@@ -13,35 +13,35 @@ export const metadata: Metadata = {
 const sections = [
   {
     title: "What we store",
-    body: "Your display name, phone number and sign-in identifier (an email address or a Telegram id). We also keep the bookings you make, reviews you post, barbers you save, notifications in your inbox and your notification choices.",
+    body: "Your name, phone and sign-in identifier (email or Telegram id), plus bookings, reviews, saved barbers, notifications and preferences.",
   },
   {
     title: "Why we store it",
-    body: "To reserve a chair, show your visits, send the reminders you asked for and help support resolve a problem. We do not use your details for advertising.",
+    body: "To reserve chairs, show visits, send reminders and help support. We never use your details for advertising.",
   },
   {
     title: "Where it lives",
-    body: "Data is kept in Appwrite in the fra region. Your session secret lives in an HttpOnly cookie on your device. We do not put session tokens in localStorage and we never send the server API key to the browser.",
+    body: "Data sits in Appwrite (fra region). Your session secret is in an HttpOnly cookie, never in localStorage, and the server API key never reaches the browser.",
   },
   {
     title: "Who can see it",
-    body: "A barber sees the details needed for a visit: your name, the service, the time and any note you left. Admin staff can manage the catalogue and moderate reviews. We do not sell or rent your information.",
+    body: "A barber sees your name, service, time and note for a visit. Admin staff manage the catalogue and moderate reviews. We do not sell or rent your data.",
   },
   {
     title: "Your choices",
-    body: "Settings lets you change your name, phone, avatar and notification choices at any time. You can ask us to export or delete your account data through support, and we will comply unless we must keep a record for legal reasons.",
+    body: "Settings lets you change your details and preferences. Ask support to export or delete your data; we comply unless the law requires a record.",
   },
   {
     title: "Retention",
-    body: "Booking and review records stay so you can look back at your visits. If you close your account, we remove personal details and keep only what the law requires.",
+    body: "Booking and review records stay for your history. Closing your account removes personal details, except what the law requires.",
   },
   {
     title: "Security",
-    body: "Every privileged read and write goes through server-side code. Passwords do not exist here: sign-in uses a short-lived code or a signed Telegram payload. Access is limited to what each role needs.",
+    body: "All privileged access runs server-side. There are no passwords — sign-in uses a short-lived code or a signed Telegram payload.",
   },
   {
     title: "Changes",
-    body: "If this policy changes in a meaningful way, we will update this page. The date below always refers to the current version.",
+    body: "We update this page if the policy changes materially. The date below refers to the current version.",
   },
 ];
 
@@ -60,11 +60,6 @@ export default function PrivacyPage() {
             Updated 1 January 2026 · icone, Tashkent
           </p>
         </div>
-
-        <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-          This page explains what icone keeps when you book a chair and why. It
-          is written to be read, not to be skipped.
-        </p>
 
         <div className="mt-8 space-y-4">
           {sections.map((section) => (
@@ -85,8 +80,7 @@ export default function PrivacyPage() {
           <CardHeader>
             <CardTitle>Questions about your data</CardTitle>
             <CardDescription>
-              Write to hello@icone.uz or reach the bot in Telegram. We answer
-              privacy requests directly.
+              Email hello@icone.uz or use the Telegram bot.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-x-5 gap-y-2 text-sm">

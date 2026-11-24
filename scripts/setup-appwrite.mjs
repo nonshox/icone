@@ -245,6 +245,24 @@ const schema = {
     ],
     indexes: [{ key: "active", attributes: ["active"] }],
   },
+
+  applications: {
+    attributes: [
+      { key: "user", type: "string", size: 36, required: true },
+      { key: "name", type: "string", size: 64, required: true },
+      { key: "shop", type: "string", size: 64, default: "" },
+      { key: "city", type: "string", size: 64, default: "Tashkent" },
+      { key: "address", type: "string", size: 128, default: "" },
+      { key: "phone", type: "string", size: 32, default: "" },
+      { key: "bio", type: "string", size: 512, default: "" },
+      { key: "state", type: "string", size: 12, default: "pending" },
+      { key: "note", type: "string", size: 256, default: "" },
+    ],
+    indexes: [
+      { key: "queue", attributes: ["state"] },
+      { key: "mine", attributes: ["user"], type: "unique" },
+    ],
+  },
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

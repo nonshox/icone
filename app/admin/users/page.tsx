@@ -12,7 +12,7 @@ export default function AdminUsersPage() {
   return (
     <AdminFrame
       title="Users"
-      description="Search members, manage roles and chairs, and block access."
+      description="Roles, chairs and access."
     >
       <UsersView />
     </AdminFrame>

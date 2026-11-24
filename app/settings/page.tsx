@@ -42,9 +42,6 @@ export default function SettingsPage() {
 
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 pt-10 pb-10">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your details and how we keep in touch.
-        </p>
 
         <div className="mt-6">
           <Suspense fallback={<SettingsSkeleton />}>

@@ -58,11 +58,11 @@ function NoteForm({ detail }: { detail: CustomerDetail }) {
         id="customer-note"
         value={note}
         maxLength={512}
-        placeholder="Preferences, reminders, anything worth remembering."
+        placeholder="Preferences worth keeping."
         onChange={(event) => setNote(event.target.value)}
       />
       <p className="text-xs text-muted-foreground">
-        Only you can see this note. Members never receive it.
+        Only you can see this.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="sm" disabled={save.isPending}>
@@ -136,9 +136,7 @@ export function BarberCustomers() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>Customers</CardTitle>
-          <CardDescription>
-            Members who booked your chair. Notes stay private.
-          </CardDescription>
+          <CardDescription>Members and private notes.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {customers.isPending ? (
@@ -193,7 +191,7 @@ export function BarberCustomers() {
         <Card className="glass">
           <CardHeader>
             <CardTitle>{detail.data?.customer.name ?? "Member"}</CardTitle>
-            <CardDescription>Booking history and your private note.</CardDescription>
+            <CardDescription>History and your note.</CardDescription>
           </CardHeader>
           <CardContent>
             {detail.isPending ? (

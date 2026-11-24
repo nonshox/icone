@@ -120,9 +120,7 @@ export function BookingForm() {
     <Card>
       <CardHeader>
         <CardTitle>Details</CardTitle>
-        <CardDescription>
-          Times are Tashkent time. The slot is yours as soon as you confirm.
-        </CardDescription>
+        <CardDescription>Times are Tashkent time.</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">

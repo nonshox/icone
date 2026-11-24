@@ -135,7 +135,7 @@ function SettingsForm({
       <Card className="glass">
         <CardHeader>
           <CardTitle>Public profile</CardTitle>
-          <CardDescription>Everything members see on your chair.</CardDescription>
+          <CardDescription>What members see.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -191,8 +191,8 @@ function SettingsForm({
             <Input id="biz-facilities" value={form.facilities} maxLength={512} onChange={(e) => set("facilities", e.target.value)} />
           </div>
           <div className="sm:col-span-2">
-            <ToggleRow id="biz-active" label="Active" hint="Inactive chairs are hidden from members." checked={form.active} onChange={(v) => set("active", v)} />
-            <ToggleRow id="biz-featured" label="Featured" hint="Highlight this chair in the directory." checked={form.featured} onChange={(v) => set("featured", v)} />
+            <ToggleRow id="biz-active" label="Active" hint="Hidden when off." checked={form.active} onChange={(v) => set("active", v)} />
+            <ToggleRow id="biz-featured" label="Featured" hint="Highlighted in the directory." checked={form.featured} onChange={(v) => set("featured", v)} />
           </div>
         </CardContent>
       </Card>
@@ -200,13 +200,13 @@ function SettingsForm({
       <Card className="glass">
         <CardHeader>
           <CardTitle>Booking policies</CardTitle>
-          <CardDescription>Terms members see before they reserve.</CardDescription>
+          <CardDescription>Shown before booking.</CardDescription>
         </CardHeader>
         <CardContent>
           <ToggleRow
             id="biz-confirm"
             label="Confirm each booking"
-            hint="New bookings wait for your approval."
+            hint="Approve new bookings first."
             checked={form.confirm}
             onChange={(v) => set("confirm", v)}
           />
@@ -220,7 +220,7 @@ function SettingsForm({
       <Card className="glass">
         <CardHeader>
           <CardTitle>Notifications</CardTitle>
-          <CardDescription>Your own inbox preferences.</CardDescription>
+          <CardDescription>Your preferences.</CardDescription>
         </CardHeader>
         <CardContent>
           <ToggleRow id="pref-bookings" label="New bookings" checked={notificationPrefs.newBookings} onChange={(v) => setNotificationPrefs((current) => ({ ...current, newBookings: v }))} />

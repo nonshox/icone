@@ -1,15 +1,4 @@
-import {
-  ArrowUpRight,
-  Clock3,
-  Crown,
-  Mail,
-  MapPin,
-  Phone,
-  Scissors,
-  Send,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { ArrowUpRight, Clock3, Crown, Scissors, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { BookingPreview } from "@/components/marketing/booking-preview";
@@ -23,59 +12,30 @@ const services = [
   {
     icon: Scissors,
     name: "Signature cut",
-    description:
-      "Consultation, wash, precision cut and a finish that survives the week.",
+    description: "Consultation, wash, precision cut and a clean finish.",
     duration: "45 min",
     price: "80 000 UZS",
   },
   {
     icon: Sparkles,
     name: "Beard sculpt",
-    description:
-      "Line-up, shape and a hot-towel finish. Clean edges, no guesswork.",
+    description: "Line-up, shape and a hot-towel finish.",
     duration: "30 min",
     price: "50 000 UZS",
   },
   {
     icon: Crown,
     name: "The full reset",
-    description:
-      "Cut, beard, hot towel and styling. Walk in tired, walk out sharp.",
+    description: "Cut, beard, hot towel and styling in one visit.",
     duration: "75 min",
     price: "120 000 UZS",
   },
 ] as const;
 
 const steps = [
-  {
-    number: "01",
-    title: "Sign in, in seconds",
-    body: "A one-time email code or Telegram. No password to create, forget or leak.",
-  },
-  {
-    number: "02",
-    title: "Choose your chair",
-    body: "Pick a barber, a service and a time. Open times are live, so you only see what you can actually book.",
-  },
-  {
-    number: "03",
-    title: "Show up sharp",
-    body: "Arrive five minutes early. Your barber already knows what you booked.",
-  },
-] as const;
-
-const hours = [
-  { days: "Monday — Friday", time: "09:00 — 22:00" },
-  { days: "Saturday", time: "10:00 — 22:00" },
-  { days: "Sunday", time: "10:00 — 20:00" },
-] as const;
-
-const marquee = [
-  "One-time sign-in",
-  "Email or Telegram",
-  "No passwords",
-  "Open 7 days",
-  "Tashkent, UZ",
+  { number: "01", title: "Sign in", body: "A one-time code or Telegram — no password." },
+  { number: "02", title: "Choose a chair", body: "Pick a barber, a service and a live open time." },
+  { number: "03", title: "Show up sharp", body: "Arrive five minutes early. Your barber is ready." },
 ] as const;
 
 const site = process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
@@ -126,8 +86,8 @@ export default function HomePage() {
 
       <main id="main" className="flex-1">
         {/* Hero */}
-        <section className="mx-auto w-full max-w-6xl px-6 pt-14 pb-16 sm:pt-20 lg:pt-24">
-          <div className="grid items-center gap-14 lg:grid-cols-[1.04fr_0.96fr] lg:gap-12">
+        <section className="mx-auto w-full max-w-6xl px-6 pt-14 pb-12 sm:pt-20 lg:pt-24">
+          <div className="grid items-center gap-12 lg:grid-cols-[1.04fr_0.96fr] lg:gap-12">
             <div>
               <div className="glass-soft inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 <span className="relative flex size-1.5">
@@ -144,12 +104,12 @@ export default function HomePage() {
                 </span>
               </h1>
 
-              <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
+              <p className="mt-5 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
                 Book Tashkent&apos;s sharpest barbers in seconds. No calls, no
-                queues, no passwords — just a clean cut, on your time.
+                queues, no passwords.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/book"
                   className={cn(
@@ -171,51 +131,23 @@ export default function HomePage() {
                 </Link>
               </div>
 
-              <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <Mail className="size-3.5 text-brand-strong" aria-hidden />
-                  Email one-time code
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Send className="size-3.5 text-brand-strong" aria-hidden />
-                  Telegram sign-in
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Zap className="size-3.5 text-brand-strong" aria-hidden />
-                  30-second setup
-                </span>
-              </div>
+              <p className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+                <span>Email one-time code</span>
+                <span>Telegram sign-in</span>
+                <span>30-second setup</span>
+              </p>
             </div>
 
             <BookingPreview />
           </div>
         </section>
 
-        {/* Marquee strip */}
-        <section
-          aria-label="Highlights"
-          className="border-y border-border/60 bg-foreground/[0.02]"
-        >
-          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-6 py-4 text-xs tracking-wide text-muted-foreground uppercase">
-            {marquee.map((item, index) => (
-              <span key={item} className="flex items-center gap-8">
-                {index > 0 ? (
-                  <span aria-hidden className="text-brand/60">
-                    ✦
-                  </span>
-                ) : null}
-                {item}
-              </span>
-            ))}
-          </div>
-        </section>
-
         {/* Services */}
         <section
           id="services"
-          className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 pt-20 sm:pt-28"
+          className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 pt-16 sm:pt-20"
         >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-xl">
               <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
                 The menu
@@ -224,13 +156,12 @@ export default function HomePage() {
                 Three services. Zero fuss.
               </h2>
             </div>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Every service starts with a consultation. Tell us the look —
-              we&apos;ll keep it consistent visit after visit.
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Every cut starts with a consultation.
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
             {services.map((service) => {
               const Icon = service.icon;
               return (
@@ -249,7 +180,7 @@ export default function HomePage() {
                   <h3 className="mt-6 text-lg font-medium tracking-[-0.01em]">
                     {service.name}
                   </h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-2 flex-1 text-sm text-muted-foreground">
                     {service.description}
                   </p>
                   <Separator className="my-5 opacity-60" />
@@ -275,130 +206,32 @@ export default function HomePage() {
         {/* How it works */}
         <section
           id="how"
-          className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 pt-20 sm:pt-28"
+          className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 pt-16 sm:pt-20"
         >
-          <div className="glass relative overflow-hidden rounded-[2rem] p-6 sm:p-10">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -top-32 -right-24 size-72 rounded-full bg-brand/15 blur-3xl"
-            />
-            <div className="relative">
-              <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-                How it works
-              </p>
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">
-                  From locked out to{" "}
-                  <span className="font-display text-[1.08em] font-normal italic">
-                    lined up.
+          <div className="glass rounded-[2rem] p-6 sm:p-8">
+            <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
+              How it works
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.035em] sm:text-3xl">
+              From locked out to lined up.
+            </h2>
+            <div className="mt-8 grid gap-6 sm:grid-cols-3">
+              {steps.map((step) => (
+                <div key={step.number} className="relative">
+                  <span className="font-display text-4xl leading-none text-brand-strong/80 italic">
+                    {step.number}
                   </span>
-                </h2>
-                <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">
-                  Sign-in and booking are live. Your chair, your history and
-                  your reviews live in one account.
-                </p>
-              </div>
-
-              <div className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-6">
-                {steps.map((step) => (
-                  <div key={step.number} className="relative">
-                    <span className="font-display text-4xl leading-none text-brand-strong/80 italic">
-                      {step.number}
-                    </span>
-                    <h3 className="mt-4 text-base font-medium">{step.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {step.body}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Hours + location */}
-        <section
-          id="hours"
-          className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 pt-20 sm:pt-28"
-        >
-          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="glass rounded-3xl p-6 sm:p-8">
-              <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-                Find us
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
-                A quiet corner in the city.
-              </h2>
-              <div className="mt-6 space-y-4 text-sm">
-                <p className="flex items-start gap-3 text-muted-foreground">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-brand-strong" aria-hidden />
-                  12 Amir Temur Avenue, Yakkasaray, Tashkent
-                </p>
-                <p className="flex items-center gap-3 text-muted-foreground">
-                  <Phone className="size-4 shrink-0 text-brand-strong" aria-hidden />
-                  <a
-                    href="tel:+998712001212"
-                    className="transition-colors hover:text-foreground"
-                  >
-                    +998 71 200 12 12
-                  </a>
-                </p>
-                <p className="flex items-center gap-3 text-muted-foreground">
-                  <Send className="size-4 shrink-0 text-brand-strong" aria-hidden />
-                  <a
-                    href="https://t.me/icone_app_bot"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="transition-colors hover:text-foreground"
-                  >
-                    @icone_app_bot
-                  </a>
-                </p>
-              </div>
-
-              <div className="mt-8 rounded-2xl border border-border/70 bg-foreground/[0.025] p-4 text-xs leading-relaxed text-muted-foreground">
-                Walk-ins are welcome when a chair is free — but the good slots
-                go to people who book.
-              </div>
-            </div>
-
-            <div className="glass relative overflow-hidden rounded-3xl p-6 sm:p-8">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-                  Opening hours
-                </p>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[0.65rem] font-medium text-emerald-500">
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  Open today
-                </span>
-              </div>
-
-              <div className="mt-6 divide-y divide-border/60">
-                {hours.map((row) => (
-                  <div
-                    key={row.days}
-                    className="flex items-center justify-between py-3.5 text-sm"
-                  >
-                    <span className="text-muted-foreground">{row.days}</span>
-                    <span className="font-medium tabular-nums">{row.time}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                aria-hidden
-                className="mt-6 h-28 rounded-2xl border border-border/60 bg-[linear-gradient(180deg,var(--surface-sunken),transparent)] bg-[length:22px_22px] bg-[radial-gradient(circle_at_1px_1px,var(--border)_1px,transparent_0)] opacity-80"
-              />
-              <p className="mt-3 text-xs text-muted-foreground">
-                Two minutes from Amir Temur metro. Look for the brass dot.
-              </p>
+                  <h3 className="mt-3 text-base font-medium">{step.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{step.body}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* Final CTA */}
-        <section className="mx-auto w-full max-w-6xl px-6 pt-20 sm:pt-28">
-          <div className="glass relative overflow-hidden rounded-[2rem] px-6 py-14 text-center sm:px-16">
+        <section className="mx-auto w-full max-w-6xl px-6 pt-16 sm:pt-20">
+          <div className="glass relative overflow-hidden rounded-[2rem] px-6 py-12 text-center sm:px-16">
             <div
               aria-hidden
               className="pointer-events-none absolute inset-x-0 -bottom-40 mx-auto size-96 rounded-full bg-brand/20 blur-3xl"
@@ -413,11 +246,10 @@ export default function HomePage() {
                   look?
                 </span>
               </h2>
-              <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Sign in once, then pick a service and a time. One-time code or
-                Telegram — no password to remember.
+              <p className="mx-auto mt-4 max-w-md text-sm text-muted-foreground">
+                Sign in once, pick a time, and we&apos;ll hold the chair.
               </p>
-              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Link
                   href="/book"
                   className={cn(
@@ -429,10 +261,10 @@ export default function HomePage() {
                   <ArrowUpRight className="size-4" aria-hidden />
                 </Link>
                 <Link
-                  href="/#how"
+                  href="/become-barber"
                   className="text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
                 >
-                  See how it works
+                  Become a barber
                 </Link>
               </div>
             </div>

@@ -255,7 +255,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
             )}
 
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              {barber.bio || "Precision cuts and a calm chair."}
+              {barber.bio || "Precision cuts, calm chair."}
             </p>
 
             {splitList(barber.skills).length > 0 ? (
@@ -271,12 +271,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           </CardContent>
         </Card>
 
-        <Section
-          title="Services"
-          description="Prices in UZS. Duration includes the consultation."
-        >
+        <Section title="Services" description="Prices in UZS.">
           {menu.length === 0 ? (
-            <Empty>The menu for this chair is being updated.</Empty>
+            <Empty>The menu is being updated.</Empty>
           ) : (
             <ul className="divide-y divide-border/60">
               {menu.map((service) => (
@@ -314,9 +311,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section title="Recent work" description="A look at the chair's portfolio.">
+        <Section title="Recent work" description="From this chair.">
           {portfolio.length === 0 ? (
-            <Empty>No photos have been added yet. Ask the barber at your visit.</Empty>
+            <Empty>No photos yet.</Empty>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {portfolio.map((item: PortfolioItem) => (
@@ -335,11 +332,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section title="Reviews" description="From members who sat in this chair.">
+        <Section title="Reviews" description="From members who visited.">
           {reviewRows.length === 0 ? (
-            <Empty>
-              No reviews yet. Leave one after your first visit to this chair.
-            </Empty>
+            <Empty>No reviews yet.</Empty>
           ) : (
             <ul className="divide-y divide-border/60">
               {reviewRows.map((review) => (
@@ -364,9 +359,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       <div className="space-y-4">
-        <Section title="Opening hours" description="Tashkent time, weekly schedule.">
+        <Section title="Opening hours" description="Tashkent time.">
           {hours.length === 0 ? (
-            <Empty>Hours are being updated. Check the booking calendar for open times.</Empty>
+            <Empty>Hours are being updated.</Empty>
           ) : (
             <ul className="divide-y divide-border/60">
               {hours
@@ -416,14 +411,11 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
               </Link>
             </div>
           ) : (
-            <Empty>
-              No free times in the next few days. The booking calendar has the
-              full schedule.
-            </Empty>
+            <Empty>No free times in the next few days.</Empty>
           )}
         </Section>
 
-        <Section title="Offers" description="Active promotions from this barber.">
+        <Section title="Offers" description="Current promotions.">
           {promotions.length === 0 ? (
             <Empty>No offers running right now.</Empty>
           ) : (
@@ -455,12 +447,12 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section title="Good to know" description="Policies, facilities and contact.">
+        <Section title="Good to know" description="Details for this chair.">
           {splitList(barber.facilities).length === 0 &&
           !barber.policy &&
           !barber.phone &&
           !barber.social ? (
-            <Empty>Extra details for this chair have not been added yet.</Empty>
+            <Empty>No extra details yet.</Empty>
           ) : (
             <div className="space-y-4">
               {splitList(barber.facilities).length > 0 ? (

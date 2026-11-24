@@ -12,7 +12,7 @@ export default function BarberPage() {
   return (
     <BarberShell
       title="Your business"
-      description="Bookings, reviews and revenue from your chair."
+      description="Your chair at a glance."
     >
       <BarberDashboard />
     </BarberShell>

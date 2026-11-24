@@ -12,7 +12,7 @@ export default function AdminPage() {
   return (
     <AdminFrame
       title="Dashboard"
-      description="Live figures from accounts, chairs, visits and payments."
+      description="Platform at a glance."
     >
       <DashboardView />
     </AdminFrame>

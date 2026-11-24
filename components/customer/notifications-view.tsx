@@ -53,9 +53,6 @@ export function NotificationsView({ profile }: { profile: Profile }) {
             <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
               Inbox
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Booking updates and news from your barbers.
-            </p>
           </div>
           <div className="flex items-center gap-3">
             {unread > 0 ? (
@@ -96,9 +93,7 @@ export function NotificationsView({ profile }: { profile: Profile }) {
                 <Inbox className="size-4 text-brand-strong" aria-hidden />
                 All caught up
               </CardTitle>
-              <CardDescription>
-                When something needs your attention, it will show up here.
-              </CardDescription>
+              <CardDescription>New updates appear here.</CardDescription>
             </CardHeader>
           </Card>
         ) : (

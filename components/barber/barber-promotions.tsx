@@ -157,9 +157,7 @@ export function BarberPromotions() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>{editing ? "Edit offer" : "Add an offer"}</CardTitle>
-          <CardDescription>
-            Active offers belong to your chair. Dates are optional.
-          </CardDescription>
+          <CardDescription>Dates are optional.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">

@@ -56,6 +56,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/sign-in` | partial | Email OTP + Telegram sign-in |
 | `/start` | partial | Role-based post-login entry point |
 | `/customer` | partial | Customer dashboard |
+| `/become-barber` | partial | Apply to run a chair |
 | `/account` | partial | Shared account profile and settings links |
 | `/book` | partial | Booking flow (service → barber → date → time) |
 | `/bookings` | partial | Member visits, cancel, review |
@@ -68,6 +69,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/agenda/me` | partial | Barber self-service: chair, hours, days, upcoming |
 | `/barber/**` | partial | Barber business dashboard and management |
 | `/admin/**` | partial | Admin platform management |
+| `/admin/applications` | partial | Barber application review |
 | `/robots.txt` | static | Crawler rules |
 | `/sitemap.xml` | static | Public URLs |
 | `POST /api/auth/email/start` | dynamic | Send the 6-digit code |
@@ -158,6 +160,7 @@ qa-booking.mjs          end-to-end booking probe (dev only)
 qa-admin.mjs            admin / role probe (dev only)
 qa-cron.mjs             reminder cron probe (dev only)
 qa-marketplace.mjs      favorites, inbox, messaging, payments, barber API probe
+qa-applications.mjs     barber apply → approve flow
 qa-staff.mjs            barber self-service probe (dev only)
 scripts/telegram-webhook.mjs  inspect / register / delete the bot webhook
 scripts/telegram-miniapp.mjs  set the bot menu button to the Mini App

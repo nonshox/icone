@@ -127,7 +127,7 @@ export function UsersView() {
   return (
     <Section
       title="Members"
-      description="Search accounts, assign roles and chairs, or block access."
+      description="Roles, chairs and access."
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <div className="space-y-1.5">

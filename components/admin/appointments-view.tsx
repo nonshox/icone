@@ -75,7 +75,7 @@ export function AppointmentsView() {
     <div className="space-y-6">
       <Section
         title="All appointments"
-        description="Filter by status, date or chair. Open a visit to investigate it."
+        description="Filter and investigate visits."
       >
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
@@ -230,8 +230,8 @@ export function AppointmentsView() {
 
       {selectedId ? (
         <Section
-          title="Dispute investigation"
-          description="Booking note, review, payments and the member's history."
+          title="Investigation"
+          description="Notes, reviews and payments."
         >
           {detail.isPending ? (
             <LoadingRows />

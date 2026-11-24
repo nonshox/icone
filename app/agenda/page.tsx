@@ -42,9 +42,7 @@ export default function AgendaPage() {
 
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Agenda</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The day at a glance. Staff only.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Staff only.</p>
 
         <div className="mt-6">
           <Suspense fallback={<AgendaSkeleton />}>

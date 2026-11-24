@@ -154,9 +154,7 @@ export function BarberServices() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>{editing ? "Edit service" : "Add a service"}</CardTitle>
-          <CardDescription>
-            Active services appear on your public profile and in booking.
-          </CardDescription>
+          <CardDescription>Active services appear in booking.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
@@ -219,7 +217,7 @@ export function BarberServices() {
           ) : services.isError ? (
             <FormError text={message(services.error, "Could not load your services.")} />
           ) : !services.data || services.data.length === 0 ? (
-            <Empty>No services yet. Add your first above.</Empty>
+            <Empty>No services yet.</Empty>
           ) : (
             <Table>
               <TableHeader>

@@ -47,9 +47,6 @@ export default function MyChairPage() {
 
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">My chair</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your profile, opening hours and the days ahead.
-        </p>
 
         <div className="mt-6">
           <Suspense fallback={<StaffSkeleton />}>

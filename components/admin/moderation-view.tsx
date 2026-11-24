@@ -78,7 +78,7 @@ export function ModerationView() {
     <div className="space-y-6">
       <Section
         title="Reviews"
-        description="Remove anything that does not belong. Ratings are never edited."
+        description="Remove off-topic reviews."
       >
         <FormError text={error} />
         {reviews.isPending ? (
@@ -139,7 +139,7 @@ export function ModerationView() {
 
       <Section
         title="Portfolio images"
-        description="Submitted work is moderated from the barber management page."
+        description="Managed on the barber page."
       >
         <p className="text-sm text-muted-foreground">
           <Link href="/admin/barbers" className="text-primary underline underline-offset-2">
@@ -151,7 +151,7 @@ export function ModerationView() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Section
           title="Announcement"
-          description="Send one inbox notification to a chosen audience."
+          description="Send one notification."
         >
           <form onSubmit={broadcast} className="space-y-3">
             <div className="space-y-1.5">
@@ -160,7 +160,7 @@ export function ModerationView() {
                 id="announce-title"
                 value={title}
                 maxLength={96}
-                placeholder="A short headline"
+                placeholder="Headline"
                 onChange={(event) => setTitle(event.target.value)}
               />
             </div>
@@ -170,7 +170,7 @@ export function ModerationView() {
                 id="announce-body"
                 value={body}
                 maxLength={512}
-                placeholder="What should members know?"
+                placeholder="Message"
                 onChange={(event) => setBody(event.target.value)}
               />
             </div>
@@ -197,7 +197,7 @@ export function ModerationView() {
           </form>
         </Section>
 
-        <Section title="Recent broadcasts" description="Sent announcements, newest first.">
+        <Section title="Recent broadcasts">
           {announcements.isPending ? (
             <LoadingRows />
           ) : (announcements.data ?? []).length === 0 ? (

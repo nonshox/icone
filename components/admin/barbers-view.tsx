@@ -124,7 +124,7 @@ export function BarbersView() {
     <div className="space-y-6">
       <Section
         title="Chairs"
-        description="Edit a chair, feature it on the homepage, or take it offline."
+        description="Edit, feature or suspend chairs."
       >
         <FormError text={error} />
 
@@ -285,7 +285,7 @@ export function BarbersView() {
                                 onChange={(event) => patch("phone", event.target.value)}
                               />
                             </Field>
-                            <Field label="Years on the floor">
+                            <Field label="Years">
                               <Input
                                 type="number"
                                 min={0}
@@ -350,7 +350,7 @@ export function BarbersView() {
 
       <Section
         title="Portfolio moderation"
-        description="Submitted work. Remove anything that does not belong."
+        description="Submitted work."
       >
         {portfolio.isPending ? (
           <LoadingRows />

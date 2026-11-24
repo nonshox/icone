@@ -14,9 +14,8 @@ export function SiteFooter() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-xs space-y-3">
           <Logo />
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Sharp cuts, calm chairs, zero queues. Tashkent&apos;s barbershop for
-            people who book ahead.
+          <p className="text-sm text-muted-foreground">
+            Book a sharp cut in Tashkent.
           </p>
         </div>
 
@@ -39,6 +38,9 @@ export function SiteFooter() {
             </Link>
             <Link href="/account" className={linkClass}>
               Account
+            </Link>
+            <Link href="/become-barber" className={linkClass}>
+              Become a barber
             </Link>
           </div>
           <div className="flex flex-col gap-2">

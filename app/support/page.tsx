@@ -15,13 +15,13 @@ export const metadata: Metadata = {
 const channels = [
   {
     title: "Telegram",
-    body: "The fastest way. Send /start to @icone_app_bot and describe what you need.",
+    body: "Send /start to @icone_app_bot and describe what you need.",
     action: "Open the bot",
     href: "https://t.me/icone_app_bot?start=signin",
   },
   {
     title: "Email",
-    body: "For anything that needs a written record, including account and privacy requests.",
+    body: "For written records, account and privacy requests.",
     action: "hello@icone.uz",
     href: "mailto:hello@icone.uz",
   },
@@ -30,23 +30,23 @@ const channels = [
 const fixes = [
   {
     title: "The sign-in code never arrived",
-    body: "Check spam, then ask for a new code. Codes expire after ten minutes. You can also sign in through the Telegram bot instead.",
+    body: "Check spam, then request a new code. Codes expire after ten minutes.",
   },
   {
     title: "A slot vanished at checkout",
-    body: "Someone reserved it first. Pick another time from the barber profile. We never hold a slot before it is confirmed.",
+    body: "Someone reserved it first. Pick another time from the barber profile.",
   },
   {
     title: "I need to change a visit",
-    body: "Open My visits to cancel a future booking, then book the new time you want.",
+    body: "Cancel it under My visits, then book the new time.",
   },
   {
     title: "I did not get a reminder",
-    body: "Reminders go to Telegram when your account is linked and Visit reminders is on in Settings. Check both before the day of the visit.",
+    body: "Link Telegram and turn on Visit reminders in Settings.",
   },
   {
     title: "A review will not post",
-    body: "Reviews open once the barber marks the visit completed. Each completed booking can be reviewed once.",
+    body: "Reviews open once the visit is marked completed, one per booking.",
   },
 ];
 
@@ -63,10 +63,6 @@ export default function SupportPage() {
           <h1 className="text-3xl font-semibold tracking-[-0.04em]">
             Tell us what happened.
           </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Most issues are sorted in one message. Include the name on the
-            account and the date of the visit so we can find it quickly.
-          </p>
         </div>
 
         <section className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -110,7 +106,7 @@ export default function SupportPage() {
           <Card size="sm">
             <CardHeader>
               <CardTitle>Related reading</CardTitle>
-              <CardDescription>Answers to the questions we hear most.</CardDescription>
+              <CardDescription>More answers.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
               <Link
@@ -131,13 +127,12 @@ export default function SupportPage() {
             <CardHeader>
               <CardTitle>Response times</CardTitle>
               <CardDescription>
-                We answer Telegram messages on business days, usually within a
-                few hours. Email can take a day.
+                Telegram within a few hours on business days. Email about a day.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">
-                For a visit happening today, say so in the first message.
+                Mention same-day visits in your first message.
               </p>
             </CardContent>
           </Card>
