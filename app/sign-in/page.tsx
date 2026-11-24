@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { AuthOptions } from "@/components/auth/auth-options";
 import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -119,7 +119,7 @@ export default function SignInPage() {
 
               <div className="mt-8">
                 <Suspense fallback={<FormSkeleton />}>
-                  <SignInForm />
+                  <AuthOptions />
                 </Suspense>
               </div>
 

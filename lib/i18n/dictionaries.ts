@@ -104,6 +104,8 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "auth.or": "yoki",
     "auth.telegramCta": "Telegram bilan davom etish",
     "auth.telegramHelp": "Botni oching va “Open icone” ni bosing. Telefon va parol kerak emas.",
+    "auth.emailOption": "Elektron pochta bilan",
+    "auth.signingIn": "Kirish amalga oshirilmoqda…",
     "auth.backHome": "Bosh sahifaga",
 
     "booking.title": "O'rin bron qilish",
@@ -263,6 +265,8 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "auth.or": "или",
     "auth.telegramCta": "Продолжить через Telegram",
     "auth.telegramHelp": "Откройте бота и нажмите «Open icone». Без телефона и пароля.",
+    "auth.emailOption": "По email",
+    "auth.signingIn": "Входим…",
     "auth.backHome": "На главную",
 
     "booking.title": "Записаться",
@@ -422,6 +426,8 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "auth.or": "or",
     "auth.telegramCta": "Continue in Telegram",
     "auth.telegramHelp": "Open the bot, then tap “Open icone”. No phone, no password.",
+    "auth.emailOption": "Use email code",
+    "auth.signingIn": "Signing you in…",
     "auth.backHome": "Back home",
 
     "booking.title": "Book a chair",

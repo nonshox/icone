@@ -17,12 +17,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { TelegramLogin } from "@/components/auth/telegram-login";
 import { T } from "@/components/i18n/t";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 
 type Step = "email" | "code";
 
@@ -340,13 +338,6 @@ export function SignInForm() {
         </div>
       ) : null}
 
-      <div className="my-6 flex items-center gap-3 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
-        <Separator className="flex-1" />
-        <T k="auth.or" />
-        <Separator className="flex-1" />
-      </div>
-
-      <TelegramLogin />
     </div>
   );
 }

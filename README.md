@@ -48,6 +48,13 @@ the `tg_<id>` account or creates it. Bot menu button:
 `cmd /c "npm run tg:miniapp"`, then `cmd /c "npm run tg:miniapp -- set"`.
 Details in [`docs/AUTH.md`](./docs/AUTH.md).
 
+## Sign-in
+
+Two clicks: **Continue in Telegram** opens the bot and the Mini App creates the
+session; inside Telegram it signs in automatically. Email one-time code is a
+secondary option behind “Use email code”. Both land on `/start`, which routes
+by role. Sessions are HttpOnly cookies, valid for a year.
+
 ## Scripts
 
 | Command | Purpose |

@@ -7,6 +7,13 @@ Passwordless only. Two providers, one session model.
 | Email | 6-digit one-time code | Appwrite-generated |
 | Telegram | Mini App (`WebApp.initData`) → server verify | `tg_<telegram_id>` |
 
+## Sign-in UX
+
+`/sign-in` puts Telegram first: one click opens the bot, the Mini App verifies
+signed `initData`, and the user lands on `/start`. If the page is already open
+inside Telegram, sign-in is automatic. Email OTP is a secondary expandable
+option for people without Telegram. No passwords, no phone prompt.
+
 ## Session model
 
 - The Appwrite **session secret** is the credential. It is stored in the
