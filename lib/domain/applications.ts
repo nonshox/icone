@@ -70,9 +70,9 @@ export async function submitApplication(
     phone: string;
     bio: string;
   },
+  options: { autoApprove?: boolean } = {},
 ): Promise<Application> {
   const existing = await getMyApplication(userId);
-  if (existing && existing.state === "pending") return existing;
 
   const data = { user: userId, ...input, state: "pending", note: "" };
 
@@ -99,6 +99,11 @@ export async function submitApplication(
       }
       throw error;
     }
+  }
+
+  // Self-service onboarding: the application is also the approval.
+  if (options.autoApprove) {
+    return approveApplication(row.$id, toApplication(row), "");
   }
 
   const admins = await listDocs(TABLES.users, [
@@ -131,7 +136,58 @@ export async function listApplications(): Promise<Application[]> {
   return rows.map(toApplication);
 }
 
-/** Approve: promote the member, link a chair, then close the application. */
+/**
+ * Promote the member, link the chair and close the application. The role is
+ * the switch itself, so chair setup must never block it; a failed chair is
+ * repaired on the member's first staff request.
+ */
+async function approveApplication(
+  id: string,
+  application: Application,
+  note: string,
+): Promise<Application> {
+  let decisionNote = note;
+
+  await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: TABLES.users,
+    documentId: application.user,
+    data: { role: "barber" },
+  });
+
+  try {
+    await ensureBarberChair(application.user, {
+      name: application.name,
+      bio: application.bio,
+      phone: application.phone,
+      shop: application.shop,
+      address: application.address,
+      city: application.city,
+    });
+  } catch (error) {
+    console.error(`[applications] chair setup failed for ${application.user}`, error);
+    const hint = "Chair setup will finish when you open the dashboard.";
+    decisionNote = decisionNote ? `${decisionNote} ${hint}` : hint;
+  }
+
+  const row = (await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: APPLICATIONS,
+    documentId: id,
+    data: { state: "approved", note: decisionNote },
+  })) as Row;
+
+  await createNotification({
+    user: application.user,
+    title: "You're a barber",
+    body: "Your chair is live. Open your business dashboard to add services.",
+    kind: "admin",
+  }).catch(() => {});
+
+  return toApplication(row);
+}
+
+/** Admin decision path. Self-service applications approve in submitApplication. */
 export async function decideApplication(
   id: string,
   decision: "approved" | "rejected",
@@ -140,48 +196,22 @@ export async function decideApplication(
   const current = await list([Query.equal("$id", id), Query.limit(1)]);
   if (current.length === 0) throw new Error("Application not found.");
   const application = toApplication(current[0]);
-  let decisionNote = note;
 
   if (decision === "approved") {
-    // The role is the switch itself. It must not be blocked by chair setup:
-    // an interrupted chair write is repaired on the member's first request.
-    await adminDb().updateDocument({
-      databaseId: databaseId(),
-      collectionId: TABLES.users,
-      documentId: application.user,
-      data: { role: "barber" },
-    });
-
-    try {
-      await ensureBarberChair(application.user, {
-        name: application.name,
-        bio: application.bio,
-        phone: application.phone,
-        shop: application.shop,
-        address: application.address,
-        city: application.city,
-      });
-    } catch (error) {
-      console.error(`[applications] chair setup failed for ${application.user}`, error);
-      const hint = "Chair setup will finish when you open the dashboard.";
-      decisionNote = decisionNote ? `${decisionNote} ${hint}` : hint;
-    }
+    return approveApplication(id, application, note);
   }
 
   const row = (await adminDb().updateDocument({
     databaseId: databaseId(),
     collectionId: APPLICATIONS,
     documentId: id,
-    data: { state: decision, note: decisionNote },
+    data: { state: decision, note },
   })) as Row;
 
   await createNotification({
     user: application.user,
-    title: decision === "approved" ? "You're a barber" : "Application update",
-    body:
-      decision === "approved"
-        ? "Your chair is live. Open your business dashboard to add services."
-        : note || "Your application was not approved this time.",
+    title: "Application update",
+    body: note || "Your application was not approved this time.",
     kind: "admin",
   }).catch(() => {});
 

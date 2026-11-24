@@ -1,4 +1,4 @@
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,18 +8,15 @@ import { AuthOptions } from "@/components/auth/auth-options";
 import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
 import { getCurrentUser } from "@/lib/auth/session";
+import { publicConfig } from "@/lib/public-config";
+
+const botLink = `https://t.me/${publicConfig.telegramBotUsername}?start=web`;
 
 export const metadata: Metadata = {
   title: "Sign in",
   description:
-    "Sign in to icone with a one-time email code or Telegram. No passwords.",
+    "Sign in to icone with Telegram. No password, no email, no SMS.",
 };
-
-const perks = [
-  "One-time code — nothing to remember",
-  "Telegram sign-in in two taps",
-  "Your bookings and barber, in one place",
-] as const;
 
 async function RedirectIfSignedIn() {
   const user = await getCurrentUser();
@@ -71,16 +68,6 @@ export default function SignInPage() {
               in once, and your next chair is always a tap away.
             </p>
 
-            <ul className="mt-8 space-y-3 text-sm">
-              {perks.map((perk) => (
-                <li key={perk} className="flex items-start gap-2.5">
-                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand/15 text-brand-strong">
-                    <Check className="size-3" aria-hidden />
-                  </span>
-                  <span className="text-muted-foreground">{perk}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           <div className="relative flex items-center justify-between text-xs text-muted-foreground">
@@ -133,12 +120,12 @@ export default function SignInPage() {
           <p className="text-center text-[0.7rem] text-muted-foreground">
             Need a hand?{" "}
             <a
-              href="https://t.me/icone_app_bot?start=signin"
+              href={botLink}
               target="_blank"
               rel="noreferrer noopener"
               className="text-foreground underline-offset-4 hover:underline"
             >
-              Message @icone_app_bot
+              <T k="auth.messageBot" />
             </a>
           </p>
         </section>

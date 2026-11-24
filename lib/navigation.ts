@@ -67,7 +67,6 @@ export const segmentLabelKeys: Record<string, string> = {
   help: "nav.help",
   legal: "nav.legal",
   messages: "nav.messages",
-  mini: "nav.telegram",
   notifications: "nav.inbox",
   services: "nav.services",
   settings: "nav.settings",

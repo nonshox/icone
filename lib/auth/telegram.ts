@@ -6,11 +6,7 @@ import {
   Users,
   type Models,
 } from "node-appwrite";
-import {
-  createHash,
-  createHmac,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { createAdminClient } from "@/lib/appwrite/server";
 
@@ -25,74 +21,6 @@ export type TelegramUser = {
 
 const MAX_AUTH_AGE_SECONDS = 24 * 60 * 60;
 const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
-
-/**
- * Verify data returned by the Telegram Login Widget.
- *
- * https://core.telegram.org/widgets/login#checking-authorization
- * secret_key = SHA256(bot_token)
- * hash = HMAC_SHA256(data_check_string, secret_key)
- */
-export function verifyTelegramPayload(
-  params: URLSearchParams,
-  botToken: string,
-): TelegramUser | null {
-  const providedHash = params.get("hash");
-  if (!providedHash) return null;
-
-  const entries: Array<[string, string]> = [];
-  for (const [key, value] of params.entries()) {
-    if (key !== "hash" && key !== "state") entries.push([key, value]);
-  }
-
-  const dataCheckString = entries
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
-
-  const secretKey = createHash("sha256").update(botToken).digest();
-  const computedHash = createHmac("sha256", secretKey)
-    .update(dataCheckString)
-    .digest("hex");
-
-  const provided = Buffer.from(providedHash, "utf8");
-  const computed = Buffer.from(computedHash, "utf8");
-
-  if (
-    provided.length !== computed.length ||
-    !timingSafeEqual(provided, computed)
-  ) {
-    return null;
-  }
-
-  const id = params.get("id") ?? "";
-  if (!/^\d{1,15}$/.test(id)) return null;
-
-  const authDate = Number.parseInt(params.get("auth_date") ?? "", 10);
-  if (!Number.isFinite(authDate)) return null;
-
-  const now = Math.floor(Date.now() / 1000);
-  if (
-    authDate > now + MAX_FUTURE_SKEW_SECONDS ||
-    now - authDate > MAX_AUTH_AGE_SECONDS
-  ) {
-    return null;
-  }
-
-  const firstName = (params.get("first_name") ?? "").trim().slice(0, 64);
-  const lastName = (params.get("last_name") ?? "").trim().slice(0, 64);
-  const username = (params.get("username") ?? "").trim().slice(0, 64);
-  const photoUrl = (params.get("photo_url") ?? "").trim().slice(0, 512);
-
-  return {
-    id,
-    firstName: firstName || "Telegram",
-    lastName: lastName || null,
-    username: username || null,
-    photoUrl: photoUrl || null,
-    authDate,
-  };
-}
 
 /**
  * Verify data sent by a Telegram Mini App (`WebApp.initData`). The key is

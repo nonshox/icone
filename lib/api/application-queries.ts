@@ -55,6 +55,8 @@ export function useSubmitApplication() {
       }).then((result) => result.application),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: applicationKeys.mine });
+      void client.invalidateQueries({ queryKey: ["me"] });
+      void client.invalidateQueries({ queryKey: ["barbers"] });
     },
   });
 }

@@ -7,9 +7,9 @@ import { T } from "@/components/i18n/t";
 import { publicConfig } from "@/lib/public-config";
 
 /**
- * Telegram sign-in without the Login Widget. The widget asks for extra phone
- * permissions and needs a registered domain; the Mini App verifies Telegram's
- * own signature on the server and reuses the same create-or-login logic.
+ * One Telegram sign-in for both places. The website opens the bot with
+ * `/start web`; the bot always sends a fresh one-time website link. Inside
+ * Telegram the Mini App signs in automatically from Telegram's signed data.
  */
 export function TelegramLogin({ className }: { className?: string }) {
   const bot = publicConfig.telegramBotUsername;
@@ -17,7 +17,7 @@ export function TelegramLogin({ className }: { className?: string }) {
   return (
     <div className={className}>
       <a
-        href={`https://t.me/${bot}?start=signin`}
+        href={`https://t.me/${bot}?start=web`}
         target="_blank"
         rel="noreferrer noopener"
         className={`${buttonVariants({ size: "lg" })} h-11 w-full gap-2 text-sm`}

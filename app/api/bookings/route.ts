@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
           env.TELEGRAM_BOT_TOKEN,
           chatId,
           `Chair booked: ${row.serviceName} with ${row.barberName}, ${formatDate(row.date)} at ${label(row.start)}. See you there!`,
-          `${env.NEXT_PUBLIC_APP_URL}/mini`,
+          env.NEXT_PUBLIC_APP_URL,
         ).catch((error) => {
           console.error(
             "[booking] telegram confirmation failed",

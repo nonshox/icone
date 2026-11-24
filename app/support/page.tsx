@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { publicConfig } from "@/lib/public-config";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -15,9 +16,9 @@ export const metadata: Metadata = {
 const channels = [
   {
     title: "Telegram",
-    body: "Send /start to @icone_app_bot and describe what you need.",
+    body: `Send /start to @${publicConfig.telegramBotUsername} and describe what you need.`,
     action: "Open the bot",
-    href: "https://t.me/icone_app_bot?start=signin",
+    href: `https://t.me/${publicConfig.telegramBotUsername}?start=web`,
   },
   {
     title: "Email",

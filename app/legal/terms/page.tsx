@@ -17,7 +17,7 @@ const sections = [
   },
   {
     title: "Accounts",
-    body: "Sign in with an email code or Telegram. Give accurate details and keep access to your inbox or Telegram account. One person per account.",
+    body: "Sign in with Telegram. Give accurate details and keep access to your Telegram account. One person per account.",
   },
   {
     title: "Bookings",

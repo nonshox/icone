@@ -34,7 +34,7 @@ const steps = [
 const questions = [
   {
     question: "How do I sign in?",
-    answer: "No password: use an email code or the Telegram Mini App. Your session stays in an HttpOnly cookie.",
+    answer: "No password: sign in with Telegram on the website or in the Mini App. Your session stays in an HttpOnly cookie.",
   },
   {
     question: "Can I cancel a booking?",

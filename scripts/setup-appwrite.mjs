@@ -1,10 +1,11 @@
 /**
- * Creates the Appwrite schema for icone and seeds the catalogue.
+ * Creates the Appwrite schema for icone and seeds only service categories.
+ * Barbers and services come from real accounts, not sample rows.
  *
  *   node scripts/setup-appwrite.mjs
  *
- * Idempotent: existing collections, attributes, indexes and seed documents are
- * left untouched, so it is safe to re-run after a partial failure.
+ * Idempotent: existing collections, attributes and indexes are left untouched,
+ * so it is safe to re-run after a partial failure.
  *
  * Naming rules for this project: one word per table, one word per key.
  */
@@ -374,63 +375,6 @@ async function isEmpty(collectionId) {
   return total === 0;
 }
 
-const services = [
-  {
-    id: "svc_cut",
-    name: "Signature cut",
-    note: "Consultation, wash, precision cut and finish.",
-    price: 80000,
-    time: 45,
-  },
-  {
-    id: "svc_beard",
-    name: "Beard sculpt",
-    note: "Line-up, shape and hot-towel finish.",
-    price: 50000,
-    time: 30,
-  },
-  {
-    id: "svc_full",
-    name: "The full reset",
-    note: "Cut, beard, hot towel and styling.",
-    price: 120000,
-    time: 75,
-  },
-];
-
-const barbers = [
-  {
-    id: "brb_bekzod",
-    name: "Bekzod R.",
-    title: "Senior barber",
-    bio: "Fades, skin work and beard sculpting. Nine years on the floor.",
-    rating: 4.9,
-  },
-  {
-    id: "brb_aziz",
-    name: "Aziz K.",
-    title: "Barber",
-    bio: "Scissor work and classic cuts. Calm hands, sharp lines.",
-    rating: 4.8,
-  },
-  {
-    id: "brb_timur",
-    name: "Timur S.",
-    title: "Barber",
-    bio: "Textured crops, modern shapes and kids' cuts.",
-    rating: 4.7,
-  },
-];
-
-const week = [
-  { day: 1, start: 600, end: 1260 },
-  { day: 2, start: 600, end: 1260 },
-  { day: 3, start: 600, end: 1260 },
-  { day: 4, start: 600, end: 1260 },
-  { day: 5, start: 600, end: 1320 },
-  { day: 6, start: 660, end: 1320 },
-];
-
 async function main() {
   log(`\nDatabase: ${databaseId}\n`);
 
@@ -477,103 +421,6 @@ async function main() {
     for (const index of definition.indexes) {
       await ensureIndex(collectionId, index);
     }
-  }
-
-  log("\nseed");
-  if (await isEmpty("services")) {
-    for (const service of services) {
-      await db.createDocument({
-        databaseId,
-        collectionId: "services",
-        documentId: service.id,
-        data: {
-          name: service.name,
-          note: service.note,
-          price: service.price,
-          time: service.time,
-          active: true,
-        },
-      });
-    }
-    log(`  + ${services.length} services`);
-  } else {
-    log("  = services already seeded");
-  }
-
-  if (await isEmpty("barbers")) {
-    for (const barber of barbers) {
-      await db.createDocument({
-        databaseId,
-        collectionId: "barbers",
-        documentId: barber.id,
-        data: {
-          name: barber.name,
-          title: barber.title,
-          bio: barber.bio,
-          photo: "",
-          rating: barber.rating,
-          active: true,
-          user: "",
-        },
-      });
-    }
-    log(`  + ${barbers.length} barbers`);
-  } else {
-    log("  = barbers already seeded");
-  }
-
-  if (await isEmpty("hours")) {
-    for (const barber of barbers) {
-      for (const row of week) {
-        await db.createDocument({
-          databaseId,
-          collectionId: "hours",
-          documentId: ID.unique(),
-          data: { barber: barber.id, ...row },
-        });
-      }
-    }
-    log(`  + ${barbers.length * week.length} hour rows`);
-  } else {
-    log("  = hours already seeded");
-  }
-
-  // Backfill richer profile fields on the seed rows. Safe to re-run.
-  for (const barber of barbers) {
-    await db
-      .updateDocument({
-        databaseId,
-        collectionId: "barbers",
-        documentId: barber.id,
-        data: {
-          shop: `${barber.name}'s Chair`,
-          address: "12 Amir Temur Avenue, Yakkasaray",
-          city: "Tashkent",
-          years: 6,
-          skills: "Fades, beard sculpt, classic cuts",
-          phone: "+998 71 200 12 12",
-          facilities: "Waiting area, hot towel, refreshments",
-          policy: "Arrive 5 minutes early. Cancel at least 2 hours before your visit.",
-          confirm: false,
-        },
-      })
-      .catch(() => {});
-  }
-
-  for (const [index, service] of services.entries()) {
-    await db
-      .updateDocument({
-        databaseId,
-        collectionId: "services",
-        documentId: service.id,
-        data: {
-          category: ["Hair", "Beard", "Combo"][index] ?? "Hair",
-          featured: index === 2,
-          barber: barbers[index % barbers.length].id,
-          discount: 0,
-        },
-      })
-      .catch(() => {});
   }
 
   if (await isEmpty("categories")) {

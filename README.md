@@ -42,20 +42,21 @@ Appwrite API key also needs database scopes — see
 
 ### Telegram
 
-Telegram sign-in happens in the Mini App at `/mini` — no Login Widget, no phone
-prompt, no `/setdomain`. Open the bot with `?start=signin` (links on `/sign-in`)
-and tap **Open icone**; the server verifies Telegram's signature, then logs in
-the `tg_<id>` account or creates it. Bot menu button:
+The whole site is the Telegram Mini App — there is no `/mini` page. The bot menu
+button opens the app root:
 `cmd /c "npm run tg:miniapp"`, then `cmd /c "npm run tg:miniapp -- set"`.
-Details in [`docs/AUTH.md`](./docs/AUTH.md).
 
 ## Sign-in
 
-Telegram only. `/sign-in` has one button: **Continue in Telegram**. The bot's
-first `/start` gives a one-time website sign-in link; the Mini App signs in
-automatically and offers the same link for the browser/installed app. All paths
-create the same HttpOnly web session and land on `/start`, which routes by role.
-No password, no phone prompt, no email delivery dependency.
+Telegram only. `/sign-in` asks for a phone number, creates a 4-digit code, and
+the bot sends it to Telegram. Tap **Open Telegram**, read the code, and type it
+back where you started — the session is created in that browser or in the app.
+A request id is held in an HttpOnly cookie; the code is stored server-side in
+the user's preferences, expires in five minutes and allows five tries.
+
+When any page is opened from Telegram, the app signs in automatically from
+Telegram's signed `initData` and stays on the same page. No email, no SMS, no
+Login Widget, and no separate sign-in screen inside the app.
 
 ## Routes
 

@@ -40,7 +40,7 @@ export async function GET() {
   }
 }
 
-/** POST /api/applications — apply to run a chair. Clients only. */
+/** POST /api/applications — self-service switch to a barber, approved on submit. */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
@@ -72,7 +72,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const application = await submitApplication(member.user.id, parsed.data);
+    const application = await submitApplication(member.user.id, parsed.data, {
+      autoApprove: true,
+    });
     return NextResponse.json({ ok: true as const, application }, { status: 201 });
   } catch (error) {
     console.error("[applications] submit failed — check the applications collection in db:setup", error);

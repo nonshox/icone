@@ -24,17 +24,10 @@ export async function sendMessage(
   token: string,
   chatId: number,
   text: string,
-  webAppUrl?: string,
+  replyMarkup?: Record<string, unknown>,
 ): Promise<void> {
   const payload: Record<string, unknown> = { chat_id: chatId, text };
-
-  if (webAppUrl) {
-    payload.reply_markup = {
-      inline_keyboard: [
-        [{ text: "Open icone", web_app: { url: webAppUrl } }],
-      ],
-    };
-  }
+  if (replyMarkup) payload.reply_markup = replyMarkup;
 
   const response = await fetch(
     `https://api.telegram.org/bot${token}/sendMessage`,

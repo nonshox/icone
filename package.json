@@ -9,13 +9,6 @@
     "lint": "eslint",
     "db:setup": "node scripts/setup-appwrite.mjs",
     "db:staff": "node scripts/staff.mjs",
-    "qa:auth": "node qa-auth.mjs",
-    "qa:booking": "node qa-booking.mjs",
-    "qa:admin": "node qa-admin.mjs",
-    "qa:cron": "node qa-cron.mjs",
-    "qa:staff": "node qa-staff.mjs",
-    "qa:marketplace": "node qa-marketplace.mjs",
-    "qa:applications": "node qa-applications.mjs",
     "tg:webhook": "node scripts/telegram-webhook.mjs",
     "tg:miniapp": "node scripts/telegram-miniapp.mjs"
   },

@@ -323,7 +323,6 @@ function BarbersSection() {
               id="barber-name"
               value={name}
               maxLength={64}
-              placeholder="Bekzod R."
               onChange={(event) => setName(event.target.value)}
             />
           </div>

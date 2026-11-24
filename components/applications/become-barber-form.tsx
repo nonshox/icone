@@ -104,7 +104,7 @@ export function BecomeBarberForm() {
     submit.mutate(
       { name, shop, city, address, phone, bio },
       {
-        onSuccess: () => toast.success(t("apply.sent")),
+        onSuccess: () => toast.success(t("apply.live")),
         onError: (error) =>
           toast.error(error instanceof Error ? error.message : t("apply.tryAgain")),
       },

@@ -2,7 +2,7 @@
  * Configure the bot's menu button to open the icone Mini App.
  *
  *   node scripts/telegram-miniapp.mjs info   # current button (default)
- *   node scripts/telegram-miniapp.mjs set    # open /mini
+ *   node scripts/telegram-miniapp.mjs set    # open the app root
  *   node scripts/telegram-miniapp.mjs reset  # back to the default button
  *
  * Reads credentials from .env. Override NEXT_PUBLIC_APP_URL for other hosts.
@@ -57,7 +57,7 @@ function printButton(button) {
 if (action === "info") {
   printButton(await call("getChatMenuButton"));
 } else if (action === "set") {
-  const url = `${siteUrl}/mini`;
+  const url = siteUrl;
   const button = {
     type: "web_app",
     text: "icone",

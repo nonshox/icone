@@ -33,7 +33,7 @@ async function StaffGate() {
 function StaffSkeleton() {
   return (
     <div className="space-y-3" aria-hidden>
-      <div className="h-10 w-72 animate-pulse rounded-lg bg-muted" />
+      <div className="h-10 w-72 max-w-full animate-pulse rounded-lg bg-muted" />
       <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
       <div className="h-72 animate-pulse rounded-xl bg-muted" />
     </div>

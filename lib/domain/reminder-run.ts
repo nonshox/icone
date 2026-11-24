@@ -87,7 +87,7 @@ export async function runReminders(): Promise<ReminderCounts> {
         env.TELEGRAM_BOT_TOKEN,
         chatId,
         `Your chair at icone is tomorrow at ${label(booking.start)}. See you there!`,
-        `${env.NEXT_PUBLIC_APP_URL}/mini`,
+        env.NEXT_PUBLIC_APP_URL,
       );
       await markSent(reminder.id);
       counts.sent += 1;

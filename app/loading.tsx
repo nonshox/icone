@@ -8,8 +8,8 @@ export default function Loading() {
       aria-busy="true"
       aria-label="Loading"
     >
-      <Skeleton className="h-8 w-56" />
-      <Skeleton className="h-4 w-80" />
+      <Skeleton className="h-8 w-56 max-w-full" />
+      <Skeleton className="h-4 w-80 max-w-full" />
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Skeleton className="h-48 w-full" />
         <Skeleton className="h-48 w-full" />

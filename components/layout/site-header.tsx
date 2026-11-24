@@ -1,35 +1,19 @@
 "use client";
 
-import { CalendarDays, Menu, X } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 
 import { Logo } from "@/components/brand/logo";
-import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { HeaderBreadcrumbs } from "@/components/layout/header-breadcrumbs";
 import { SiteMenu } from "@/components/layout/site-menu";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/use-t";
 import { primaryLinks } from "@/lib/navigation";
-import { useUIStore } from "@/lib/store/ui";
 import { cn } from "@/lib/utils";
 
 export function SiteHeader() {
-  const open = useUIStore((state) => state.mobileNavOpen);
-  const setOpen = useUIStore((state) => state.setMobileNavOpen);
-  const toggle = useUIStore((state) => state.toggleMobileNav);
-  const close = () => setOpen(false);
   const t = useT();
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, setOpen]);
 
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
@@ -54,8 +38,6 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <LanguageSwitcher />
           <Link
             href="/book"
             className={cn(
@@ -66,33 +48,9 @@ export function SiteHeader() {
             <CalendarDays className="size-4" aria-hidden />
             {t("nav.book")}
           </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-9 gap-1.5 rounded-xl px-2.5"
-            aria-expanded={open}
-            aria-controls="site-menu"
-            aria-label={open ? t("nav.closeMenu") : t("nav.openMenu")}
-            onClick={toggle}
-          >
-            {open ? <X className="size-4" /> : <Menu className="size-4" />}
-            <span className="hidden lg:inline">{t("nav.menu")}</span>
-          </Button>
+          <SiteMenu />
         </div>
       </div>
-
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label={t("nav.closeMenu")}
-            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm"
-            onClick={close}
-          />
-          <SiteMenu onNavigate={close} />
-        </>
-      ) : null}
     </header>
   );
 }
