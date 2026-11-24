@@ -2,17 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { BarberDirectory } from "@/components/barbers/barber-directory";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listBarbers } from "@/lib/domain/data";
 import { cn } from "@/lib/utils";
@@ -35,46 +29,18 @@ async function BarberList() {
     );
   }
 
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {barbers.map((barber) => (
-        <Card key={barber.id} size="sm" className="h-full">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <CardTitle className="truncate">{barber.name}</CardTitle>
-                <CardDescription className="truncate">
-                  {barber.title || "Barber"}
-                </CardDescription>
-              </div>
-              {barber.rating > 0 ? (
-                <Badge variant="secondary">{barber.rating.toFixed(1)} ★</Badge>
-              ) : null}
-            </div>
-          </CardHeader>
-          <CardContent className="flex h-full flex-col justify-between gap-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {barber.bio || "Precision cuts and a calm chair."}
-            </p>
-            <Link
-              href={`/barbers/${barber.id}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full rounded-lg")}
-            >
-              View profile
-            </Link>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+  return <BarberDirectory barbers={barbers} />;
 }
 
 function ListSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
-      {Array.from({ length: 6 }).map((_, index) => (
-        <Skeleton key={index} className="h-44 w-full" />
-      ))}
+    <div className="space-y-5" aria-hidden>
+      <Skeleton className="h-9 w-full" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Skeleton key={index} className="h-44 w-full" />
+        ))}
+      </div>
     </div>
   );
 }

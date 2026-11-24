@@ -160,6 +160,22 @@ async function main() {
   const me = await call("/api/me", { secret });
   check("promoted profile has admin role", me.json?.profile?.role === "admin", `status ${me.status}`);
 
+  const team = await call("/api/admin/users", { secret });
+  check(
+    "GET /api/admin/users lists the member",
+    team.status === 200 &&
+      Array.isArray(team.json?.users) &&
+      team.json.users.some((item) => item.id === userId && item.role === "admin"),
+    `status ${team.status}`,
+  );
+
+  const rolePatch = await call("/api/admin/users", {
+    method: "PATCH",
+    body: { userId, role: "admin" },
+    secret,
+  });
+  check("PATCH /api/admin/users role", rolePatch.status === 200, `status ${rolePatch.status}`);
+
   // --- create catalogue rows ---------------------------------------------
   const newBarber = await call("/api/admin/barbers", {
     method: "POST",
@@ -178,6 +194,37 @@ async function main() {
   serviceId = newService.json?.service?.id ?? "";
   check("POST /api/admin/services", newService.status === 201 && Boolean(serviceId), `status ${newService.status}`);
   if (!serviceId) return;
+
+  const editBarber = await call("/api/admin/barbers", {
+    method: "PATCH",
+    body: { id: barberId, title: "QA Senior", bio: "Edited by qa-admin", photo: "" },
+    secret,
+  });
+  check(
+    "PATCH /api/admin/barbers edits details",
+    editBarber.status === 200 && editBarber.json?.barber?.title === "QA Senior",
+    `status ${editBarber.status}`,
+  );
+
+  const editService = await call("/api/admin/services", {
+    method: "PATCH",
+    body: { id: serviceId, name: "QA Service Edited", price: 45_000 },
+    secret,
+  });
+  check(
+    "PATCH /api/admin/services edits details",
+    editService.status === 200 &&
+      editService.json?.service?.name === "QA Service Edited" &&
+      editService.json?.service?.price === 45_000,
+    `status ${editService.status}`,
+  );
+
+  const link = await call("/api/admin/users", {
+    method: "PATCH",
+    body: { userId, barber: barberId },
+    secret,
+  });
+  check("PATCH /api/admin/users links chair", link.status === 200, `status ${link.status}`);
 
   // Pick a date comfortably inside the booking horizon and away from today so
   // the lead-time clamp cannot affect the window.

@@ -61,6 +61,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `cmd /c "npm run qa:booking"` | end-to-end booking probe (needs DB scopes) |
 | `cmd /c "npm run qa:admin"` | admin role + catalogue probe |
 | `cmd /c "npm run qa:cron"` | reminder cron probe |
+| `cmd /c "npm run qa:staff"` | barber self-service probe |
 | `cmd /c "npm run tg:webhook"` | show Telegram webhook state (`-- set` / `-- delete`) |
 | `cmd /c "npm run tg:miniapp"` | show bot menu button (`-- set` / `-- reset`) |
 
@@ -76,6 +77,7 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 | `/bookings` | visits, cancel, reviews |
 | `/bookings/:id` | single visit detail |
 | `/agenda` | staff day view |
+| `/agenda/me` | barber chair settings and schedule |
 | `/admin` | admin catalogue manager |
 | `/mini` | Telegram Mini App |
 | `/api/barbers` · `/api/services` · `/api/availability` | catalogue + times |

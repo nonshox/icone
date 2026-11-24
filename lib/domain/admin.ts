@@ -1,15 +1,26 @@
 import "server-only";
 
-import { AppwriteException, ID, Query, type Models } from "node-appwrite";
+import { AppwriteException, ID, Query, Users, type Models } from "node-appwrite";
 
 import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
+import { createAdminClient } from "@/lib/appwrite/server";
 
-import type { Barber, Service } from "./types";
+import type { Barber, Role, Service } from "./types";
 
 type Row = Models.Document & Record<string, unknown>;
 
 /** A chair with its linked staff account, including inactive chairs. */
 export type AdminBarber = Barber & { user: string };
+
+/** An Appwrite account joined with its profile and linked chair. */
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  phone: string;
+  barber: string;
+};
 
 /** One weekly opening window (0 = Sunday … 6 = Saturday). */
 export type Hour = {
@@ -209,6 +220,36 @@ export async function listAllReviews(): Promise<AdminReview[]> {
   return rows.map(toAdminReview);
 }
 
+/** Accounts with their profile role and the chair they are linked to. */
+export async function listUsers(): Promise<AdminUser[]> {
+  const users = new Users(createAdminClient());
+
+  const [auth, profiles, chairs] = await Promise.all([
+    users.list({ queries: [Query.limit(100)], total: false }),
+    list(TABLES.users, [Query.limit(100)]),
+    list(TABLES.barbers, [Query.limit(100)]),
+  ]);
+
+  const profileById = new Map(profiles.map((row) => [row.$id, row]));
+  const chairByUser = new Map<string, string>();
+  for (const chair of chairs) {
+    const linked = str(chair.user);
+    if (linked && !chairByUser.has(linked)) chairByUser.set(linked, chair.$id);
+  }
+
+  return auth.users.map((user) => {
+    const profile = profileById.get(user.$id);
+    return {
+      id: user.$id,
+      name: str(profile?.name) || user.name || "",
+      email: user.email || "",
+      role: str(profile?.role, "client") as Role,
+      phone: str(profile?.phone) || user.phone || "",
+      barber: chairByUser.get(user.$id) ?? "",
+    };
+  });
+}
+
 /* ----------------------------------------------------------------- writes */
 
 export async function createBarber(input: {
@@ -238,6 +279,26 @@ export async function setBarberActive(
   return toAdminBarber(row as Row);
 }
 
+/** Change published chair details and/or its linked staff account. */
+export async function updateBarber(
+  id: string,
+  input: { title?: string; bio?: string; photo?: string; user?: string },
+): Promise<AdminBarber> {
+  const data: Record<string, unknown> = {};
+  if (typeof input.title === "string") data.title = input.title;
+  if (typeof input.bio === "string") data.bio = input.bio;
+  if (typeof input.photo === "string") data.photo = input.photo;
+  if (typeof input.user === "string") data.user = input.user;
+
+  const row = await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: TABLES.barbers,
+    documentId: id,
+    data,
+  });
+  return toAdminBarber(row as Row);
+}
+
 export async function createService(input: {
   name: string;
   note: string;
@@ -262,6 +323,26 @@ export async function setServiceActive(
     collectionId: TABLES.services,
     documentId: id,
     data: { active },
+  });
+  return toService(row as Row);
+}
+
+/** Change a menu item's published details. */
+export async function updateService(
+  id: string,
+  input: { name?: string; note?: string; price?: number; time?: number },
+): Promise<Service> {
+  const data: Record<string, unknown> = {};
+  if (typeof input.name === "string") data.name = input.name;
+  if (typeof input.note === "string") data.note = input.note;
+  if (typeof input.price === "number") data.price = input.price;
+  if (typeof input.time === "number") data.time = input.time;
+
+  const row = await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: TABLES.services,
+    documentId: id,
+    data,
   });
   return toService(row as Row);
 }
@@ -333,4 +414,61 @@ export async function deleteDay(id: string): Promise<void> {
 
 export async function deleteReview(id: string): Promise<void> {
   await remove(TABLES.reviews, id);
+}
+
+/** Change a member's role in their profile row. */
+export async function setUserRole(userId: string, role: Role): Promise<void> {
+  await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: TABLES.users,
+    documentId: userId,
+    data: { role },
+  });
+}
+
+/**
+ * Put a staff account on one chair. The account is removed from any other
+ * chair first, so a barber never appears twice. An empty chair id just clears
+ * the account from every chair.
+ */
+export async function linkBarberUser(
+  barberId: string,
+  userId: string,
+): Promise<void> {
+  if (!userId) {
+    if (barberId) {
+      await adminDb().updateDocument({
+        databaseId: databaseId(),
+        collectionId: TABLES.barbers,
+        documentId: barberId,
+        data: { user: "" },
+      });
+    }
+    return;
+  }
+
+  const chairs = await list(TABLES.barbers, [
+    Query.equal("user", userId),
+    Query.limit(100),
+  ]);
+
+  for (const chair of chairs) {
+    if (chair.$id !== barberId) {
+      await adminDb().updateDocument({
+        databaseId: databaseId(),
+        collectionId: TABLES.barbers,
+        documentId: chair.$id,
+        data: { user: "" },
+      });
+    }
+  }
+
+  if (!barberId) return;
+
+  await adminDb().updateDocument({
+    databaseId: databaseId(),
+    collectionId: TABLES.barbers,
+    documentId: barberId,
+    data: { user: userId },
+  });
 }

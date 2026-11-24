@@ -6,7 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -105,13 +105,21 @@ export function BookingDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-4">
-      <Link
-        href="/bookings"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-3.5" aria-hidden />
-        My visits
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href="/bookings"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden />
+          My visits
+        </Link>
+        <Link
+          href={`/book?barber=${booking.data?.barber ?? ""}&service=${booking.data?.service ?? ""}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          Book again
+        </Link>
+      </div>
 
       {actionError ? (
         <p

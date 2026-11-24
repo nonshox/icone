@@ -2,13 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { AdminBarber, DayOverride, Hour } from "@/lib/domain/admin";
-import type { Service } from "@/lib/domain/types";
+import type {
+  AdminBarber,
+  AdminUser,
+  DayOverride,
+  Hour,
+} from "@/lib/domain/admin";
+import type { Role, Service } from "@/lib/domain/types";
 
 import { api } from "./client";
 import { keys } from "./queries";
 
-export type { AdminBarber, DayOverride, Hour } from "@/lib/domain/admin";
+export type { AdminBarber, AdminUser, DayOverride, Hour } from "@/lib/domain/admin";
 export type { Service } from "@/lib/domain/types";
 
 export type NewBarber = { name: string; title: string; bio: string };
@@ -44,6 +49,7 @@ export const adminKeys = {
   hours: ["admin", "hours"] as const,
   days: ["admin", "days"] as const,
   reviews: ["admin", "reviews"] as const,
+  users: ["admin", "users"] as const,
 };
 
 /* ------------------------------------------------------------------ reads */
@@ -94,6 +100,16 @@ export function useAdminReviews() {
   });
 }
 
+export function useAdminUsers() {
+  return useQuery({
+    queryKey: adminKeys.users,
+    queryFn: () =>
+      api<{ users: AdminUser[] }>("/api/admin/users").then(
+        (result) => result.users,
+      ),
+  });
+}
+
 /* ----------------------------------------------------------------- writes */
 
 export function useCreateBarber() {
@@ -126,6 +142,30 @@ export function useSetBarberActive() {
   });
 }
 
+export type BarberEdit = {
+  id: string;
+  title?: string;
+  bio?: string;
+  photo?: string;
+  user?: string;
+};
+
+export function useUpdateBarber() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BarberEdit) =>
+      api<{ barber: AdminBarber }>("/api/admin/barbers", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.barber),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.barbers });
+      void client.invalidateQueries({ queryKey: adminKeys.users });
+      void client.invalidateQueries({ queryKey: keys.barbers });
+    },
+  });
+}
+
 export function useCreateService() {
   const client = useQueryClient();
   return useMutation({
@@ -145,6 +185,29 @@ export function useSetServiceActive() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { id: string; active: boolean }) =>
+      api<{ service: Service }>("/api/admin/services", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.service),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.services });
+      void client.invalidateQueries({ queryKey: keys.services });
+    },
+  });
+}
+
+export type ServiceEdit = {
+  id: string;
+  name?: string;
+  note?: string;
+  price?: number;
+  time?: number;
+};
+
+export function useUpdateService() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ServiceEdit) =>
       api<{ service: Service }>("/api/admin/services", {
         method: "PATCH",
         body: JSON.stringify(input),
@@ -220,6 +283,37 @@ export function useDeleteReview() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: adminKeys.reviews });
       void client.invalidateQueries({ queryKey: ["reviews"] });
+      void client.invalidateQueries({ queryKey: keys.barbers });
+    },
+  });
+}
+
+export function useSetUserRole() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; role: Role }) =>
+      api<{ ok: true }>("/api/admin/users", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.users });
+      void client.invalidateQueries({ queryKey: keys.me });
+    },
+  });
+}
+
+export function useLinkBarberUser() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: string; barber: string }) =>
+      api<{ ok: true }>("/api/admin/users", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: adminKeys.users });
+      void client.invalidateQueries({ queryKey: adminKeys.barbers });
       void client.invalidateQueries({ queryKey: keys.barbers });
     },
   });

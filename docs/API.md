@@ -85,9 +85,25 @@ return `400 bad_time`; too-soon same-day slots return `409 too_soon`.
 | DELETE | `/api/admin/days` | `id` query | `{ ok: true }` |
 | GET | `/api/admin/reviews` | — | `{ reviews }` for moderation |
 | DELETE | `/api/admin/reviews` | `id` query | `{ ok: true }` |
+| GET | `/api/admin/users` | — | `{ users }` with role + linked chair |
+| PATCH | `/api/admin/users` | `{ userId, role?, barber? }` | `{ user }` |
 
 Admin writes require `users.role = "admin"`; reads allow `barber` and `admin`.
 Day overrides upsert per chair/date so availability never has two winners.
+
+## Barber self-service
+
+Every route resolves the caller's own chair through `barbers.user`. A barber
+without a linked chair gets `404 no_chair`.
+
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| GET | `/api/staff/chair` | optional `?upcoming=N` | `{ chair, hours, days, upcoming }` |
+| PATCH | `/api/staff/chair` | `{ title?, bio?, photo? }` | `{ chair }` |
+| POST | `/api/staff/hours` | `{ day, start, end }` | `201 { hour }` |
+| DELETE | `/api/staff/hours` | `id` query | `{ ok: true }` |
+| POST | `/api/staff/days` | `{ date, open, start, end, note }` | `{ day }` |
+| DELETE | `/api/staff/days` | `id` query | `{ ok: true }` |
 
 ## Cron
 

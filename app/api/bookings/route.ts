@@ -6,10 +6,12 @@ import { z } from "zod";
 import { book } from "@/lib/domain/book";
 import { barberForUser } from "@/lib/domain/data";
 import { currentMember, isStaff } from "@/lib/domain/member";
-import { isDate } from "@/lib/domain/time";
+import { formatDate, isDate, label } from "@/lib/domain/time";
 import { agenda, enrich, myBookings } from "@/lib/domain/views";
+import { serverEnv } from "@/lib/env";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
+import { sendTelegramMessage } from "@/lib/telegram/notify";
 
 const bodySchema = z.object({
   barber: z.string().trim().min(1).max(36),
@@ -98,6 +100,29 @@ export async function POST(request: NextRequest) {
     }
 
     const [row] = await enrich([result.booking]);
+
+    // Best-effort confirmation for Telegram members. A messaging failure must
+    // never undo a confirmed chair — the reminder cron can still reach them.
+    if (
+      member.user.provider === "telegram" &&
+      member.user.id.startsWith("tg_")
+    ) {
+      const chatId = Number(member.user.id.slice(3));
+      if (Number.isSafeInteger(chatId) && chatId > 0) {
+        const env = serverEnv();
+        await sendTelegramMessage(
+          env.TELEGRAM_BOT_TOKEN,
+          chatId,
+          `Chair booked: ${row.serviceName} with ${row.barberName}, ${formatDate(row.date)} at ${label(row.start)}. See you there!`,
+          `${env.NEXT_PUBLIC_APP_URL}/mini`,
+        ).catch((error) => {
+          console.error(
+            "[booking] telegram confirmation failed",
+            error instanceof Error ? error.message : "unknown",
+          );
+        });
+      }
+    }
 
     return NextResponse.json({ ok: true as const, booking: row }, { status: 201 });
   } catch (error) {

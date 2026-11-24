@@ -13,6 +13,7 @@
     "qa:booking": "node qa-booking.mjs",
     "qa:admin": "node qa-admin.mjs",
     "qa:cron": "node qa-cron.mjs",
+    "qa:staff": "node qa-staff.mjs",
     "tg:webhook": "node scripts/telegram-webhook.mjs",
     "tg:miniapp": "node scripts/telegram-miniapp.mjs"
   },

@@ -52,7 +52,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | Path | Type | Purpose |
 | --- | --- | --- |
 | `/` | static | Landing page (marketing preview) |
-| `/barbers` · `/barbers/:id` | partial | Public chair list and barber profile |
+| `/barbers` · `/barbers/:id` | partial | Public chair list (search + speciality filter) and barber profile |
 | `/sign-in` | partial | Email OTP + Telegram sign-in |
 | `/account` | partial | Signed-in profile, stats, shortcuts |
 | `/book` | partial | Booking flow (service → barber → date → time) |
@@ -60,6 +60,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `/bookings/:id` | partial | Shareable booking detail, cancel, review |
 | `/mini` | static | Telegram Mini App (WebApp data → session) |
 | `/agenda` | partial | Staff day view (barber / admin only) |
+| `/agenda/me` | partial | Barber self-service: chair, hours, days, upcoming |
 | `/admin` | partial | Admin catalogue manager (admin only) |
 | `/robots.txt` | static | Crawler rules |
 | `/sitemap.xml` | static | Public URLs |
@@ -77,7 +78,8 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | `GET/PATCH /api/bookings/:id` | dynamic | One booking · status changes |
 | `GET/POST /api/reviews` | dynamic | Public reviews · rate a completed visit |
 | `GET/PATCH /api/me` | dynamic | Profile |
-| `GET/POST/PATCH/DELETE /api/admin/*` | dynamic | Staff catalogue management + review moderation |
+| `GET/POST/PATCH/DELETE /api/admin/*` | dynamic | Staff catalogue management + review moderation + roles |
+| `GET/PATCH /api/staff/*` | dynamic | Barber's own chair, hours, days, upcoming |
 | `GET/POST /api/cron/reminders` | dynamic | Telegram reminder runner |
 
 Private pages (`/account`, `/book`, `/bookings`, `/agenda`, `/admin`) are guarded twice:
@@ -100,16 +102,18 @@ app/
   bookings/[id]/page.tsx booking detail gate
   mini/page.tsx         Telegram Mini App
   agenda/page.tsx       staff gate
+  agenda/me/page.tsx    barber self-service
   admin/page.tsx        admin gate
-  api/admin/**          catalogue management handlers
+  api/admin/**          catalogue management + role handlers
+  api/staff/**          barber self-service handlers
   api/cron/reminders    protected reminder runner
   loading.tsx error.tsx global-error.tsx not-found.tsx  route UI
   robots.ts sitemap.ts  crawler files
-  api/**                route handlers
-  robots.ts sitemap.ts  crawler files
   globals.css           design tokens, glass utilities
 components/
-  account/ booking/ bookings/ agenda/ admin/ telegram/   feature views (client)  auth/                 sign-in form, telegram widget, sign-out
+  account/ booking/ bookings/ agenda/ admin/ staff/ telegram/  feature views (client)
+  auth/                 sign-in form, telegram widget, sign-out
+  barbers/              public directory with search + filter
   brand/                logo
   layout/               header, footer, theme toggle
   marketing/            booking preview
@@ -121,7 +125,7 @@ lib/
   auth/                 cookies, session, email, telegram, user mapper, types
   client/date.ts        hydration-safe shop date hook
   domain/               types, data, availability, booking, views, time, member,
-                        admin, reminders, reminder-run
+                        admin, staff, reminders, reminder-run
   store/                zustand UI + booking draft
   env.ts                validated server env (server-only)
   http.ts rate-limit.ts JSON envelope, origin check, rate limits
@@ -133,6 +137,7 @@ qa-auth.mjs             end-to-end auth probe (dev only)
 qa-booking.mjs          end-to-end booking probe (dev only)
 qa-admin.mjs            admin / role probe (dev only)
 qa-cron.mjs             reminder cron probe (dev only)
+qa-staff.mjs            barber self-service probe (dev only)
 scripts/telegram-webhook.mjs  inspect / register / delete the bot webhook
 scripts/telegram-miniapp.mjs  set the bot menu button to the Mini App
 ```

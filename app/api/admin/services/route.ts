@@ -7,6 +7,7 @@ import {
   createService,
   listAllServices,
   setServiceActive,
+  updateService,
 } from "@/lib/domain/admin";
 import { currentMember, isStaff } from "@/lib/domain/member";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
@@ -23,10 +24,42 @@ const createSchema = z.object({
     .max(240, "Duration cannot exceed 4 hours."),
 });
 
-const patchSchema = z.object({
-  id: z.string().trim().min(1, "Pick a service.").max(36),
-  active: z.boolean(),
-});
+const serviceId = z.string().trim().min(1, "Pick a service.").max(36);
+
+/** `{ id, active }` or `{ id, name?, note?, price?, time? }` — never both. */
+const patchSchema = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== "object") return value;
+    return {
+      ...(value as Record<string, unknown>),
+      op: "active" in value ? "active" : "edit",
+    };
+  },
+  z.discriminatedUnion("op", [
+    z
+      .object({ op: z.literal("active"), id: serviceId, active: z.boolean() })
+      .strict(),
+    z
+      .object({
+        op: z.literal("edit"),
+        id: serviceId,
+        name: z.string().trim().min(1).max(64).optional(),
+        note: z.string().trim().max(256).optional(),
+        price: z
+          .number()
+          .int("Price must be a whole number of UZS.")
+          .min(0)
+          .optional(),
+        time: z
+          .number()
+          .int("Duration must be a whole number of minutes.")
+          .min(5, "Duration must be at least 5 minutes.")
+          .max(240, "Duration cannot exceed 4 hours.")
+          .optional(),
+      })
+      .strict(),
+  ]),
+);
 
 function firstIssue(error: z.ZodError, fallback: string): string {
   return error.issues[0]?.message ?? fallback;
@@ -121,7 +154,24 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const service = await setServiceActive(parsed.data.id, parsed.data.active);
+    const data = parsed.data;
+    let service: Awaited<ReturnType<typeof setServiceActive>>;
+
+    if (data.op === "active") {
+      service = await setServiceActive(data.id, data.active);
+    } else {
+      const fields = {
+        name: data.name,
+        note: data.note,
+        price: data.price,
+        time: data.time,
+      };
+      if (Object.values(fields).every((value) => value === undefined)) {
+        return apiError("Nothing to update.", 400, "invalid_service");
+      }
+      service = await updateService(data.id, fields);
+    }
+
     return NextResponse.json({ ok: true as const, service });
   } catch (error) {
     console.error("[admin] service update failed", error);

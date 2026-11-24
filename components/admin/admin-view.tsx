@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2, Plus, Trash2 } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,24 +39,32 @@ import {
   useAdminHours,
   useAdminReviews,
   useAdminServices,
+  useAdminUsers,
   useCreateBarber,
   useCreateHour,
   useCreateService,
   useDeleteDay,
   useDeleteHour,
   useDeleteReview,
+  useLinkBarberUser,
   useSaveDay,
   useSetBarberActive,
   useSetServiceActive,
+  useSetUserRole,
+  useUpdateBarber,
+  useUpdateService,
   type AdminBarber,
+  type AdminUser,
   type DayOverride,
   type Hour,
   type Service,
 } from "@/lib/api/admin-queries";
 import { formatDate, formatPrice, label, parseTime } from "@/lib/domain/time";
+import type { Role } from "@/lib/domain/types";
 
 const TABS = [
   { id: "barbers", label: "Barbers" },
+  { id: "team", label: "Team" },
   { id: "services", label: "Services" },
   { id: "hours", label: "Hours" },
   { id: "days", label: "Days" },
@@ -124,6 +132,7 @@ export function AdminView() {
       </nav>
 
       {tab === "barbers" ? <BarbersSection /> : null}
+      {tab === "team" ? <TeamSection /> : null}
       {tab === "services" ? <ServicesSection /> : null}
       {tab === "hours" ? <HoursSection /> : null}
       {tab === "days" ? <DaysSection /> : null}
@@ -206,17 +215,25 @@ function ReviewsSection() {
 
 function BarbersSection() {
   const list = useAdminBarbers();
+  const users = useAdminUsers();
   const create = useCreateBarber();
   const toggle = useSetBarberActive();
+  const update = useUpdateBarber();
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [bio, setBio] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editPhoto, setEditPhoto] = useState("");
+  const [editUser, setEditUser] = useState("");
 
   const error =
     formError ??
     (create.error ? message(create.error, "Could not add the barber.") : null) ??
-    (toggle.error ? message(toggle.error, "Could not update the barber.") : null);
+    (toggle.error ? message(toggle.error, "Could not update the barber.") : null) ??
+    (update.error ? message(update.error, "Could not save the barber.") : null);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -257,7 +274,40 @@ function BarbersSection() {
     );
   }
 
+  function startEdit(barber: AdminBarber) {
+    setEditingId(barber.id);
+    setEditTitle(barber.title);
+    setEditBio(barber.bio);
+    setEditPhoto(barber.photo);
+    setEditUser(barber.user);
+  }
+
+  function saveEdit(barber: AdminBarber) {
+    update.mutate(
+      {
+        id: barber.id,
+        title: editTitle,
+        bio: editBio,
+        photo: editPhoto,
+        user: editUser,
+      },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          toast.success("Barber updated");
+        },
+        onError: (cause) =>
+          toast.error("Could not save the barber", {
+            description: message(cause, "Please try again."),
+          }),
+      },
+    );
+  }
+
   const barbers = list.data ?? [];
+  const userNames = new Map(
+    (users.data ?? []).map((user) => [user.id, user.name || user.email]),
+  );
 
   return (
     <Card>
@@ -327,36 +377,275 @@ function BarbersSection() {
                 <TableHead>Name</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Bio</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {barbers.map((barber) => (
-                <TableRow key={barber.id}>
-                  <TableCell className="font-medium">{barber.name}</TableCell>
-                  <TableCell>{barber.title || "—"}</TableCell>
-                  <TableCell className="max-w-64 truncate text-muted-foreground">
-                    {barber.bio || "—"}
+                <Fragment key={barber.id}>
+                  <TableRow>
+                    <TableCell className="font-medium">{barber.name}</TableCell>
+                    <TableCell>{barber.title || "—"}</TableCell>
+                    <TableCell className="max-w-56 truncate text-muted-foreground">
+                      {barber.bio || "—"}
+                    </TableCell>
+                    <TableCell className="max-w-40 truncate text-muted-foreground">
+                      {barber.user ? (userNames.get(barber.user) ?? barber.user) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={barber.active ? "secondary" : "outline"}>
+                        {barber.active ? "Active" : "Offline"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            editingId === barber.id ? setEditingId(null) : startEdit(barber)
+                          }
+                        >
+                          {editingId === barber.id ? (
+                            "Cancel"
+                          ) : (
+                            <>
+                              <Pencil className="size-3" aria-hidden />
+                              Edit
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={toggle.isPending}
+                          onClick={() => switchActive(barber)}
+                        >
+                          {toggle.isPending ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden />
+                          ) : null}
+                          {barber.active ? "Take offline" : "Go online"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {editingId === barber.id ? (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <form
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            saveEdit(barber);
+                          }}
+                          className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2"
+                        >
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`barber-edit-title-${barber.id}`}>
+                              Title
+                            </Label>
+                            <Input
+                              id={`barber-edit-title-${barber.id}`}
+                              value={editTitle}
+                              maxLength={64}
+                              placeholder="Senior barber"
+                              onChange={(event) => setEditTitle(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`barber-edit-photo-${barber.id}`}>
+                              Photo URL
+                            </Label>
+                            <Input
+                              id={`barber-edit-photo-${barber.id}`}
+                              value={editPhoto}
+                              maxLength={512}
+                              placeholder="https://…"
+                              onChange={(event) => setEditPhoto(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <Label htmlFor={`barber-edit-bio-${barber.id}`}>Bio</Label>
+                            <Textarea
+                              id={`barber-edit-bio-${barber.id}`}
+                              value={editBio}
+                              maxLength={512}
+                              placeholder="A short line about their work."
+                              onChange={(event) => setEditBio(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <Label htmlFor={`barber-edit-user-${barber.id}`}>
+                              Linked account
+                            </Label>
+                            <Select
+                              value={editUser || "none"}
+                              onValueChange={(value) =>
+                                setEditUser(value === "none" ? "" : String(value ?? ""))
+                              }
+                            >
+                              <SelectTrigger
+                                id={`barber-edit-user-${barber.id}`}
+                                className="h-9 w-full"
+                              >
+                                <SelectValue placeholder="No linked account" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No linked account</SelectItem>
+                                {(users.data ?? []).map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.name || user.email}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+                            <Button type="submit" size="sm" disabled={update.isPending}>
+                              {update.isPending ? (
+                                <Loader2 className="size-3 animate-spin" aria-hidden />
+                              ) : null}
+                              Save changes
+                            </Button>
+                          </div>
+                        </form>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------- team */
+
+function TeamSection() {
+  const list = useAdminUsers();
+  const chairs = useAdminBarbers();
+  const setRole = useSetUserRole();
+  const link = useLinkBarberUser();
+  const [errorText, setErrorText] = useState<string | null>(null);
+
+  const busy = setRole.isPending || link.isPending;
+
+  const error =
+    errorText ??
+    (list.error ? message(list.error, "Could not load members.") : null) ??
+    (chairs.error ? message(chairs.error, "Could not load chairs.") : null);
+
+  function changeRole(user: AdminUser, role: string) {
+    setRole.mutate(
+      { userId: user.id, role: role as Role },
+      {
+        onSuccess: () => {
+          setErrorText(null);
+          toast.success("Role updated");
+        },
+        onError: (cause) => {
+          setErrorText(message(cause, "Could not update the role."));
+          toast.error("Could not update the role");
+        },
+      },
+    );
+  }
+
+  function changeChair(user: AdminUser, barber: string) {
+    link.mutate(
+      { userId: user.id, barber: barber === "none" ? "" : barber },
+      {
+        onSuccess: () => {
+          setErrorText(null);
+          toast.success("Chair updated");
+        },
+        onError: (cause) => {
+          setErrorText(message(cause, "Could not update the chair."));
+          toast.error("Could not update the chair");
+        },
+      },
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Team</CardTitle>
+        <CardDescription>
+          Set who can book, work a chair or manage the catalogue.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <FormError text={error} />
+        {list.isPending ? (
+          <LoadingRows />
+        ) : (list.data ?? []).length === 0 ? (
+          <Empty>No members yet.</Empty>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Chair</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(list.data ?? []).map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">
+                    {user.name || "—"}
+                  </TableCell>
+                  <TableCell className="max-w-56 truncate text-muted-foreground">
+                    {user.email || user.phone || "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={barber.active ? "secondary" : "outline"}>
-                      {barber.active ? "Active" : "Offline"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={toggle.isPending}
-                      onClick={() => switchActive(barber)}
+                    <Select
+                      value={user.role}
+                      disabled={busy}
+                      onValueChange={(value) => changeRole(user, String(value))}
                     >
-                      {toggle.isPending ? (
-                        <Loader2 className="size-3 animate-spin" aria-hidden />
-                      ) : null}
-                      {barber.active ? "Take offline" : "Go online"}
-                    </Button>
+                      <SelectTrigger
+                        aria-label={`Role for ${user.name || user.email}`}
+                        className="h-9 w-32"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="client">Client</SelectItem>
+                        <SelectItem value="barber">Barber</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={user.barber || "none"}
+                      disabled={busy}
+                      onValueChange={(value) => changeChair(user, String(value))}
+                    >
+                      <SelectTrigger
+                        aria-label={`Chair for ${user.name || user.email}`}
+                        className="h-9 w-40"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No chair</SelectItem>
+                        {(chairs.data ?? []).map((barber) => (
+                          <SelectItem key={barber.id} value={barber.id}>
+                            {barber.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))}
@@ -374,16 +663,23 @@ function ServicesSection() {
   const list = useAdminServices();
   const create = useCreateService();
   const toggle = useSetServiceActive();
+  const update = useUpdateService();
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [price, setPrice] = useState("");
   const [time, setTime] = useState("30");
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editTime, setEditTime] = useState("30");
 
   const error =
     formError ??
     (create.error ? message(create.error, "Could not add the service.") : null) ??
-    (toggle.error ? message(toggle.error, "Could not update the service.") : null);
+    (toggle.error ? message(toggle.error, "Could not update the service.") : null) ??
+    (update.error ? message(update.error, "Could not save the service.") : null);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -423,6 +719,46 @@ function ServicesSection() {
           toast.success(service.active ? "Service taken off sale" : "Service is on sale"),
         onError: (cause) =>
           toast.error("Could not update the service", {
+            description: message(cause, "Please try again."),
+          }),
+      },
+    );
+  }
+
+  function startEdit(service: Service) {
+    setEditingId(service.id);
+    setEditName(service.name);
+    setEditNote(service.note);
+    setEditPrice(String(service.price));
+    setEditTime(String(service.time));
+  }
+
+  function saveEdit(service: Service) {
+    if (!editName.trim()) {
+      setFormError("Give the service a name.");
+      return;
+    }
+    if (!editPrice.trim()) {
+      setFormError("Enter a price in UZS.");
+      return;
+    }
+    setFormError(null);
+
+    update.mutate(
+      {
+        id: service.id,
+        name: editName,
+        note: editNote,
+        price: Number(editPrice),
+        time: Number(editTime),
+      },
+      {
+        onSuccess: () => {
+          setEditingId(null);
+          toast.success("Service updated");
+        },
+        onError: (cause) =>
+          toast.error("Could not save the service", {
             description: message(cause, "Please try again."),
           }),
       },
@@ -519,35 +855,126 @@ function ServicesSection() {
             </TableHeader>
             <TableBody>
               {services.map((service) => (
-                <TableRow key={service.id}>
-                  <TableCell className="font-medium">{service.name}</TableCell>
-                  <TableCell className="max-w-56 truncate text-muted-foreground">
-                    {service.note || "—"}
-                  </TableCell>
-                  <TableCell className="tabular-nums">
-                    {formatPrice(service.price)}
-                  </TableCell>
-                  <TableCell className="tabular-nums">{service.time} min</TableCell>
-                  <TableCell>
-                    <Badge variant={service.active ? "secondary" : "outline"}>
-                      {service.active ? "Active" : "Offline"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={toggle.isPending}
-                      onClick={() => switchActive(service)}
-                    >
-                      {toggle.isPending ? (
-                        <Loader2 className="size-3 animate-spin" aria-hidden />
-                      ) : null}
-                      {service.active ? "Take offline" : "Go online"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <Fragment key={service.id}>
+                  <TableRow>
+                    <TableCell className="font-medium">{service.name}</TableCell>
+                    <TableCell className="max-w-56 truncate text-muted-foreground">
+                      {service.note || "—"}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {formatPrice(service.price)}
+                    </TableCell>
+                    <TableCell className="tabular-nums">{service.time} min</TableCell>
+                    <TableCell>
+                      <Badge variant={service.active ? "secondary" : "outline"}>
+                        {service.active ? "Active" : "Offline"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            editingId === service.id ? setEditingId(null) : startEdit(service)
+                          }
+                        >
+                          {editingId === service.id ? (
+                            "Cancel"
+                          ) : (
+                            <>
+                              <Pencil className="size-3" aria-hidden />
+                              Edit
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={toggle.isPending}
+                          onClick={() => switchActive(service)}
+                        >
+                          {toggle.isPending ? (
+                            <Loader2 className="size-3 animate-spin" aria-hidden />
+                          ) : null}
+                          {service.active ? "Take offline" : "Go online"}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {editingId === service.id ? (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <form
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            saveEdit(service);
+                          }}
+                          className="grid gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2"
+                        >
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`service-edit-name-${service.id}`}>
+                              Name
+                            </Label>
+                            <Input
+                              id={`service-edit-name-${service.id}`}
+                              value={editName}
+                              maxLength={64}
+                              onChange={(event) => setEditName(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`service-edit-note-${service.id}`}>
+                              Note
+                            </Label>
+                            <Input
+                              id={`service-edit-note-${service.id}`}
+                              value={editNote}
+                              maxLength={256}
+                              onChange={(event) => setEditNote(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`service-edit-price-${service.id}`}>
+                              Price (UZS)
+                            </Label>
+                            <Input
+                              id={`service-edit-price-${service.id}`}
+                              type="number"
+                              min={0}
+                              step={1000}
+                              value={editPrice}
+                              onChange={(event) => setEditPrice(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor={`service-edit-time-${service.id}`}>
+                              Duration (minutes)
+                            </Label>
+                            <Input
+                              id={`service-edit-time-${service.id}`}
+                              type="number"
+                              min={5}
+                              max={240}
+                              value={editTime}
+                              onChange={(event) => setEditTime(event.target.value)}
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+                            <Button type="submit" size="sm" disabled={update.isPending}>
+                              {update.isPending ? (
+                                <Loader2 className="size-3 animate-spin" aria-hidden />
+                              ) : null}
+                              Save changes
+                            </Button>
+                          </div>
+                        </form>
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               ))}
             </TableBody>
           </Table>

@@ -159,6 +159,7 @@ cmd /c "npm run qa:auth"    # end-to-end auth probe (dev server required)
 cmd /c "npm run qa:booking" # booking probe (needs DB scopes)
 cmd /c "npm run qa:admin"   # admin role + CRUD probe
 cmd /c "npm run qa:cron"    # reminder cron probe
+cmd /c "npm run qa:staff"   # barber self-service probe
 ```
 
 Production URL: <https://icone-uz.vercel.app>. `.env.production` holds only

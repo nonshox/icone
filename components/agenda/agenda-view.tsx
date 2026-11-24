@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarDays, Loader2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Settings2 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -33,7 +34,7 @@ import {
 } from "@/components/ui/table";
 import { useAgenda, useBarbers, useSetStatus } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
-import { formatDate, formatPrice, label } from "@/lib/domain/time";
+import { addDays, formatDate, formatPrice, label } from "@/lib/domain/time";
 import { STATUS_LABEL, type Role, type Status } from "@/lib/domain/types";
 
 const badgeVariant: Record<
@@ -82,13 +83,35 @@ export function AgendaView({ role }: { role: Role }) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="space-y-2">
           <Label htmlFor="agenda-date">Day</Label>
-          <Input
-            id="agenda-date"
-            type="date"
-            value={date}
-            onChange={(event) => setChosenDate(event.target.value)}
-            className="h-9 w-44"
-          />
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              aria-label="Previous day"
+              disabled={!date}
+              onClick={() => setChosenDate(addDays(date, -1))}
+            >
+              <ChevronLeft className="size-3.5" aria-hidden />
+            </Button>
+            <Input
+              id="agenda-date"
+              type="date"
+              value={date}
+              onChange={(event) => setChosenDate(event.target.value)}
+              className="h-9 w-40"
+            />
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="outline"
+              aria-label="Next day"
+              disabled={!date}
+              onClick={() => setChosenDate(addDays(date, 1))}
+            >
+              <ChevronRight className="size-3.5" aria-hidden />
+            </Button>
+          </div>
         </div>
 
         {role === "admin" ? (
@@ -133,6 +156,15 @@ export function AgendaView({ role }: { role: Role }) {
               : "Every chair for the day."}{" "}
             Cancel, complete or mark a no-show.
           </CardDescription>
+          {role === "barber" ? (
+            <Link
+              href="/agenda/me"
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <Settings2 className="size-3.5" aria-hidden />
+              My chair settings
+            </Link>
+          ) : null}
         </CardHeader>
         <CardContent>
           {!date || agenda.isPending ? (

@@ -3,7 +3,14 @@ import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { createBarber, listAllBarbers, setBarberActive } from "@/lib/domain/admin";
+import {
+  createBarber,
+  findBarber,
+  linkBarberUser,
+  listAllBarbers,
+  setBarberActive,
+  updateBarber,
+} from "@/lib/domain/admin";
 import { currentMember, isStaff } from "@/lib/domain/member";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -14,10 +21,33 @@ const createSchema = z.object({
   bio: z.string().trim().max(512),
 });
 
-const patchSchema = z.object({
-  id: z.string().trim().min(1, "Pick a barber.").max(36),
-  active: z.boolean(),
-});
+const barberId = z.string().trim().min(1, "Pick a barber.").max(36);
+
+/** `{ id, active }` or `{ id, title?, bio?, photo?, user? }` — never both. */
+const patchSchema = z.preprocess(
+  (value) => {
+    if (!value || typeof value !== "object") return value;
+    return {
+      ...(value as Record<string, unknown>),
+      op: "active" in value ? "active" : "edit",
+    };
+  },
+  z.discriminatedUnion("op", [
+    z
+      .object({ op: z.literal("active"), id: barberId, active: z.boolean() })
+      .strict(),
+    z
+      .object({
+        op: z.literal("edit"),
+        id: barberId,
+        title: z.string().trim().max(64).optional(),
+        bio: z.string().trim().max(512).optional(),
+        photo: z.string().trim().max(512).optional(),
+        user: z.string().trim().max(36).optional(),
+      })
+      .strict(),
+  ]),
+);
 
 function firstIssue(error: z.ZodError, fallback: string): string {
   return error.issues[0]?.message ?? fallback;
@@ -112,7 +142,47 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const barber = await setBarberActive(parsed.data.id, parsed.data.active);
+    const data = parsed.data;
+    let barber: Awaited<ReturnType<typeof setBarberActive>>;
+
+    if (data.op === "active") {
+      barber = await setBarberActive(data.id, data.active);
+    } else {
+      const fields = {
+        title: data.title,
+        bio: data.bio,
+        photo: data.photo,
+        user: data.user,
+      };
+      if (Object.values(fields).every((value) => value === undefined)) {
+        return apiError("Nothing to update.", 400, "invalid_barber");
+      }
+
+      // A chair change goes through the linker so the account leaves its old chair.
+      if (fields.user !== undefined) {
+        await linkBarberUser(fields.user ? data.id : "", fields.user);
+      }
+
+      const hasDetails =
+        fields.title !== undefined ||
+        fields.bio !== undefined ||
+        fields.photo !== undefined;
+
+      if (hasDetails) {
+        barber = await updateBarber(data.id, {
+          title: fields.title,
+          bio: fields.bio,
+          photo: fields.photo,
+        });
+      } else {
+        const current = await findBarber(data.id);
+        if (!current) {
+          return apiError("Barber not found.", 404, "barber_missing");
+        }
+        barber = current;
+      }
+    }
+
     return NextResponse.json({ ok: true as const, barber });
   } catch (error) {
     console.error("[admin] barber update failed", error);
