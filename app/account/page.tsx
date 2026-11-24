@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { AccountView } from "@/components/account/account-view";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -40,7 +41,7 @@ export default function AccountPage() {
         <div className="mx-auto w-full max-w-5xl px-6 pt-10 pb-10">
           <div className="mb-6 flex flex-col gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Good to see you.
+              <T k="account.goodToSee" />
             </h1>
           </div>
 

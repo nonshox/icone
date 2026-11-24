@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
 
 const linkClass =
@@ -15,40 +16,40 @@ export function SiteFooter() {
         <div className="max-w-xs space-y-3">
           <Logo />
           <p className="text-sm text-muted-foreground">
-            Book a sharp cut in Tashkent.
+            <T k="footer.tag" />
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-x-12 gap-y-2 sm:gap-x-16">
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium tracking-wider text-foreground/60 uppercase">
-              Explore
+              <T k="nav.discover" />
             </span>
             <Link href="/services" className={linkClass}>
-              Services
+              <T k="nav.services" />
             </Link>
             <Link href="/barbers" className={linkClass}>
-              Barbers
+              <T k="nav.barbers" />
             </Link>
             <Link href="/book" className={linkClass}>
-              Book a chair
+              <T k="nav.book" />
             </Link>
             <Link href="/bookings" className={linkClass}>
-              My visits
+              <T k="nav.myVisits" />
             </Link>
             <Link href="/account" className={linkClass}>
-              Account
+              <T k="nav.account" />
             </Link>
             <Link href="/become-barber" className={linkClass}>
-              Become a barber
+              <T k="nav.becomeBarber" />
             </Link>
             <Link href="/sign-in" className={linkClass}>
-              Sign in
+              <T k="nav.signIn" />
             </Link>
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-xs font-medium tracking-wider text-foreground/60 uppercase">
-              Elsewhere
+              <T k="nav.more" />
             </span>
             <a
               href="https://t.me/icone_app_bot?start=signin"

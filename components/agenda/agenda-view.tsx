@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -218,7 +219,7 @@ export function AgendaView({ role }: { role: Role }) {
                     </TableCell>
                     <TableCell>
                       <Badge variant={badgeVariant[booking.status]}>
-                        {STATUS_LABEL[booking.status]}
+                        <T k={`status.${booking.status}`} />
                       </Badge>
                     </TableCell>
                     <TableCell>

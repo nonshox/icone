@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -31,7 +32,7 @@ import {
 } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import { STATUS_LABEL, type BookingRow, type Status } from "@/lib/domain/types";
+import type { BookingRow, Status } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
 const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
@@ -73,7 +74,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{booking.serviceName}</p>
             <Badge variant={badgeVariant[booking.status]}>
-              {STATUS_LABEL[booking.status]}
+              <T k={`status.${booking.status}`} />
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { SignInForm } from "@/components/auth/sign-in-form";
+import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
 import { getCurrentUser } from "@/lib/auth/session";
 
@@ -110,11 +111,10 @@ export default function SignInPage() {
                 Members
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-                Welcome to icone.
+                <T k="auth.welcome" />
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Sign in or create an account in one step. We&apos;ll email you a
-                6-digit code — no password to remember.
+                <T k="auth.subtitle" />
               </p>
 
               <div className="mt-8">

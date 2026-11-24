@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { T } from "@/components/i18n/t";
 import { BookingPreview } from "@/components/marketing/booking-preview";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -14,9 +15,9 @@ import { formatPrice } from "@/lib/domain/time";
 import { cn } from "@/lib/utils";
 
 const steps = [
-  { number: "01", title: "Sign in", body: "Email code or Telegram." },
-  { number: "02", title: "Choose a chair", body: "Pick a service and a live time." },
-  { number: "03", title: "Show up sharp", body: "Arrive five minutes early." },
+  { number: "01", titleKey: "landing.step1", bodyKey: "landing.step1Body" },
+  { number: "02", titleKey: "landing.step2", bodyKey: "landing.step2Body" },
+  { number: "03", titleKey: "landing.step3", bodyKey: "landing.step3Body" },
 ] as const;
 
 const site = process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
@@ -55,19 +56,18 @@ async function LandingContent() {
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand opacity-70" />
                 <span className="relative inline-flex size-1.5 rounded-full bg-brand" />
               </span>
-              Now booking in Tashkent
+              <T k="landing.badge" />
             </div>
 
             <h1 className="mt-5 max-w-xl text-[2.25rem] leading-[1.02] font-semibold tracking-[-0.04em] text-balance sm:text-5xl lg:text-6xl">
-              Your chair is{" "}
+              <T k="landing.heroA" />{" "}
               <span className="font-display text-gradient-brand pr-1 text-[1.05em] leading-[0.9] font-normal italic">
-                waiting.
+                <T k="landing.heroB" />
               </span>
             </h1>
 
             <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Book Tashkent&apos;s sharpest barbers in seconds. No calls, no
-              queues, no passwords.
+              <T k="landing.subtitle" />
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -78,7 +78,7 @@ async function LandingContent() {
                   "h-12 gap-2 rounded-xl px-6 text-sm",
                 )}
               >
-                Book a chair
+                <T k="nav.book" />
                 <ArrowUpRight className="size-4" aria-hidden />
               </Link>
               <Link
@@ -88,14 +88,14 @@ async function LandingContent() {
                   "glass-soft h-12 gap-2 rounded-xl px-6 text-sm",
                 )}
               >
-                Explore barbers
+                <T k="landing.explore" />
               </Link>
             </div>
 
             <p className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-              <span>Email one-time code</span>
-              <span>Telegram sign-in</span>
-              <span>Live availability</span>
+              <span><T k="landing.signCode" /></span>
+              <span><T k="landing.telegram" /></span>
+              <span><T k="landing.live" /></span>
             </p>
           </div>
 
@@ -113,11 +113,10 @@ async function LandingContent() {
               The menu
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-4xl">
-              Popular services
-            </h2>
+              <T k="landing.popular" />            </h2>
           </div>
           <Link href="/services" className="text-sm text-muted-foreground hover:text-foreground">
-            All services →
+            <T k="landing.allServices" /> →
           </Link>
         </div>
 
@@ -170,14 +169,14 @@ async function LandingContent() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-              The chairs
+              <T k="landing.chairs" />
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-4xl">
-              Featured barbers
+              <T k="landing.featured" />
             </h2>
           </div>
           <Link href="/barbers" className="text-sm text-muted-foreground hover:text-foreground">
-            All barbers →
+            <T k="landing.allBarbers" /> →
           </Link>
         </div>
 
@@ -231,10 +230,10 @@ async function LandingContent() {
       <section className="mx-auto w-full max-w-6xl px-4 pt-14 sm:px-6 sm:pt-20">
         <div className="glass rounded-[1.5rem] p-5 sm:p-8">
           <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-            How it works
+            <T k="landing.how" />
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] sm:text-3xl">
-            Book in three steps.
+            <T k="landing.howTitle" />
           </h2>
           <div className="mt-6 grid gap-5 sm:grid-cols-3">
             {steps.map((step) => (
@@ -242,8 +241,8 @@ async function LandingContent() {
                 <span className="font-display text-3xl leading-none text-brand-strong/80 italic">
                   {step.number}
                 </span>
-                <h3 className="mt-2 font-medium">{step.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{step.body}</p>
+                <h3 className="mt-2 font-medium"><T k={step.titleKey} /></h3>
+                <p className="mt-1 text-sm text-muted-foreground"><T k={step.bodyKey} /></p>
               </div>
             ))}
           </div>
@@ -256,24 +255,24 @@ async function LandingContent() {
             Your next cut
           </p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] sm:text-4xl">
-            Ready for a sharper look?
+            <T k="landing.ready" />
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
-            Sign in once, pick a time, and we&apos;ll hold the chair.
+            <T k="landing.finalSub" />
           </p>
           <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/book"
               className={cn(buttonVariants({ size: "lg" }), "h-12 gap-2 rounded-xl px-6 text-sm")}
             >
-              Book a chair
+              <T k="nav.book" />
               <ArrowUpRight className="size-4" aria-hidden />
             </Link>
             <Link
               href="/become-barber"
               className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
-              Become a barber
+              <T k="nav.becomeBarber" />
             </Link>
           </div>
         </div>

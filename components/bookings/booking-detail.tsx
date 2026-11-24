@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -46,7 +47,7 @@ import type {
   PaymentStatus,
 } from "@/lib/domain/payments";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import { STATUS_LABEL, type BookingRow, type Status } from "@/lib/domain/types";
+import type { BookingRow, Status } from "@/lib/domain/types";
 
 const badgeVariant: Record<
   Status,
@@ -217,7 +218,7 @@ export function BookingDetail({ id }: { id: string }) {
                 <CardDescription>with {row.barberName}</CardDescription>
               </div>
               <Badge variant={badgeVariant[row.status]}>
-                {STATUS_LABEL[row.status]}
+                <T k={`status.${row.status}`} />
               </Badge>
             </div>
           </CardHeader>

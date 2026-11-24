@@ -1,6 +1,7 @@
 import { ArrowRight, Check, Clock3, Scissors, Star } from "lucide-react";
 import Link from "next/link";
 
+import { T } from "@/components/i18n/t";
 import { buttonVariants } from "@/components/ui/button";
 import type { Barber, Service } from "@/lib/domain/types";
 import { formatPrice } from "@/lib/domain/time";
@@ -31,7 +32,7 @@ export function BookingPreview({
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
-            Live catalogue
+            <T k="landing.liveCatalog" />
           </div>
           <span className="rounded-full border border-border/80 px-2.5 py-1 text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
             icone
@@ -103,7 +104,7 @@ export function BookingPreview({
             "mt-5 h-11 w-full gap-2 rounded-xl text-sm",
           )}
         >
-          Check open times
+          <T k="landing.checkTimes" />
           <ArrowRight className="size-4" aria-hidden />
         </Link>
 

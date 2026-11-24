@@ -71,13 +71,20 @@ await waitForServer();
 const home = await fetch(BASE);
 const homeHtml = await home.text();
 check("GET /", home.status === 200, String(home.status));
-check("landing renders hero", homeHtml.includes("Your chair is"));
+check(
+  "landing renders hero",
+  homeHtml.includes("rningiz") || homeHtml.includes("Your chair is"),
+);
 check("landing has sign-in CTA", homeHtml.includes("/sign-in"));
 
 const signIn = await fetch(`${BASE}/sign-in`);
 const signInHtml = await signIn.text();
 check("GET /sign-in", signIn.status === 200, String(signIn.status));
-check("sign-in renders form copy", signInHtml.includes("Welcome to icone"));
+check(
+  "sign-in renders form copy",
+  signInHtml.includes("Welcome to icone") ||
+    signInHtml.includes("xush kelibsiz"),
+);
 
 const anonAccount = await fetch(`${BASE}/account`, { redirect: "manual" });
 check(

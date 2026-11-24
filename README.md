@@ -104,3 +104,10 @@ The full endpoint list is in [`docs/API.md`](./docs/API.md).
 - [`docs/ENGINEERING.md`](./docs/ENGINEERING.md) — Next 16 rules, conventions
 - [`docs/AUTH.md`](./docs/AUTH.md) — auth architecture, provider setup, threats
 - [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) — production setup, env, ops, backups
+
+## Languages
+
+Uzbek is the default; switch to Russian or English from the header menu. The
+choice persists in `localStorage` and a cookie. Core navigation, landing, auth,
+booking, statuses and account copy are translated; database content (barber
+names, service notes, reviews) stays as entered.

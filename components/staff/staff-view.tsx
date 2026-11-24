@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +49,7 @@ import {
   type StaffHour,
 } from "@/lib/api/staff-queries";
 import { formatDate, formatPrice, label, parseTime } from "@/lib/domain/time";
-import { STATUS_LABEL, type BookingRow, type Status } from "@/lib/domain/types";
+import type { BookingRow, Status } from "@/lib/domain/types";
 
 const TABS = [
   { id: "profile", label: "Profile" },
@@ -777,7 +778,7 @@ function UpcomingSection() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={statusVariant[booking.status]}>
-                            {STATUS_LABEL[booking.status]}
+                            <T k={`status.${booking.status}`} />
                           </Badge>
                         </TableCell>
                       </TableRow>

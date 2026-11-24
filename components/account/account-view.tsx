@@ -14,6 +14,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export function AccountView({
           <CardContent>
             <form className="space-y-4" onSubmit={save}>
               <div className="space-y-2">
-                <Label htmlFor="name">Display name</Label>
+                <Label htmlFor="name"><T k="account.name" /></Label>
                 <Input
                   id="name"
                   value={name}
@@ -146,7 +147,7 @@ export function AccountView({
                 {update.isPending ? (
                   <Loader2 className="size-3.5 animate-spin" aria-hidden />
                 ) : null}
-                Save profile
+                <T k="account.save" />
               </Button>
             </form>
           </CardContent>
@@ -212,7 +213,7 @@ export function AccountView({
                   )}
                 >
                   <Scissors className="size-3.5" aria-hidden />
-                  Book a chair
+                  <T k="nav.book" />
                 </Link>
               </div>
             )}
@@ -246,7 +247,7 @@ export function AccountView({
                 className="flex items-center gap-2 text-sm font-medium hover:underline"
               >
                 <LayoutDashboard className="size-4" aria-hidden />
-                Customer home
+                <T k="account.customerHome" />
               </Link>
             ) : null}
             {profile.role === "barber" ? (
@@ -255,7 +256,7 @@ export function AccountView({
                 className="flex items-center gap-2 text-sm font-medium hover:underline"
               >
                 <LayoutDashboard className="size-4" aria-hidden />
-                Business dashboard
+                <T k="account.businessDashboard" />
               </Link>
             ) : null}
             {profile.role === "admin" ? (
@@ -264,7 +265,7 @@ export function AccountView({
                 className="flex items-center gap-2 text-sm font-medium hover:underline"
               >
                 <LayoutDashboard className="size-4" aria-hidden />
-                Admin dashboard
+                <T k="account.adminDashboard" />
               </Link>
             ) : null}
             <Link
@@ -272,14 +273,14 @@ export function AccountView({
               className="flex items-center gap-2 text-sm font-medium hover:underline"
             >
               <CalendarDays className="size-4" aria-hidden />
-              My visits
+              <T k="nav.myVisits" />
             </Link>
             <Link
               href="/book"
               className="flex items-center gap-2 text-sm font-medium hover:underline"
             >
               <Scissors className="size-4" aria-hidden />
-              Book a chair
+              <T k="nav.book" />
             </Link>
             {profile.role === "client" ? (
               <Link
@@ -287,7 +288,7 @@ export function AccountView({
                 className="flex items-center gap-2 text-sm font-medium hover:underline"
               >
                 <UserRound className="size-4" aria-hidden />
-                Become a barber
+                <T k="nav.becomeBarber" />
               </Link>
             ) : null}
             {profile.role !== "client" ? (

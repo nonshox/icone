@@ -12,6 +12,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -51,6 +53,7 @@ import { useBookingDraft } from "@/lib/store/booking";
 
 export function BookingForm() {
   const router = useRouter();
+  const t = useT();
 
   const serviceId = useBookingDraft((state) => state.service);
   const barberId = useBookingDraft((state) => state.barber);
@@ -119,20 +122,20 @@ export function BookingForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Details</CardTitle>
+        <CardTitle><T k="booking.details" /></CardTitle>
         <CardDescription>Times are Tashkent time.</CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="service">Service</Label>
+            <Label htmlFor="service"><T k="booking.service" /></Label>
             <Select
               value={serviceId || null}
               onValueChange={(value) => setService(String(value ?? ""))}
             >
               <SelectTrigger id="service" className="h-9 w-full">
-                <SelectValue placeholder="Pick a service" />
+                <SelectValue placeholder={t("booking.service")} />
               </SelectTrigger>
               <SelectContent>
                 {(services.data ?? []).map((item) => (
@@ -151,13 +154,13 @@ export function BookingForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="barber">Barber</Label>
+            <Label htmlFor="barber"><T k="booking.barber" /></Label>
             <Select
               value={barberId || null}
               onValueChange={(value) => setBarber(String(value ?? ""))}
             >
               <SelectTrigger id="barber" className="h-9 w-full">
-                <SelectValue placeholder="Pick a barber" />
+                <SelectValue placeholder={t("booking.barber")} />
               </SelectTrigger>
               <SelectContent>
                 {(barbers.data ?? []).map((item) => (
@@ -178,7 +181,7 @@ export function BookingForm() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <Label>Date</Label>
+            <Label><T k="booking.date" /></Label>
             <div className="flex items-center gap-1">
               <Button
                 type="button"
@@ -237,7 +240,7 @@ export function BookingForm() {
         <Separator />
 
         <div className="space-y-2">
-          <Label>Time</Label>
+          <Label><T k="booking.time" /></Label>
 
           {!serviceId || !barberId ? (
             <p className="text-sm text-muted-foreground">
@@ -320,7 +323,7 @@ export function BookingForm() {
           {create.isPending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
           ) : null}
-          {create.isPending ? "Booking" : "Confirm booking"}
+          {create.isPending ? <T k="common.loading" /> : <T k="booking.confirm" />}
         </Button>
       </CardContent>
     </Card>

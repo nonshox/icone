@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { TelegramLogin } from "@/components/auth/telegram-login";
+import { T } from "@/components/i18n/t";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -218,7 +219,7 @@ export function SignInForm() {
           className="animate-in fade-in-0 slide-in-from-bottom-1 space-y-4 duration-200"
         >
           <div className="space-y-2">
-            <Label htmlFor="email">Email address</Label>
+            <Label htmlFor="email"><T k="auth.email" /></Label>
             <div className="relative">
               <Mail
                 className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -253,7 +254,7 @@ export function SignInForm() {
             {pending ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
             ) : null}
-            {pending ? "Sending code" : "Send me a code"}
+            {pending ? <T k="common.loading" /> : <T k="auth.sendCode" />}
             {!pending ? <ArrowRight className="size-4" aria-hidden /> : null}
           </Button>
         </form>
@@ -272,7 +273,7 @@ export function SignInForm() {
           </button>
 
           <div className="space-y-2">
-            <Label htmlFor="code">Your 6-digit code</Label>
+            <Label htmlFor="code"><T k="auth.code" /></Label>
             <Input
               ref={codeInputRef}
               id="code"
@@ -310,7 +311,7 @@ export function SignInForm() {
             ) : (
               <ShieldCheck className="size-4" aria-hidden />
             )}
-            {pending ? "Verifying" : "Verify and continue"}
+            {pending ? <T k="common.loading" /> : <T k="auth.verify" />}
           </Button>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -341,7 +342,7 @@ export function SignInForm() {
 
       <div className="my-6 flex items-center gap-3 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
         <Separator className="flex-1" />
-        or
+        <T k="auth.or" />
         <Separator className="flex-1" />
       </div>
 

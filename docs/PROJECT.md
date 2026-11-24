@@ -43,6 +43,7 @@ Do not start milestone 3 without an explicit instruction from the owner.
 | Toasts | `sonner` |
 | Theming | `next-themes` (`class` strategy, system default) |
 | Validation | `zod` |
+| i18n | Uzbek (default), Russian, English — client dictionary + persisted locale |
 | Analytics | `@vercel/analytics` — `<Analytics />` in the root layout only |
 | Backend | Appwrite Cloud (`fra` region) — Users, Databases, sessions, storage |
 | Auth transport | HttpOnly cookie holding an Appwrite session secret |

@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight, House } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { useT } from "@/lib/i18n/use-t";
+
 const labels: Record<string, string> = {
   barbers: "Barbers",
   book: "Book",
@@ -30,6 +32,7 @@ const labels: Record<string, string> = {
 export function HeaderBreadcrumbs() {
   const pathname = usePathname();
   const router = useRouter();
+  const t = useT();
   const segments = pathname.split("/").filter(Boolean);
 
   if (segments.length === 0) return null;
@@ -56,7 +59,7 @@ export function HeaderBreadcrumbs() {
         className="inline-flex items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
       >
         <ChevronLeft className="size-3.5" aria-hidden />
-        Back
+        {t("nav.back")}
       </button>
       <ChevronRight className="size-3 opacity-50" aria-hidden />
       <Link
@@ -64,7 +67,7 @@ export function HeaderBreadcrumbs() {
         className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1 transition-colors hover:text-foreground"
       >
         <House className="size-3.5" aria-hidden />
-        Home
+        {t("nav.home")}
       </Link>
       {crumbs.map((crumb) => (
         <span key={crumb.href} className="flex items-center gap-1.5">

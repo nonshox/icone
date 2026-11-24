@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, Check, ExternalLink, Scissors } from "lucide-r
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { T } from "@/components/i18n/t";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -121,7 +122,7 @@ export function MiniAppView() {
             href="https://t.me/icone_app_bot"
             className={cn(buttonVariants({ size: "sm" }), "w-full rounded-lg")}
           >
-            Open the bot
+            <T k="mini.retry" />
           </a>
           <Link
             href="/sign-in"
@@ -131,7 +132,7 @@ export function MiniAppView() {
             )}
           >
             <ArrowLeft className="size-3.5" aria-hidden />
-            Sign in with email
+            <T k="nav.signIn" />
           </Link>
         </CardContent>
       </Card>
@@ -143,7 +144,7 @@ export function MiniAppView() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Check className="size-4" aria-hidden />
-          Signed in as {name}
+          <T k="mini.signedIn" /> {name}
         </CardTitle>
         <CardDescription>
           Signed in with Telegram. Use the link below on the website.
@@ -155,7 +156,7 @@ export function MiniAppView() {
           className={cn(buttonVariants({ size: "sm" }), "w-full rounded-lg")}
         >
           <Scissors className="size-3.5" aria-hidden />
-          Book a chair
+          <T k="nav.book" />
         </Link>
         <Link
           href="/bookings"
@@ -165,7 +166,7 @@ export function MiniAppView() {
           )}
         >
           <CalendarDays className="size-3.5" aria-hidden />
-          My visits
+          <T k="nav.myVisits" />
         </Link>
         {webLoginUrl ? (
           <Button
@@ -182,7 +183,7 @@ export function MiniAppView() {
             }}
           >
             <ExternalLink className="size-3.5" aria-hidden />
-            Open in website
+            <T k="mini.openWebsite" />
           </Button>
         ) : null}
         <Button
@@ -192,7 +193,7 @@ export function MiniAppView() {
           className="w-full rounded-lg"
           onClick={() => window.Telegram?.WebApp?.close()}
         >
-          Close
+          <T k="common.close" />
         </Button>
       </CardContent>
     </Card>
