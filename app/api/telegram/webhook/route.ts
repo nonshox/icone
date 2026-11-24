@@ -1,7 +1,10 @@
 import "server-only";
 
+import { AppwriteException, Users } from "node-appwrite";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { createAdminClient } from "@/lib/appwrite/server";
+import { createWebLoginTicket } from "@/lib/auth/web-login";
 import { serverEnv } from "@/lib/env";
 import { isValidSecret, sendMessage } from "@/lib/telegram/webhook";
 
@@ -9,6 +12,7 @@ type Update = {
   update_id?: number;
   message?: {
     chat?: { id?: number };
+    from?: { first_name?: string; username?: string };
     text?: string;
   };
 };
@@ -21,14 +25,19 @@ export async function GET() {
 /**
  * POST /api/telegram/webhook
  *
- * Telegram delivers updates here. The secret token is checked on every call;
- * nothing else is trusted. Replies are best-effort and never block the 200 —
- * Telegram retries non-2xx responses, which would duplicate updates.
+ * Secret-checked Telegram updates. `/start` is answered once with a one-time
+ * website sign-in link. Repeated starts get a short hint instead of another
+ * button, so the chat does not fill up.
  */
 export async function POST(request: NextRequest) {
   const env = serverEnv();
 
-  if (!isValidSecret(request.headers.get("x-telegram-bot-api-secret-token"), env.TELEGRAM_WEBHOOK_SECRET)) {
+  if (
+    !isValidSecret(
+      request.headers.get("x-telegram-bot-api-secret-token"),
+      env.TELEGRAM_WEBHOOK_SECRET,
+    )
+  ) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -44,12 +53,43 @@ export async function POST(request: NextRequest) {
 
   if (chatId && text?.startsWith("/start")) {
     try {
-      await sendMessage(
-        env.TELEGRAM_BOT_TOKEN,
-        chatId,
-        "Welcome to icone. Open the Mini App to sign in and book a chair.",
-        `${env.NEXT_PUBLIC_APP_URL}/mini`,
-      );
+      const client = createAdminClient();
+      const users = new Users(client);
+      const userId = `tg_${chatId}`;
+
+      let greeted = false;
+      try {
+        const existing = await users.get({ userId });
+        greeted = (existing.prefs as Record<string, unknown>).botGreeted === true;
+      } catch (error) {
+        if (!(error instanceof AppwriteException) || error.code !== 404) {
+          throw error;
+        }
+        await users.create({
+          userId,
+          name: update.message?.from?.first_name || "Telegram member",
+        });
+      }
+
+      if (greeted) {
+        await sendMessage(
+          env.TELEGRAM_BOT_TOKEN,
+          chatId,
+          "Open icone from the menu button, or sign in on the website.",
+        );
+      } else {
+        const link = await createWebLoginTicket(userId);
+        const fresh = await users.get({ userId });
+        await users.updatePrefs({
+          userId,
+          prefs: { ...fresh.prefs, botGreeted: true },
+        });
+        await sendMessage(
+          env.TELEGRAM_BOT_TOKEN,
+          chatId,
+          `Welcome to icone. One-time website sign-in link (5 min): ${link}\n\nThis signs you into the website and the installed app, not just Telegram.`,
+        );
+      }
     } catch (error) {
       console.error(
         "[telegram] reply failed",

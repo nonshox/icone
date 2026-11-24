@@ -119,12 +119,13 @@ Bot Settings → Menu Button with `https://icone-uz.vercel.app/mini`.
 
 ### Webhook
 
-`TELEGRAM_WEBHOOK_SECRET` is registered as `secret_token` with Telegram and
-compared against `X-Telegram-Bot-Api-Secret-Token` on
-`POST /api/telegram/webhook` with a constant-time check. The route accepts only
-that header, acknowledges every valid update with `200`, and replies to
-`/start` with an inline `web_app` button. Reminders are not implemented yet;
-the endpoint is the place they will be triggered from.
+`POST /api/telegram/webhook` compares `X-Telegram-Bot-Api-Secret-Token` in
+constant time and acknowledges every update with `200`. The first `/start`
+sends a **one-time website sign-in link** (5-minute signed ticket) instead of a
+Mini App button; repeated starts get a short hint, so the chat does not fill up
+with buttons. The link creates the same HttpOnly web session as email sign-in,
+so the user is logged into the website and installed PWA — not only Telegram.
+The Mini App also offers the same link explicitly.
 
 ```powershell
 cmd /c "npm run tg:webhook"        # getWebhookInfo

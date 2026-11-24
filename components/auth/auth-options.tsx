@@ -16,7 +16,7 @@ import { useT } from "@/lib/i18n/use-t";
  * option. Inside the Telegram Mini App the session is created automatically.
  */
 export function AuthOptions() {
-  const [mode, setMode] = useState<"choose" | "email">("choose");
+  const [mode, setMode] = useState<"choose" | "email">("email");
   const [auto, setAuto] = useState(false);
   const t = useT();
   const router = useRouter();

@@ -50,10 +50,11 @@ Details in [`docs/AUTH.md`](./docs/AUTH.md).
 
 ## Sign-in
 
-Two clicks: **Continue in Telegram** opens the bot and the Mini App creates the
-session; inside Telegram it signs in automatically. Email one-time code is a
-secondary option behind “Use email code”. Both land on `/start`, which routes
-by role. Sessions are HttpOnly cookies, valid for a year.
+Email one-time code is the primary web sign-in: enter email, then the 6-digit
+code. Telegram is secondary — the bot's first `/start` gives a one-time website
+sign-in link; the Mini App signs in automatically and offers the same link for
+the browser/installed app. Both land on `/start`, which routes by role.
+Sessions are HttpOnly cookies, valid for a year.
 
 ## Scripts
 

@@ -63,9 +63,9 @@ Before the final response, run one reporting pass. If candidates remain, from th
    390px-wide viewport.
 8. **Docs stay true:** if you change a route, token, env var or convention,
    update the matching file in `docs/` in the same change.
-9. **Data:** table and key names are one lowercase word each. All document
-   access goes through `lib/domain/*`; route handlers never query Appwrite
-   directly. See `docs/DATA.md` and `docs/API.md`.
+9. **Auth:** email OTP is the primary web sign-in. Telegram is secondary and
+   must never create repeated bot buttons — `/start` gives one one-time web
+   login link, and the Mini App offers the same link for the browser/PWA.
 10. **Client state:** TanStack Query owns server data (`lib/api/queries.ts`);
     Zustand holds only ephemeral UI state. Never seed client state from the
     clock during render — use `lib/client/date.ts`.
@@ -78,3 +78,6 @@ Before the final response, run one reporting pass. If candidates remain, from th
 13. **Languages:** Uzbek is default; Russian and English are available through
     the header switcher. Add new copy to `lib/i18n/dictionaries.ts` for all
     three languages, and use `<T k="..." />` for static strings.
+14. **Data:** table and key names are one lowercase word each. All document
+    access goes through `lib/domain/*`; route handlers never query Appwrite
+    directly. See `docs/DATA.md` and `docs/API.md`.

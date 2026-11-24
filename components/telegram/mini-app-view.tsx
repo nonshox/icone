@@ -147,7 +147,8 @@ export function MiniAppView() {
           <T k="mini.signedIn" /> {name}
         </CardTitle>
         <CardDescription>
-          Signed in with Telegram. Use the link below on the website.
+          Signed into Telegram. Use the link below to sign into the website
+          and the installed app too.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

@@ -21,8 +21,8 @@ agenda.
 
 ## Milestones
 
-1. **Auth (done)** — email one-time code, Telegram Mini App, server-side
-   Appwrite sessions, HttpOnly cookie, light/dark UI.
+1. **Auth (done)** — email OTP is the primary web sign-in; Telegram Mini App is
+   a secondary one-time web login. Role-based `/start`, HttpOnly sessions.
 2. **Booking (done)** — barbers, services, weekly hours and date overrides,
    live availability, conflict-safe booking, visits, reviews, staff agenda.
 3. **Reminders (done)** — Telegram reminder for tomorrow's booking, protected
