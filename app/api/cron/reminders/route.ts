@@ -13,11 +13,15 @@ let lastRunAt = 0;
 
 const EMPTY: ReminderCounts = { created: 0, sent: 0, skipped: 0, failed: 0 };
 
+function cronSecret(): string {
+  return serverEnv().CRON_SECRET ?? serverEnv().TELEGRAM_WEBHOOK_SECRET;
+}
+
 function matches(provided: string | null): boolean {
   if (!provided) return false;
 
   const actual = Buffer.from(provided, "utf8");
-  const expected = Buffer.from(serverEnv().TELEGRAM_WEBHOOK_SECRET, "utf8");
+  const expected = Buffer.from(cronSecret(), "utf8");
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 

@@ -4,11 +4,11 @@ import { Account, Client, Databases, Users } from "node-appwrite";
 
 /**
  * End-to-end auth probe. Requires a running dev server and a filled
- * `.env.local`. Creates throwaway users and deletes them again.
+ * `.env`. Creates throwaway users and deletes them again.
  */
 const env = Object.fromEntries(
   fs
-    .readFileSync(".env.local", "utf8")
+    .readFileSync(".env", "utf8")
     .split(/\r?\n/)
     .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
     .map((line) => {

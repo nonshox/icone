@@ -8,7 +8,7 @@ import { Account, Client, Databases, ID, Users } from "node-appwrite";
 
 const env = Object.fromEntries(
   fs
-    .readFileSync(".env.local", "utf8")
+    .readFileSync(".env", "utf8")
     .split(/\r?\n/)
     .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
     .map((line) => {

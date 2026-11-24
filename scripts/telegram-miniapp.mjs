@@ -5,7 +5,7 @@
  *   node scripts/telegram-miniapp.mjs set    # open /mini
  *   node scripts/telegram-miniapp.mjs reset  # back to the default button
  *
- * Reads credentials from .env.local and the public host from .env.production.
+ * Reads credentials from .env. Override NEXT_PUBLIC_APP_URL for other hosts.
  */
 import fs from "node:fs";
 import dns from "node:dns";
@@ -25,11 +25,9 @@ function readEnv(file) {
   );
 }
 
-const env = readEnv(".env.local");
+const env = readEnv(".env");
 const siteUrl =
-  process.env.NEXT_PUBLIC_APP_URL ??
-  readEnv(".env.production").NEXT_PUBLIC_APP_URL ??
-  env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
 
 const action = process.argv[2] ?? "info";
 const api = (method) => `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;

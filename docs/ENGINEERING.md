@@ -162,8 +162,8 @@ cmd /c "npm run qa:cron"    # reminder cron probe
 cmd /c "npm run qa:staff"   # barber self-service probe
 ```
 
-Production URL: <https://icone-uz.vercel.app>. `.env.production` holds only
-public values; Vercel secrets are set in the project dashboard.
+Production URL: <https://icone-uz.vercel.app>. Only `.env` and `.env.example`
+exist; Vercel sets public values and secrets in the project dashboard.
 
 `npm run build` is the gate: it runs TypeScript and the production build.
 `npm run lint` must be clean before calling a task done.

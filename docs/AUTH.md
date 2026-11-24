@@ -191,4 +191,4 @@ node qa-booking.mjs  # booking probe (needs DB scopes)
 
 `qa-auth.mjs` signs in through both providers with throwaway accounts, checks
 the redirect guards, and deletes the users it created. It needs the real
-`.env.local`; never commit its output.
+`.env`; never commit its output.

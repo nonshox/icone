@@ -10,7 +10,7 @@ import fs from "node:fs";
 import { Client, Databases, Query, Users } from "node-appwrite";
 
 function readEnv() {
-  const file = fs.readFileSync(".env.local", "utf8");
+  const file = fs.readFileSync(".env", "utf8");
   return Object.fromEntries(
     file
       .split(/\r?\n/)

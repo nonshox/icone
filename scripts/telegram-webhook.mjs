@@ -5,7 +5,7 @@
  *   node scripts/telegram-webhook.mjs set    # point it at this app
  *   node scripts/telegram-webhook.mjs delete
  *
- * Reads credentials from .env.local. Never prints the bot token or secret.
+ * Reads credentials from .env. Never prints the bot token or secret.
  */
 import fs from "node:fs";
 import dns from "node:dns";
@@ -26,12 +26,11 @@ function readEnv(file) {
   );
 }
 
-const env = readEnv(".env.local");
-// Webhooks must point at a public HTTPS host, never at localhost.
+const env = readEnv(".env");
+// Webhooks must point at a public HTTPS host, never at localhost. Override with
+// NEXT_PUBLIC_APP_URL in the shell if you need a different target.
 const siteUrl =
-  process.env.NEXT_PUBLIC_APP_URL ??
-  readEnv(".env.production").NEXT_PUBLIC_APP_URL ??
-  env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
 const action = process.argv[2] ?? "info";
 const api = (method) => `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;
 

@@ -15,7 +15,7 @@ Widget · Vercel Analytics.
 ## Getting started
 
 ```powershell
-copy .env.example .env.local   # then fill in the real values
+copy .env.example .env   # then fill in the real values
 cmd /c "npm install"
 cmd /c "npm run db:setup"      # create tables + seed catalogue
 cmd /c "npm run dev"
@@ -28,10 +28,10 @@ Open <http://localhost:3000>.
 
 ### Environment
 
-`.env.example` documents every variable. Real secrets live in `.env.local`,
-which is gitignored. `.env.production` holds only public values (production
-URL, Appwrite project, Telegram flag) and is safe to commit; Vercel secrets
-are set in the project dashboard.
+Only two env files exist: `.env.example` (committed template, every key listed)
+and `.env` (gitignored, same keys with real values). Vercel overrides the public
+values in production: `NEXT_PUBLIC_APP_URL=https://icone-uz.vercel.app`.
+Server secrets are set in the Vercel dashboard.
 
 Server-only secrets (`APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN`,
 `TELEGRAM_WEBHOOK_SECRET`) must never carry a `NEXT_PUBLIC_` prefix. Set Vercel's

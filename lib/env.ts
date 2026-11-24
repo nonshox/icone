@@ -17,6 +17,7 @@ const serverEnvSchema = z.object({
   APPWRITE_BUCKET_ID: z.string().min(1),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(16),
+  CRON_SECRET: z.string().min(16).optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().default("https://icone-uz.vercel.app"),
 });
 
@@ -36,7 +37,7 @@ export function serverEnv(): ServerEnv {
 
     throw new Error(
       `Invalid or missing server environment variables:\n${missing}\n` +
-        "Check your .env.local against .env.example.",
+        "Check your .env against .env.example.",
     );
   }
 

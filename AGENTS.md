@@ -68,8 +68,9 @@ Before the final response, run one reporting pass. If candidates remain, from th
 10. **Client state:** TanStack Query owns server data (`lib/api/queries.ts`);
     Zustand holds only ephemeral UI state. Never seed client state from the
     clock during render — use `lib/client/date.ts`.
-11. **Production:** `https://icone-uz.vercel.app`. Public values are in
-    `.env.production`; Vercel Analytics is one `<Analytics />` tag in the root
-    layout, nothing more. Private pages are covered by `proxy.ts`.
+11. **Production:** `https://icone-uz.vercel.app`. Only `.env` and
+    `.env.example` exist — both list every key; Vercel sets the public values
+    and secrets. Vercel Analytics is one `<Analytics />` tag in the root layout.
+    Private pages are covered by `proxy.ts`.
 12. **Cron:** `vercel.json` schedules `/api/cron/reminders`. Keep it protected
     by the shared secret and idempotent — never send a reminder twice.

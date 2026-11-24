@@ -1,6 +1,6 @@
 /**
  * End-to-end reminders cron probe. Requires a running dev server and a
- * filled `.env.local` whose API key has database scopes (see docs/DATA.md).
+ * filled `.env` whose API key has database scopes (see docs/DATA.md).
  *
  *   node qa-cron.mjs
  *
@@ -12,7 +12,7 @@ import { Client, Databases, ID, Query, Users } from "node-appwrite";
 
 const env = Object.fromEntries(
   fs
-    .readFileSync(".env.local", "utf8")
+    .readFileSync(".env", "utf8")
     .split(/\r?\n/)
     .filter((line) => line.includes("=") && !line.trim().startsWith("#"))
     .map((line) => {

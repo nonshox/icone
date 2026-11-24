@@ -49,7 +49,7 @@
 ## Setup
 
 ```powershell
-copy .env.example .env.local   # fill in the real values
+copy .env.example .env   # fill in the real values
 cmd /c "npm run db:setup"
 ```
 
