@@ -60,33 +60,32 @@ export default function HomePage() {
               <T k="landing.explore" />
             </Link>
           </div>
-
-          <p className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-            <span><T k="landing.signCode" /></span>
-            <span><T k="landing.telegram" /></span>
-            <span><T k="landing.live" /></span>
-          </p>
         </section>
 
         <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
-          <div className="glass rounded-[1.5rem] p-5 sm:p-8">
+          <div>
             <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
               <T k="landing.how" />
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em]">
               <T k="landing.howTitle" />
             </h2>
-            <div className="mt-6 grid gap-5 sm:grid-cols-3">
+            <ol className="mt-6 divide-y divide-border">
               {steps.map((step) => (
-                <div key={step.number}>
+                <li
+                  key={step.number}
+                  className="flex items-start gap-4 py-5 first:pt-0 last:pb-0"
+                >
                   <span className="font-display text-3xl leading-none text-brand-strong/80 italic">
                     {step.number}
                   </span>
-                  <h3 className="mt-2 font-medium"><T k={step.titleKey} /></h3>
-                  <p className="mt-1 text-sm text-muted-foreground"><T k={step.bodyKey} /></p>
-                </div>
+                  <div>
+                    <h3 className="font-medium"><T k={step.titleKey} /></h3>
+                    <p className="mt-1 text-sm text-muted-foreground"><T k={step.bodyKey} /></p>
+                  </div>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </section>
       </main>

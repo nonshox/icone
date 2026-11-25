@@ -9,7 +9,7 @@ import {
   otpCookieOptions,
   sessionCookieOptions,
 } from "@/lib/auth/cookies";
-import { readOtpCookie, phoneUserId, verifyPhoneLogin } from "@/lib/auth/phone";
+import { readOtpCookie, verifyPhoneLogin } from "@/lib/auth/phone";
 import { ensureProfile, updateProfile } from "@/lib/domain/data";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -45,11 +45,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await verifyPhoneLogin(
-      requestData.phone,
-      requestData.nonce,
-      parsed.data.code,
-    );
+    const result = await verifyPhoneLogin(requestData.nonce, parsed.data.code);
     if (!result.session) {
       return apiError(
         `Wrong code. ${result.triesLeft} tries left.`,
@@ -58,9 +54,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = phoneUserId(requestData.phone);
+    const userId = result.userId;
     await ensureProfile({ $id: userId, name: "Member" });
-    await updateProfile(userId, { phone: requestData.phone });
+    await updateProfile(userId, { phone: result.phone });
 
     const response = NextResponse.json({ ok: true as const });
     response.cookies.set(

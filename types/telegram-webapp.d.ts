@@ -17,6 +17,9 @@ declare global {
         expand: () => void;
         close: () => void;
         openLink?: (url: string) => void;
+        requestContact?: (
+          callback: (contact?: { phone_number?: string }) => void,
+        ) => void;
         setHeaderColor?: (color: string) => void;
         setBackgroundColor?: (color: string) => void;
       };

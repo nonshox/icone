@@ -7,11 +7,10 @@ import { OTP_COOKIE, otpCookieOptions } from "@/lib/auth/cookies";
 import { makeOtpCookie, normalizePhone, startPhoneLogin } from "@/lib/auth/phone";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
-import { publicConfig } from "@/lib/public-config";
 
-const schema = z.object({ phone: z.string().trim().min(7).max(32) });
+const schema = z.object({ phone: z.string().trim().max(32).optional() });
 
-/** POST /api/auth/phone/start — create a 4-digit code, delivered by the bot. */
+/** POST /api/auth/phone/start — one-tap Telegram share, or manual fallback. */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
@@ -28,21 +27,19 @@ export async function POST(request: NextRequest) {
   }
 
   const parsed = schema.safeParse(body);
-  const phone = parsed.success ? normalizePhone(parsed.data.phone) : null;
-  if (!phone) return apiError("Enter a valid phone number.", 400, "bad_phone");
+  if (!parsed.success) return apiError("Invalid phone number.", 400, "bad_phone");
+
+  const raw = parsed.data.phone;
+  const normalized = raw ? normalizePhone(raw) : null;
+  const phone = normalized ?? undefined;
+  if (raw && !normalized) {
+    return apiError("Invalid phone number.", 400, "bad_phone");
+  }
 
   try {
-    const { nonce } = await startPhoneLogin(phone);
-    const botLink =
-      `https://t.me/${publicConfig.telegramBotUsername}` +
-      `?start=otp_${nonce}_${phone}`;
-
+    const { nonce, botLink } = await startPhoneLogin(phone);
     const response = NextResponse.json({ ok: true as const, botLink });
-    response.cookies.set(
-      OTP_COOKIE,
-      makeOtpCookie(phone, nonce),
-      otpCookieOptions(),
-    );
+    response.cookies.set(OTP_COOKIE, makeOtpCookie(nonce, phone ?? ""), otpCookieOptions());
     return response;
   } catch (error) {
     console.error("[auth] phone code start failed", error);

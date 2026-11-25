@@ -63,11 +63,12 @@ Before the final response, run one reporting pass. If candidates remain, from th
    390px-wide viewport.
 8. **Docs stay true:** if you change a route, token, env var or convention,
    update the matching file in `docs/` in the same change.
-9. **Auth:** Telegram only, one account per phone (`ph_<digits>`) and the
-   `tg_<id>` identity inside Telegram. `/sign-in` takes a phone number, creates
-   a 4-digit code, the bot sends it to Telegram, and the code is entered where
-   it was requested. The code expires in 5 minutes with five tries; the
-   request id lives in an HttpOnly cookie and the code in server-only prefs.
+9. **Auth:** Telegram only, one account per person (`tg_<id>`). Phone is shared
+   with one tap via Telegram's contact button on the web and inside the app;
+   manual typing is only a fallback. The bot sends a 4-digit code, entered
+   where it was requested. The request id lives in an HttpOnly cookie; the code
+   sits in a temporary `otp_<nonce>` user's prefs and is deleted on success.
+   Code expires in 5 minutes with five tries.
    The whole site is the Mini App: any page opened from Telegram signs in from
    signed `initData`, and there is no `/mini` page. No email, no SMS, no Login
    Widget.

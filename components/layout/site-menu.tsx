@@ -72,8 +72,8 @@ export function SiteMenu() {
             {t("nav.menu")}
           </NavigationMenuTrigger>
 
-          <NavigationMenuContent className="max-h-[80dvh] w-[min(calc(100vw-1.5rem),22rem)] overflow-y-auto rounded-2xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
-            <div className="grid gap-2">
+          <NavigationMenuContent className="flex max-h-[80dvh] w-[min(calc(100vw-1.5rem),22rem)] flex-col overflow-hidden rounded-2xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-foreground/10">
+            <div className="grid gap-2 overflow-y-auto p-0.5">
               {navSections.map((section) => {
                 const Icon = sectionIcons[section.title as keyof typeof sectionIcons] ?? Languages;
                 return (
@@ -112,51 +112,51 @@ export function SiteMenu() {
                   </section>
                 );
               })}
-
-              <section className="flex items-center gap-2 rounded-xl border border-border/70 p-2">
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 px-2 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
-                    <Languages className="size-3.5 text-brand-strong" aria-hidden />
-                    <T k="nav.language" />
-                  </p>
-                  <div
-                    className="flex gap-1"
-                    role="group"
-                    aria-label={t("nav.language")}
-                  >
-                    {languages.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-label={option.label}
-                        aria-pressed={locale === option.value}
-                        onClick={() => setLocale(option.value)}
-                        className={cn(
-                          "h-8 flex-1 rounded-lg px-2 text-xs font-medium transition-colors",
-                          locale === option.value
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
-                        )}
-                      >
-                        {option.short}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  aria-label={t("nav.theme")}
-                  onClick={() => setTheme(isDark ? "light" : "dark")}
-                  className={cn(controlClass, "mt-5 size-9 shrink-0 justify-center p-0")}
-                >
-                  {isDark ? (
-                    <Sun className="size-4" aria-hidden />
-                  ) : (
-                    <Moon className="size-4" aria-hidden />
-                  )}
-                </button>
-              </section>
             </div>
+
+            <section className="mt-2 flex shrink-0 items-center gap-2 rounded-xl border border-border/70 p-2">
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2 px-2 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                  <Languages className="size-3.5 text-brand-strong" aria-hidden />
+                  <T k="nav.language" />
+                </p>
+                <div
+                  className="flex gap-1"
+                  role="group"
+                  aria-label={t("nav.language")}
+                >
+                  {languages.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-label={option.label}
+                      aria-pressed={locale === option.value}
+                      onClick={() => setLocale(option.value)}
+                      className={cn(
+                        "h-8 flex-1 rounded-lg px-2 text-xs font-medium transition-colors",
+                        locale === option.value
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
+                      )}
+                    >
+                      {option.short}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label={t("nav.theme")}
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+                className={cn(controlClass, "size-9 shrink-0 justify-center p-0")}
+              >
+                {isDark ? (
+                  <Sun className="size-4" aria-hidden />
+                ) : (
+                  <Moon className="size-4" aria-hidden />
+                )}
+              </button>
+            </section>
           </NavigationMenuContent>
         </NavigationMenuItem>
       </NavigationMenuList>

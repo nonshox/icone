@@ -178,6 +178,27 @@
     color: var(--brand-foreground);
   }
 
+  /* Tiny scrollbars across the app */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--muted-foreground);
+    border-radius: 9999px;
+    border: none;
+  }
+
   :focus-visible {
     outline: none;
   }

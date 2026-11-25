@@ -48,11 +48,13 @@ button opens the app root:
 
 ## Sign-in
 
-Telegram only. `/sign-in` asks for a phone number, creates a 4-digit code, and
-the bot sends it to Telegram. Tap **Open Telegram**, read the code, and type it
-back where you started — the session is created in that browser or in the app.
-A request id is held in an HttpOnly cookie; the code is stored server-side in
-the user's preferences, expires in five minutes and allows five tries.
+Telegram only. On `/sign-in`, tap **Share phone** — the bot asks for your
+number with one tap, no typing. Inside the app the same one-tap contact button
+appears after sign-in. The bot sends a 4-digit code; type it back where you
+started. The request id is in an HttpOnly cookie, the code in a temporary
+`otp_<nonce>` user's prefs, deleted on success (5 minutes, five tries). The bot
+knows the Telegram chat, so web and app use the **same** `tg_<id>` account.
+Manual phone entry remains as a fallback.
 
 When any page is opened from Telegram, the app signs in automatically from
 Telegram's signed `initData` and stays on the same page. No email, no SMS, no
