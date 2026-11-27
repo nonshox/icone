@@ -1,19 +1,24 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { getCurrentUser } from "@/lib/auth/session";
 import { homeForRole } from "@/lib/auth/home";
-import { currentMember } from "@/lib/domain/member";
+import { getProfile } from "@/lib/domain/account";
 
 export const metadata = { title: "Redirecting" };
 
 async function RoleHome() {
-  const member = await currentMember();
-
-  if (!member) {
+  const user = await getCurrentUser();
+  if (!user) {
     redirect(`/sign-in?next=${encodeURIComponent("/start")}`);
   }
 
-  redirect(homeForRole(member.profile.role));
+  const profile = await getProfile(user.id);
+  if (!profile) {
+    redirect(`/sign-in?next=${encodeURIComponent("/start")}`);
+  }
+
+  redirect(homeForRole(profile.role));
   return null;
 }
 

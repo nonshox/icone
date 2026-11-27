@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { FavoritesView } from "@/components/customer/favorites-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { currentMember } from "@/lib/domain/member";
+import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Saved barbers",
@@ -13,11 +13,8 @@ export const metadata: Metadata = {
 };
 
 async function FavoritesPanel() {
-  const member = await currentMember();
-  if (!member) redirect(`/sign-in?next=${encodeURIComponent("/favorites")}`);
-  if (member.profile.role !== "client") redirect("/account");
-
-  return <FavoritesView profile={member.profile} />;
+  await requireUser("/favorites");
+  return <FavoritesView />;
 }
 
 function FavoritesSkeleton() {
@@ -34,8 +31,8 @@ export default function FavoritesPage() {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
 
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 pt-10 pb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Saved barbers</h1>
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pt-10 pb-10 sm:px-6">
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="favorites.title" /></h1>
 
         <div className="mt-6">
           <Suspense fallback={<FavoritesSkeleton />}>
@@ -43,7 +40,6 @@ export default function FavoritesPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

@@ -5,8 +5,7 @@ import { Suspense } from "react";
 import { SettingsView } from "@/components/customer/settings-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSettings } from "@/lib/domain/customer";
-import { currentMember } from "@/lib/domain/member";
+import { getActor } from "@/lib/domain/access";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -14,15 +13,9 @@ export const metadata: Metadata = {
 };
 
 async function SettingsPanel() {
-  const member = await currentMember();
-  if (!member) redirect(`/sign-in?next=${encodeURIComponent("/settings")}`);
-  if (member.profile.role !== "client") redirect("/account");
-
-  const settings = await getSettings(member.user.id);
-
-  return (
-    <SettingsView user={member.user} profile={settings.profile} initial={settings} />
-  );
+  const actor = await getActor();
+  if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/settings")}`);
+  return <SettingsView />;
 }
 
 function SettingsSkeleton() {
@@ -48,7 +41,6 @@ export default function SettingsPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

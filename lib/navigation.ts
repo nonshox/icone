@@ -16,6 +16,7 @@ export type NavSection = {
 /** Links shown directly in the desktop bar. */
 export const primaryLinks: readonly NavLink[] = [
   { href: "/barbers", label: "nav.barbers" },
+  { href: "/map", label: "nav.map" },
   { href: "/services", label: "nav.services" },
 ];
 
@@ -25,7 +26,15 @@ export const navSections: readonly NavSection[] = [
     title: "nav.discover",
     links: [
       { href: "/barbers", label: "nav.barbers" },
+      { href: "/map", label: "nav.map" },
       { href: "/services", label: "nav.services" },
+    ],
+  },
+  {
+    title: "nav.forBarbers",
+    links: [
+      { href: "/become-barber", label: "nav.becomeBarber" },
+      { href: "/become-barber?model=b", label: "nav.openShop" },
     ],
   },
   {
@@ -48,8 +57,11 @@ export const segmentLabelKeys: Record<string, string> = {
   favorites: "nav.saved",
   help: "nav.help",
   legal: "nav.legal",
+  invites: "nav.team",
+  map: "nav.map",
   messages: "nav.messages",
   notifications: "nav.inbox",
+  waits: "nav.waitlist",
   services: "nav.services",
   settings: "nav.settings",
   "sign-in": "nav.signIn",

@@ -4,16 +4,13 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 
 import {
-  barberAuth,
   businessFailure,
   firstIssue,
   readJson,
+  requireWorkspace,
+  writeDenied,
 } from "@/app/api/barber/_auth";
-import {
-  listBusinessNotifications,
-  markAllBusinessNotifications,
-  markBusinessNotification,
-} from "@/lib/domain/barber-business";
+import { listNotifications, markRead, unreadCount } from "@/lib/domain/notify";
 import { apiError, apiOk } from "@/lib/http";
 
 const patchSchema = z
@@ -25,13 +22,15 @@ const patchSchema = z
     message: "Pick one notification or mark all as read.",
   });
 
-/** GET /api/barber/notifications — this barber's own inbox. */
-export async function GET(request: NextRequest) {
-  const auth = await barberAuth(request);
-  if (!auth.ok) return auth.response;
+/** GET /api/barber/notifications — this account's own inbox. */
+export async function GET() {
+  const guarded = await requireWorkspace("settings.profile");
+  if (!guarded.ok) return guarded.response;
 
   try {
-    return apiOk({ notifications: await listBusinessNotifications(auth.userId) });
+    return apiOk({
+      notifications: await listNotifications(guarded.actor.userId),
+    });
   } catch (error) {
     return businessFailure(error, "Could not load your inbox.", "inbox_failed");
   }
@@ -39,23 +38,44 @@ export async function GET(request: NextRequest) {
 
 /** PATCH /api/barber/notifications — mark one, or all, as read. */
 export async function PATCH(request: NextRequest) {
-  const auth = await barberAuth(request, true);
-  if (!auth.ok) return auth.response;
+  const guarded = await requireWorkspace("settings.profile");
+  if (!guarded.ok) return guarded.response;
+
+  const denied = writeDenied(
+    request,
+    `barber:notifications:${guarded.actor.userId}`,
+    60,
+  );
+  if (denied) return denied;
 
   const json = await readJson(request);
   if (!json.ok) return json.response;
   const parsed = patchSchema.safeParse(json.value);
   if (!parsed.success) {
-    return apiError(firstIssue(parsed.error, "Pick a notification."), 400, "invalid_notification");
+    return apiError(
+      firstIssue(parsed.error, "Pick a notification."),
+      400,
+      "invalid_notification",
+    );
   }
 
   try {
+    const userId = guarded.actor.userId;
     if (parsed.data.all) {
-      const changed = await markAllBusinessNotifications(auth.userId);
+      const changed = await unreadCount(userId);
+      await markRead(userId);
       return apiOk({ changed });
     }
-    const notification = await markBusinessNotification(auth.userId, parsed.data.id!);
-    return apiOk({ notification });
+
+    const id = parsed.data.id!;
+    const rows = await listNotifications(userId, { limit: 100 });
+    const found = rows.find((row) => row.id === id);
+    if (!found) {
+      return apiError("That notification no longer exists.", 404, "not_found");
+    }
+    // `markRead` updates by id, so confirm ownership here first.
+    await markRead(userId, id);
+    return apiOk({ notification: { ...found, state: "read" as const } });
   } catch (error) {
     return businessFailure(error, "Could not update your inbox.", "inbox_failed");
   }

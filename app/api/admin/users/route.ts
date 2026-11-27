@@ -1,16 +1,16 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { Query } from "node-appwrite";
+import { type NextRequest } from "next/server";
 import { z } from "zod";
 
-import {
-  linkBarberUser,
-  listUsers,
-  setUserRole,
-  setUserStatus,
-} from "@/lib/domain/admin";
-import { currentMember, isStaff } from "@/lib/domain/member";
-import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { requireAdmin } from "@/lib/api/guard";
+import { TABLES } from "@/lib/appwrite/db";
+import { listUsers, setUserState } from "@/lib/domain/admin";
+import { audit } from "@/lib/domain/audit";
+import { list, update } from "@/lib/domain/crud";
+import { getBarber } from "@/lib/domain/professional";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
 const userId = z.string().trim().min(1, "Pick a member.").max(36);
@@ -32,12 +32,8 @@ const patchSchema = z.preprocess(
         role: z.enum(["client", "barber", "admin"]),
       })
       .strict(),
-    z
-      .object({ op: z.literal("barber"), userId, barber: z.string().trim().max(36) })
-      .strict(),
-    z
-      .object({ op: z.literal("status"), userId, active: z.boolean() })
-      .strict(),
+    z.object({ op: z.literal("barber"), userId, barber: z.string().trim().max(36) }).strict(),
+    z.object({ op: z.literal("status"), userId, active: z.boolean() }).strict(),
   ]),
 );
 
@@ -45,18 +41,35 @@ function firstIssue(error: z.ZodError, fallback: string): string {
   return error.issues[0]?.message ?? fallback;
 }
 
-/** GET /api/admin/users — accounts with their role and chair. Staff only. */
-export async function GET() {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage the team.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
+/** GET /api/admin/users — accounts with their role and state. */
+export async function GET(request: NextRequest) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
+  const params = request.nextUrl.searchParams;
+  const parsed = z
+    .object({
+      q: z.string().trim().max(64).optional(),
+      state: z.string().trim().max(24).optional(),
+      limit: z.coerce.number().int().min(1).max(200).optional(),
+    })
+    .safeParse({
+      q: params.get("q") ?? undefined,
+      state: params.get("state") ?? undefined,
+      limit: params.get("limit") ?? undefined,
+    });
+  if (!parsed.success) {
+    return apiError("Check the member filters.", 400, "invalid_filter");
   }
 
   try {
-    return NextResponse.json({
-      ok: true as const,
-      users: await listUsers(),
+    const users = await listUsers(parsed.data);
+    return apiOk({
+      users: users.map((user) => ({
+        ...user,
+        // Kept for the older table that reads `status` as a boolean.
+        status: user.state === "active",
+      })),
     });
   } catch (error) {
     console.error("[admin] users list failed", error);
@@ -64,22 +77,16 @@ export async function GET() {
   }
 }
 
-/** PATCH /api/admin/users — change a role or a linked chair. Admin only. */
+/** PATCH /api/admin/users — change a role, chair link or account state. */
 export async function PATCH(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage the team.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
-  if (member.profile.role !== "admin") {
-    return apiError("Only an admin can change the team.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:users:${member.user.id}`, 60, 10 * 60_000);
+  const limit = rateLimit(`admin:users:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -95,17 +102,53 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    if (parsed.data.op === "role") {
-      await setUserRole(parsed.data.userId, parsed.data.role);
-    } else if (parsed.data.op === "barber") {
-      await linkBarberUser(parsed.data.barber, parsed.data.userId);
+    const data = parsed.data;
+
+    if (data.op === "role") {
+      await update(TABLES.users, data.userId, { role: data.role });
+      await audit({
+        actor: guard.actor.userId,
+        action: "role.change",
+        kind: "user",
+        target: data.userId,
+        detail: data.role,
+      });
+    } else if (data.op === "barber") {
+      if (data.barber && !(await getBarber(data.barber))) {
+        return apiError("That chair does not exist.", 404, "no_barber");
+      }
+      await update(TABLES.barbers, data.barber, { user: data.userId });
+      if (data.userId) {
+        const previous = await list(TABLES.barbers, [
+          Query.equal("user", data.userId),
+          Query.limit(50),
+        ]);
+        await Promise.all(
+          previous
+            .filter((row) => row.$id !== data.barber)
+            .map((row) => update(TABLES.barbers, row.$id, { user: "" })),
+        );
+      }
+      await audit({
+        actor: guard.actor.userId,
+        action: "role.change",
+        kind: "user",
+        target: data.userId,
+        detail: `chair:${data.barber || "none"}`,
+      });
     } else {
-      if (parsed.data.userId === member.user.id) {
+      if (data.userId === guard.actor.userId) {
         return apiError("You cannot change your own account status.", 400, "self_status");
       }
-      await setUserStatus(parsed.data.userId, parsed.data.active);
+      // setUserState also suspends or restores every chair the account holds.
+      await setUserState(
+        data.userId,
+        data.active ? "active" : "suspended",
+        guard.actor.userId,
+      );
     }
-    return NextResponse.json({ ok: true as const });
+
+    return apiOk();
   } catch (error) {
     console.error("[admin] user update failed", error);
     return apiError("Could not update the member.", 502, "user_failed");

@@ -1,21 +1,20 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { TABLES } from "@/lib/appwrite/db";
-import {
-  getBarber,
-  getMany,
-  listHours,
-  listReviews,
-} from "@/lib/domain/data";
-import { apiError } from "@/lib/http";
+import { servicesFor } from "@/lib/domain/catalog";
+import { publicPortfolio } from "@/lib/domain/portfolio";
+import { getBarber } from "@/lib/domain/professional";
+import { reviewsWithAuthors } from "@/lib/domain/review";
+import { getBarberHours } from "@/lib/domain/schedule";
+import { apiError, apiOk } from "@/lib/http";
 
 type Context = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/barbers/:id — profile, weekly hours and public reviews.
- * The booking screen only needs the list, but a detail page can use this.
+ * GET /api/barbers/:id — profile, weekly hours, menu, gallery and public
+ * reviews. The booking screen only needs the list, but the profile page uses
+ * this one document bundle.
  */
 export async function GET(_request: NextRequest, context: Context) {
   const { id } = await context.params;
@@ -24,25 +23,22 @@ export async function GET(_request: NextRequest, context: Context) {
     const barber = await getBarber(id);
     if (!barber) return apiError("Barber not found.", 404, "not_found");
 
-    const [hours, reviews] = await Promise.all([
-      listHours(id),
-      listReviews(id),
+    const [hours, reviews, services, portfolio] = await Promise.all([
+      getBarberHours(id),
+      reviewsWithAuthors(id),
+      servicesFor(id),
+      publicPortfolio(id),
     ]);
 
-    const users = await getMany(
-      TABLES.users,
-      reviews.map((review) => review.user),
-    );
-    const names = new Map(users.map((row) => [row.$id, String(row.name)]));
-
-    return NextResponse.json({
-      ok: true as const,
+    return apiOk({
       barber,
       hours,
       reviews: reviews.map((review) => ({
         ...review,
-        userName: names.get(review.user) ?? "Member",
+        userName: review.userName || "Member",
       })),
+      services,
+      portfolio,
     });
   } catch (error) {
     console.error("[api] barber detail failed", error);

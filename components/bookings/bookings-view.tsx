@@ -33,28 +33,28 @@ import {
 } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import type { BookingRow, Status } from "@/lib/domain/types";
+import { CANCELLABLE, type BookingRow, type Status } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
 const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "outline",
-  accepted: "secondary",
-  booked: "default",
-  done: "secondary",
-  cancel: "outline",
-  noshow: "destructive",
+  confirmed: "default",
   rejected: "destructive",
+  cancelled: "outline",
+  done: "secondary",
+  noshow: "destructive",
 };
 
-function BookingCard({ booking }: { booking: BookingRow }) {
+function BookingCard({ booking, today }: { booking: BookingRow; today: string }) {
   const setStatus = useSetStatus();
   const t = useT();
+  const canCancel = CANCELLABLE.includes(booking.status) && booking.date >= today;
 
   function cancel() {
     if (!window.confirm(t("visits.cancelAsk"))) return;
 
     setStatus.mutate(
-      { id: booking.id, status: "cancel" },
+      { id: booking.id, status: "cancelled" },
       {
         onSuccess: () =>
           toast.success(t("visits.cancelled"), {
@@ -74,14 +74,16 @@ function BookingCard({ booking }: { booking: BookingRow }) {
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium">{booking.serviceName}</p>
+            <Link href={`/bookings/${booking.id}`} className="font-medium hover:underline">
+              {booking.serviceName}
+            </Link>
             <Badge variant={badgeVariant[booking.status]}>
               <T k={`status.${booking.status}`} />
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             {booking.barberName} · {formatDate(booking.date)} ·{" "}
-            {label(booking.start)} · {booking.serviceTime} min
+            {label(booking.start)} · {booking.serviceTime} {t("common.minutes")}
           </p>
           <p className="text-sm font-medium tabular-nums">
             {formatPrice(booking.price)}
@@ -91,7 +93,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
           ) : null}
         </div>
 
-        {["pending", "accepted", "booked"].includes(booking.status) ? (
+        {canCancel ? (
           <Button
             variant="outline"
             size="sm"
@@ -181,7 +183,6 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
 }
 
 function EmptyState() {
-  const t = useT();
   return (
     <Card>
       <CardContent className="flex flex-col items-start gap-3 py-6">
@@ -193,7 +194,7 @@ function EmptyState() {
           href="/book"
           className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
         >
-          {t("booking.title")}
+          <T k="nav.book" />
         </Link>
       </CardContent>
     </Card>
@@ -218,7 +219,7 @@ export function BookingsView() {
   if (bookings.isError) {
     return (
       <Card>
-        <CardContent className="py-6 text-sm text-destructive">
+        <CardContent role="alert" className="py-6 text-sm text-destructive">
           {bookings.error instanceof Error
             ? bookings.error.message
             : t("visits.loadError")}
@@ -228,22 +229,18 @@ export function BookingsView() {
   }
 
   const all = bookings.data ?? [];
-
   if (all.length === 0) return <EmptyState />;
 
-  const upcoming = all.filter(
-    (booking) =>
-      ["pending", "accepted", "booked"].includes(booking.status) &&
-      booking.date >= todayDate,
-  );
+  const active: Status[] = ["pending", "confirmed"];
+  const byDate = (a: BookingRow, b: BookingRow) =>
+    a.date === b.date ? a.start - b.start : a.date < b.date ? -1 : 1;
+
+  const upcoming = all
+    .filter((booking) => active.includes(booking.status) && booking.date >= todayDate)
+    .sort(byDate);
   const history = all
-    .filter(
-      (booking) =>
-        !["pending", "accepted", "booked"].includes(booking.status) ||
-        booking.date < todayDate,
-    )
-    .slice()
-    .reverse();
+    .filter((booking) => !active.includes(booking.status) || booking.date < todayDate)
+    .sort((a, b) => byDate(b, a));
 
   const reviewed = all.filter((booking) => booking.reviewed).length;
 
@@ -276,7 +273,7 @@ export function BookingsView() {
         ) : (
           <div className="space-y-3">
             {upcoming.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
+              <BookingCard key={booking.id} booking={booking} today={todayDate} />
             ))}
           </div>
         )}
@@ -301,8 +298,8 @@ export function BookingsView() {
           <div className="space-y-3">
             {history.map((booking) => (
               <div key={booking.id} className="space-y-3">
-                <BookingCard booking={booking} />
-                {booking.status === "done" && !booking.reviewed ? (
+                <BookingCard booking={booking} today={todayDate} />
+                {(booking.status === "done" || booking.status === "noshow") && !booking.reviewed ? (
                   reviewFor === booking.id ? (
                     <ReviewForm booking={booking} />
                   ) : (

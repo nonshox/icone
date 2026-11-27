@@ -2,13 +2,16 @@
 
 import type { ReactNode } from "react";
 
+import { T } from "@/components/i18n/t";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { Status } from "@/lib/domain/types";
 
+/** Server errors are already human-readable; keep our own fallback short. */
 export function message(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export function FormError({ text }: { text: string | null }) {
@@ -36,8 +39,25 @@ export function LoadingRows() {
   );
 }
 
-export function StatusBadge({ label }: { label: string }) {
-  return <Badge variant="outline">{label}</Badge>;
+const statusVariant: Record<
+  Status,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  pending: "outline",
+  confirmed: "default",
+  rejected: "destructive",
+  cancelled: "outline",
+  done: "secondary",
+  noshow: "destructive",
+};
+
+/** One status label everywhere in the professional workspace. */
+export function StatusBadge({ status }: { status: Status }) {
+  return (
+    <Badge variant={statusVariant[status]}>
+      <T k={`status.${status}`} />
+    </Badge>
+  );
 }
 
 export function ToggleRow({
@@ -58,7 +78,7 @@ export function ToggleRow({
       <Checkbox
         id={id}
         checked={checked}
-        onCheckedChange={(value) => onChange(value)}
+        onCheckedChange={(value) => onChange(value === true)}
         className="mt-0.5"
       />
       <div className="space-y-0.5">

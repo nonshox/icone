@@ -1,65 +1,76 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { SESSION_COOKIE } from "@/lib/auth/cookies";
-import { BarberBusinessError } from "@/lib/domain/barber-business";
-import { ensureBarberChair } from "@/lib/domain/data";
-import { currentMember } from "@/lib/domain/member";
+import { requireCap, requireUser, type Guarded } from "@/lib/api/guard";
+import type { Actor, Capability, Scope } from "@/lib/domain/access";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
-export type BarberAuth =
-  | { ok: true; userId: string; secret: string }
+export { requireCap, requireUser, isSameOrigin };
+export type { Guarded };
+
+/**
+ * The workspace a request acts on.
+ *
+ * Model A (independent barber) has a professional row and no business.
+ * Model B (barbershop) has a business and, for barbers, a professional row too.
+ * Both fields can be empty only for an account that is not set up yet.
+ */
+export type Workspace = { barber: string; business: string };
+
+export function workspaceOf(actor: Actor): Workspace {
+  if (actor.barber) {
+    return { barber: actor.barber.id, business: actor.barber.business };
+  }
+  return {
+    barber: "",
+    business:
+      actor.owns[0] ??
+      actor.memberships.find((row) => row.barber)?.business ??
+      actor.memberships[0]?.business ??
+      "",
+  };
+}
+
+export type WorkspaceGuarded =
+  | { ok: true; actor: Actor; workspace: Workspace }
   | { ok: false; response: NextResponse };
 
-/** Barber-only guard shared by every /api/barber route. */
-export async function barberAuth(
+/**
+ * Resolve the signed-in actor, pick their workspace, then check the capability
+ * against that exact scope. Every professional route starts here.
+ */
+export async function requireWorkspace(
+  capability: Capability,
+): Promise<WorkspaceGuarded> {
+  const user = await requireUser();
+  if (!user.ok) return user;
+
+  const workspace: Scope = workspaceOf(user.actor);
+  const guarded = await requireCap(capability, workspace);
+  if (!guarded.ok) return guarded;
+
+  return { ok: true, actor: user.actor, workspace: workspace as Workspace };
+}
+
+/** Same-origin check plus a fixed-window limit for write handlers. */
+export function writeDenied(
   request: NextRequest,
-  write = false,
-): Promise<BarberAuth> {
-  if (write && !isSameOrigin(request)) {
-    return {
-      ok: false,
-      response: apiError(
-        "This request came from an unexpected origin.",
-        403,
-        "bad_origin",
-      ),
-    };
+  key: string,
+  limit = 90,
+): NextResponse | null {
+  if (!isSameOrigin(request)) {
+    return apiError(
+      "This request came from an unexpected origin.",
+      403,
+      "bad_origin",
+    );
   }
-
-  const member = await currentMember();
-  if (!member) {
-    return {
-      ok: false,
-      response: apiError("Sign in to manage your business.", 401, "signed_out"),
-    };
-  }
-  if (member.profile.role !== "barber") {
-    return {
-      ok: false,
-      response: apiError("Barber access only.", 403, "forbidden"),
-    };
-  }
-
-  // Approval is not atomic. Promote first, repair the chair here if the
-  // approval was interrupted between the role write and the chair write.
-  await ensureBarberChair(member.user.id);
-
-  if (write) {
-    const limit = rateLimit(`barber:${member.user.id}`, 90, 10 * 60_000);
-    if (!limit.ok) {
-      return { ok: false, response: tooManyRequests(limit.retryAfter) };
-    }
-  }
-
-  return {
-    ok: true,
-    userId: member.user.id,
-    secret: request.cookies.get(SESSION_COOKIE)?.value ?? "",
-  };
+  const check = rateLimit(key, limit, 10 * 60_000);
+  if (!check.ok) return tooManyRequests(check.retryAfter);
+  return null;
 }
 
 export type JsonResult =
@@ -81,14 +92,12 @@ export function firstIssue(error: z.ZodError, fallback: string): string {
   return error.issues[0]?.message ?? fallback;
 }
 
+/** Stable, non-leaking fallback for a failed domain call. */
 export function businessFailure(
   error: unknown,
   fallback: string,
   code: string,
 ): NextResponse {
-  if (error instanceof BarberBusinessError) {
-    return apiError(error.message, error.status, error.code);
-  }
   console.error("[barber] request failed", error);
   return apiError(fallback, 502, code);
 }

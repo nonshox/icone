@@ -1,22 +1,23 @@
 import "server-only";
 
-import { AppwriteException, ID, Query, type Models } from "node-appwrite";
+import { Query } from "node-appwrite";
 
-import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
+import { TABLES } from "@/lib/appwrite/db";
 
-import { barberForUser, getMany, listUserBookings } from "./data";
-import type { Role } from "./types";
+import { create, list, str, type Row } from "./crud";
+import { toBarber } from "./professional";
+import { notify } from "./notify";
+import type { Barber } from "./types";
 
-/** Tables owned by the messaging feature (not in the shared TABLES map). */
-const MESSAGES = "messages";
-const NOTIFICATIONS = "notifications";
+/**
+ * Direct contact between a customer and a professional.
+ *
+ * A conversation id is the two account ids in a fixed order, so both sides
+ * always land on the same thread. Messages never cross businesses: the
+ * participant check happens before anything is written or read.
+ */
 
-const SEPARATOR = "___";
-const MAX_CONVERSATION = 80;
-const PAGE = 100;
-const MAX_PAGES = 10;
-
-type Row = Models.Document & Record<string, unknown>;
+const MAX_BODY = 1024;
 
 export type Message = {
   id: string;
@@ -26,23 +27,19 @@ export type Message = {
   created: string;
 };
 
-export type Thread = {
-  /** The other person's user id. */
+export type Conversation = {
   id: string;
-  name: string;
-  preview: string;
-  /** ISO timestamp of the last message. */
-  at: string;
-  conversation: string;
+  with: string;
+  withName: string;
+  withAvatar: string;
+  last: string;
+  lastAt: string;
+  unread: number;
 };
 
-export type Participant = { id: string; name: string };
-
-/** Server-side view of the caller, passed by every route handler. */
-export type Actor = { id: string; role: Role };
-
-function str(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
+/** `a|b` with the ids sorted, so order of opening does not matter. */
+export function conversationId(a: string, b: string): string {
+  return [a, b].filter(Boolean).sort().join("|");
 }
 
 function toMessage(row: Row): Message {
@@ -55,243 +52,134 @@ function toMessage(row: Row): Message {
   };
 }
 
-async function list(collection: string, queries: string[]): Promise<Row[]> {
-  const result = await adminDb().listDocuments({
-    databaseId: databaseId(),
-    collectionId: collection,
-    queries,
-  });
-  return result.documents as Row[];
-}
+export async function thread(
+  conversation: string,
+  viewer: string,
+  limit = 100,
+): Promise<Message[]> {
+  if (!isParticipant(conversation, viewer)) return [];
 
-/**
- * Deterministic id for a pair of user ids. Sorting keeps both directions in
- * the same thread; the separator cannot appear in Appwrite ids.
- */
-export function conversationId(first: string, second: string): string {
-  const pair = [first, second].sort();
-  return `${pair[0]}${SEPARATOR}${pair[1]}`.slice(0, MAX_CONVERSATION);
-}
-
-/** The two user ids held by a conversation id. */
-export function conversationParts(conversation: string): string[] {
-  return conversation.split(SEPARATOR);
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
-}
-
-async function names(ids: string[]): Promise<Map<string, string>> {
-  const rows = await getMany(TABLES.users, ids);
-  return new Map(rows.map((row) => [row.$id, str(row.name, "Member")]));
-}
-
-/**
- * User ids the caller is allowed to talk to, or `null` for an admin, who may
- * read every conversation but cannot send as somebody else.
- */
-async function allowedPartners(actor: Actor): Promise<string[] | null> {
-  if (actor.role === "admin") return null;
-
-  if (actor.role === "barber") {
-    const chair = await barberForUser(actor.id);
-    if (!chair) return [];
-
-    const rows = await list(TABLES.bookings, [
-      Query.equal("barber", chair.id),
-      Query.limit(PAGE),
-    ]);
-    return unique(rows.map((row) => str(row.user))).filter(
-      (id) => id !== actor.id,
-    );
-  }
-
-  const bookings = await listUserBookings(actor.id);
-  const chairIds = unique(bookings.map((booking) => booking.barber));
-  if (chairIds.length === 0) return [];
-
-  const chairs = await getMany(TABLES.barbers, chairIds);
-  return unique(chairs.map((row) => str(row.user))).filter(
-    (id) => id !== actor.id,
-  );
-}
-
-/** Every route checks this before reading or writing a thread. */
-export async function canMessage(actor: Actor, otherId: string): Promise<boolean> {
-  if (!otherId || otherId === actor.id) return false;
-  if (actor.role === "admin") return false;
-
-  if (actor.role === "barber") {
-    const chair = await barberForUser(actor.id);
-    if (!chair) return false;
-    const rows = await list(TABLES.bookings, [
-      Query.equal("barber", chair.id),
-      Query.equal("user", otherId),
-      Query.limit(1),
-    ]);
-    return rows.length > 0;
-  }
-
-  // A client may only reach the staff user linked to a chair they booked.
-  const chairs = await list(TABLES.barbers, [
-    Query.equal("user", otherId),
-    Query.limit(50),
-  ]);
-  const chairIds = chairs.map((row) => row.$id);
-  if (chairIds.length === 0) return false;
-
-  const bookings = await list(TABLES.bookings, [
-    Query.equal("user", actor.id),
-    Query.equal("barber", chairIds),
-    Query.limit(1),
-  ]);
-  return bookings.length > 0;
-}
-
-/** The staff user linked to a chair, used to open a thread from a booking. */
-export async function staffUserForChair(chairId: string): Promise<string | null> {
-  try {
-    const row = await adminDb().getDocument({
-      databaseId: databaseId(),
-      collectionId: TABLES.barbers,
-      documentId: chairId,
-    });
-    const user = str(row.user);
-    return user || null;
-  } catch (error) {
-    if (error instanceof AppwriteException && error.code === 404) return null;
-    throw error;
-  }
-}
-
-async function messagesIn(conversation: string): Promise<Message[]> {
-  const rows = await list(MESSAGES, [
+  const rows = await list(TABLES.messages, [
     Query.equal("conversation", conversation),
     Query.orderAsc("$createdAt"),
-    Query.limit(PAGE),
+    Query.limit(limit),
   ]);
   return rows.map(toMessage);
 }
 
-async function lastMessage(conversation: string): Promise<Message | null> {
-  const rows = await list(MESSAGES, [
-    Query.equal("conversation", conversation),
-    Query.orderDesc("$createdAt"),
-    Query.limit(1),
-  ]);
-  return rows.length > 0 ? toMessage(rows[0]!) : null;
-}
-
-async function allMessages(): Promise<Message[]> {
-  const result: Message[] = [];
-
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const rows = await list(MESSAGES, [
-      Query.orderDesc("$createdAt"),
-      Query.limit(PAGE),
-      Query.offset(page * PAGE),
-    ]);
-    result.push(...rows.map(toMessage));
-    if (rows.length < PAGE) break;
-  }
-
-  return result;
-}
-
-/** Thread list for the caller, with the other person and a last-message peek. */
-export async function listThreads(actor: Actor): Promise<Thread[]> {
-  let latest: Array<{ other: string; message: Message }> = [];
-
-  if (actor.role === "admin") {
-    const seen = new Set<string>();
-    for (const message of await allMessages()) {
-      const parts = conversationParts(message.conversation);
-      const other = parts.find((id) => id !== actor.id);
-      if (!other || seen.has(message.conversation)) continue;
-      seen.add(message.conversation);
-      latest.push({ other, message });
-    }
-  } else {
-    const partners = (await allowedPartners(actor)) ?? [];
-    const threads = await Promise.all(
-      partners.slice(0, 50).map(async (other) => {
-        const message = await lastMessage(conversationId(actor.id, other));
-        return message ? { other, message } : null;
-      }),
-    );
-    latest = threads.filter(
-      (item): item is { other: string; message: Message } => item !== null,
-    );
-  }
-
-  const label = await names(unique(latest.map((item) => item.other)));
-
-  return latest
-    .map(({ other, message }) => ({
-      id: other,
-      name: label.get(other) ?? "Member",
-      preview: message.body,
-      at: message.created,
-      conversation: message.conversation,
-    }))
-    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
-}
-
-/** Full history of one thread. Authorization belongs in the route handler. */
-export async function getThread(
-  actor: Actor,
-  otherId: string,
-): Promise<{ messages: Message[]; participant: Participant }> {
-  return getThreadByConversation(conversationId(actor.id, otherId), actor.id);
-}
-
-/**
- * An admin is not a member of every thread, so its id — not the caller's id —
- * must select the history. Non-admins only reach this through `getThread`.
- */
-export async function getThreadByConversation(
-  conversation: string,
-  viewer: string,
-): Promise<{ messages: Message[]; participant: Participant }> {
-  const parts = conversationParts(conversation);
-  const otherId = parts.find((id) => id !== viewer) ?? parts[0] ?? "";
-  const label = await names(parts);
-
-  return {
-    messages: await messagesIn(conversation),
-    participant: {
-      id: otherId,
-      name: label.get(otherId) ?? "Member",
-    },
-  };
-}
-
-export async function createMessage(input: {
+export async function send(input: {
   conversation: string;
   sender: string;
   body: string;
-}): Promise<Message> {
-  const row = await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: MESSAGES,
-    documentId: ID.unique(),
-    data: input,
+}): Promise<Message | null> {
+  const body = input.body.trim().slice(0, MAX_BODY);
+  if (!body) return null;
+  if (!isParticipant(input.conversation, input.sender)) return null;
+
+  const row = await create(TABLES.messages, {
+    conversation: input.conversation.slice(0, 80),
+    sender: input.sender,
+    body,
   });
-  return toMessage(row as Row);
+
+  const other = otherParty(input.conversation, input.sender);
+  if (other) {
+    await notify({
+      userId: other,
+      key: "message",
+      link: "/messages",
+    });
+  }
+
+  return toMessage(row);
 }
 
-/** In-app inbox row for the recipient. Never blocks delivery of a message. */
-export async function createNotification(input: {
-  user: string;
-  title: string;
-  body: string;
-  kind: string;
-}): Promise<void> {
-  await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: NOTIFICATIONS,
-    documentId: ID.unique(),
-    data: { ...input, state: "new" },
-  });
+export function isParticipant(conversation: string, userId: string): boolean {
+  return conversation.split("|").includes(userId);
+}
+
+export function otherParty(conversation: string, userId: string): string | null {
+  return conversation.split("|").find((party) => party !== userId) ?? null;
+}
+
+/**
+ * Every thread this account is in, newest activity first.
+ *
+ * The counterpart's display name comes from their professional row when there
+ * is one, otherwise from their profile — a barber sees customers, a customer
+ * sees the barber they wrote to.
+ */
+export async function conversationsFor(
+  userId: string,
+  names: Map<string, string>,
+): Promise<Conversation[]> {
+  const rows = await list(TABLES.messages, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(300),
+  ]);
+
+  const mine = rows
+    .map(toMessage)
+    .filter((message) => isParticipant(message.conversation, userId));
+
+  const byThread = new Map<string, Message[]>();
+  for (const message of mine) {
+    const bucket = byThread.get(message.conversation) ?? [];
+    bucket.push(message);
+    byThread.set(message.conversation, bucket);
+  }
+
+  const out: Conversation[] = [];
+  for (const [id, messages] of byThread) {
+    const sorted = [...messages].sort((a, b) => a.created.localeCompare(b.created));
+    const last = sorted[sorted.length - 1];
+    const other = otherParty(id, userId);
+    if (!other || !last) continue;
+
+    out.push({
+      id,
+      with: other,
+      withName: names.get(other) ?? "",
+      withAvatar: "",
+      last: last.body,
+      lastAt: last.created,
+      unread: sorted.filter((message) => message.sender !== userId).length,
+    });
+  }
+
+  return out.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+}
+
+/** Resolve the display name for each counterpart in one pass. */
+export async function counterpartNames(
+  ids: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+
+  const [barberRows, userRows] = await Promise.all([
+    list(TABLES.barbers, [Query.equal("user", unique), Query.limit(100)]),
+    list(TABLES.users, [Query.equal("$id", unique), Query.limit(100)]),
+  ]);
+
+  const names = new Map<string, string>();
+  for (const row of userRows) names.set(row.$id, str(row.name));
+  for (const row of barberRows) {
+    const barber: Barber = toBarber(row);
+    names.set(barber.user, barber.name);
+  }
+  return names;
+}
+
+/** Start or resume the thread between a customer and one professional. */
+export async function openThread(customerId: string, barberId: string): Promise<string> {
+  const [barberRow] = await list(TABLES.barbers, [
+    Query.equal("$id", barberId),
+    Query.limit(1),
+  ]);
+  if (!barberRow) return "";
+
+  const barber = toBarber(barberRow);
+  if (!barber.user) return "";
+  return conversationId(customerId, barber.user);
 }

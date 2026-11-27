@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { SiteHeader } from "@/components/layout/site-header";
 import { NotificationsView } from "@/components/customer/notifications-view";
 import { Skeleton } from "@/components/ui/skeleton";
-import { currentMember } from "@/lib/domain/member";
+import { getActor } from "@/lib/domain/access";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Notifications",
@@ -13,11 +13,9 @@ export const metadata: Metadata = {
 };
 
 async function NotificationsPanel() {
-  const member = await currentMember();
-  if (!member) redirect(`/sign-in?next=${encodeURIComponent("/notifications")}`);
-  if (member.profile.role !== "client") redirect("/account");
-
-  return <NotificationsView profile={member.profile} />;
+  const actor = await getActor();
+  if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/notifications")}`);
+  return <NotificationsView />;
 }
 
 function NotificationsSkeleton() {
@@ -44,7 +42,6 @@ export default function NotificationsPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

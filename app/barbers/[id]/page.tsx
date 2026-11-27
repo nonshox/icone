@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Sparkles,
   Star,
-  Tag,
 } from "lucide-react";
 
 import { FavoriteButton } from "@/components/barbers/favorite-button";
@@ -30,24 +29,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TABLES } from "@/lib/appwrite/db";
-import { isFavorite, listPortfolio, listPromotions } from "@/lib/domain/customer";
-import {
-  getBarber,
-  getMany,
-  listHours,
-  listReviews,
-  listServices,
-} from "@/lib/domain/data";
-import { currentMember } from "@/lib/domain/member";
+import { servicesFor } from "@/lib/domain/catalog";
+import { publicPortfolio } from "@/lib/domain/portfolio";
+import { getBarber } from "@/lib/domain/professional";
 import { priceOf } from "@/lib/domain/pricing";
+import { reviewsWithAuthors } from "@/lib/domain/review";
+import { getBarberHours } from "@/lib/domain/schedule";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import type { Review } from "@/lib/domain/types";
-import type { PortfolioItem, Promotion } from "@/lib/domain/customer";
+import type { HourRow, PortfolioItem, Review } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
-
-type ReviewRow = Review & { userName: string };
-type WindowRow = { day: number; start: number; end: number };
 
 export async function generateMetadata({
   params,
@@ -55,7 +45,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const barber = await getBarber(id);
+  const barber = await getBarber(id).catch(() => null);
   return {
     title: barber ? `${barber.name} · barber` : "Barber",
     description:
@@ -128,40 +118,32 @@ function Empty({ children }: { children: ReactNode }) {
   return <p className="py-2 text-sm leading-relaxed text-muted-foreground">{children}</p>;
 }
 
+function ErrorPanel() {
+  return (
+    <Card className="mx-auto max-w-lg">
+      <CardHeader>
+        <CardTitle><T k="common.error" /></CardTitle>
+        <CardDescription><T k="barbers.loadError" /></CardDescription>
+      </CardHeader>
+    </Card>
+  );
+}
+
 async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const barber = await getBarber(id);
-  if (!barber || !barber.active) notFound();
+  const barber = await getBarber(id).catch(() => null);
+  if (!barber || !barber.active || barber.state !== "active") notFound();
 
-  const [hours, reviews, allServices, portfolio, promotions, member] =
-    await Promise.all([
-      listHours(id),
-      listReviews(id),
-      listServices(),
-      listPortfolio(id),
-      listPromotions(id),
-      currentMember(),
-    ]);
+  const loaded = await Promise.all([
+    getBarberHours(id).catch(() => []),
+    reviewsWithAuthors(id).catch(() => [] as Review[]),
+    servicesFor(id).catch(() => []),
+    publicPortfolio(id).catch(() => [] as PortfolioItem[]),
+  ]).catch(() => null);
 
-  const [users, saved] = await Promise.all([
-    getMany(
-      TABLES.users,
-      reviews.map((review) => review.user),
-    ),
-    member?.profile.role === "client"
-      ? isFavorite(member.user.id, id)
-      : Promise.resolve(false),
-  ]);
+  if (!loaded) return <ErrorPanel />;
 
-  const names = new Map(users.map((row) => [row.$id, String(row.name)]));
-  const reviewRows: ReviewRow[] = reviews.map((review) => ({
-    ...review,
-    userName: names.get(review.user) ?? "",
-  }));
-
-  const menu = allServices.filter(
-    (service) => !service.barber || service.barber === id,
-  );
+  const [hours, reviews, menu, portfolio] = loaded;
   const previewService = menu.find((service) => service.featured) ?? menu[0] ?? null;
 
   return (
@@ -212,7 +194,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <FavoriteButton barber={barber.id} initialSaved={saved} />
+                <FavoriteButton barber={barber.id} />
                 <Link
                   href={`/book?barber=${barber.id}`}
                   className={cn(
@@ -226,14 +208,14 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
               </div>
             </div>
 
-            {(barber.shop || barber.address || barber.city) && (
+            {barber.shop || barber.address || barber.city ? (
               <p className="mt-5 flex items-start gap-2 text-sm text-muted-foreground">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-brand-strong" aria-hidden />
                 {[barber.shop, barber.address, barber.city]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-            )}
+            ) : null}
 
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               {barber.bio || <T k="barber.bioFallback" />}
@@ -266,9 +248,6 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{service.name}</p>
                       {service.featured ? <Badge variant="secondary"><T k="barber.popular" /></Badge> : null}
-                      {service.discount > 0 ? (
-                        <Badge variant="outline">{service.discount}% <T k="barber.off" /></Badge>
-                      ) : null}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {service.category || <T k="barber.hair" />} · {service.time}{" "}
@@ -298,7 +277,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
             <Empty><T k="barber.noPhotos" /></Empty>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {portfolio.map((item: PortfolioItem) => (
+              {portfolio.map((item) => (
                 <li key={item.id} className="overflow-hidden rounded-xl bg-muted">
                   <div
                     aria-hidden
@@ -315,11 +294,11 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
         </Section>
 
         <Section title={<T k="barber.reviews" />} description={<T k="barber.fromMembers" />}>
-          {reviewRows.length === 0 ? (
+          {reviews.length === 0 ? (
             <Empty><T k="barber.noReviews" /></Empty>
           ) : (
             <ul className="divide-y divide-border/60">
-              {reviewRows.map((review) => (
+              {reviews.map((review) => (
                 <li key={review.id} className="space-y-1 py-4 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-medium">
@@ -350,7 +329,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
             <ul className="divide-y divide-border/60">
               {hours
                 .slice()
-                .sort((a: WindowRow, b: WindowRow) => a.day - b.day)
+                .sort((a: HourRow, b: HourRow) => a.day - b.day)
                 .map((row) => (
                   <li
                     key={row.day}
@@ -367,40 +346,6 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
         </Section>
 
         <NextSlots barber={barber.id} service={previewService} />
-
-        <Section title={<T k="barber.offers" />} description={<T k="barber.currentPromotions" />}>
-          {promotions.length === 0 ? (
-            <Empty><T k="barber.noOffers" /></Empty>
-          ) : (
-            <ul className="space-y-3">
-              {promotions.map((offer: Promotion) => (
-                <li key={offer.id} className="rounded-xl bg-muted/60 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="flex items-center gap-1.5 font-medium">
-                      <Tag className="size-3.5 text-brand-strong" aria-hidden />
-                      {offer.name}
-                    </p>
-                    <Badge variant="secondary">
-                      {offer.kind === "percent"
-                        ? `${offer.amount}%`
-                        : formatPrice(offer.amount)}{" "}
-                      <T k="barber.off" />
-                    </Badge>
-                  </div>
-                  {offer.note ? (
-                    <p className="mt-1 text-sm text-muted-foreground">{offer.note}</p>
-                  ) : null}
-                  {(offer.start || offer.end) && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {offer.start || <T k="barber.now" />} –{" "}
-                      {offer.end || <T k="barber.untilWithdrawn" />}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
 
         <Section title={<T k="barber.goodToKnow" />} description={<T k="barber.chairDetails" />}>
           {splitList(barber.facilities).length === 0 &&
@@ -493,12 +438,12 @@ export default function BarberPage({
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
 
-      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
         <Link
           href="/barbers"
           className="text-sm text-muted-foreground hover:text-foreground"
         >
-          ← All barbers
+          ← <T k="barbers.backToList" />
         </Link>
 
         <div className="mt-4">
@@ -507,7 +452,6 @@ export default function BarberPage({
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

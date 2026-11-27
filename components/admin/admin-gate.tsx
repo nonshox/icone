@@ -1,20 +1,20 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { currentMember } from "@/lib/domain/member";
+import { getActor } from "@/lib/domain/access";
 
 /**
  * Server-side role gate. Callers render this inside a Suspense boundary because
- * reading the session touches cookies.
+ * resolving the actor reads the session cookie.
  */
 export async function AdminGate({ children }: { children: ReactNode }) {
-  const member = await currentMember();
+  const actor = await getActor();
 
-  if (!member) {
+  if (!actor) {
     redirect(`/sign-in?next=${encodeURIComponent("/admin")}`);
   }
 
-  if (member.profile.role !== "admin") {
+  if (actor.profile.role !== "admin") {
     redirect("/account");
   }
 

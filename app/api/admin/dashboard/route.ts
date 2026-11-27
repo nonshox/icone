@@ -1,21 +1,41 @@
 import "server-only";
 
-import { NextResponse } from "next/server";
+import { overview } from "@/lib/domain/admin";
+import { requireAdmin } from "@/lib/api/guard";
+import { listAudit } from "@/lib/domain/audit";
+import { computeStats, lastDays } from "@/lib/domain/stats";
+import { apiError, apiOk } from "@/lib/http";
 
-import { getDashboard } from "@/lib/domain/admin";
-import { currentMember, isStaff } from "@/lib/domain/member";
-import { apiError } from "@/lib/http";
-
-/** GET /api/admin/dashboard — live platform figures. Staff only. */
+/** GET /api/admin/dashboard — live platform figures and recent admin activity. */
 export async function GET() {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to view the dashboard.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
   try {
-    return NextResponse.json({ ok: true as const, stats: await getDashboard() });
+    const [counts, stats, actions] = await Promise.all([
+      overview(),
+      computeStats({ range: lastDays(30) }),
+      listAudit({ limit: 10 }),
+    ]);
+
+    return apiOk({
+      stats: {
+        ...counts,
+        bookingsInRange: stats.total,
+        byStatus: stats.byStatus,
+        byDay: stats.byDay,
+        byService: stats.byService,
+        cancellationRate: stats.cancelRate,
+        retention: stats.retention,
+        recent: actions.map((row) => ({
+          id: row.id,
+          kind: row.kind,
+          title: row.action,
+          detail: row.detail,
+          at: row.at,
+        })),
+      },
+    });
   } catch (error) {
     console.error("[admin] dashboard failed", error);
     return apiError("Could not load the dashboard.", 502, "dashboard_failed");

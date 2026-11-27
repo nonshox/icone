@@ -1,1262 +1,648 @@
 import "server-only";
 
-import { AppwriteException, ID, Query, Users, type Models } from "node-appwrite";
+import { Query } from "node-appwrite";
 
-import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
-import { createAdminClient } from "@/lib/appwrite/server";
+import { TABLES } from "@/lib/appwrite/db";
 
-import { setBookingStatus } from "./data";
+import { audit } from "./audit";
 import {
-  STATUSES,
-  type Barber,
-  type Booking,
-  type BookingRow,
-  type Role,
-  type Service,
-  type Status,
-} from "./types";
-import { enrich } from "./views";
+  bool,
+  clean,
+  count as countRows,
+  create,
+  first,
+  get,
+  list,
+  num,
+  str,
+  update,
+  type Row,
+} from "./crud";
+import { toBusiness, updateBusiness } from "./business";
+import { updateBarber } from "./professional";
+import { setReviewState, refreshBarberRating } from "./review";
+import { shopClock } from "./time";
+import { toApplication } from "./application";
+import type { Application, Business, Report, Ticket } from "./types";
 
-type Row = Models.Document & Record<string, unknown>;
+/**
+ * Platform administration.
+ *
+ * Every function here assumes the caller has already been checked as a
+ * platform admin by `requireAdmin()`. Sensitive ones write an audit row.
+ */
 
-/** A chair with its linked staff account, including inactive chairs. */
-export type AdminBarber = Barber & { user: string };
+/* ------------------------------------------------------------ settings */
 
-/** An Appwrite account joined with its profile and linked chair. */
+export type PlatformSettings = {
+  /** Allow anyone to start a professional application. */
+  applicationsOpen: boolean;
+  /** Publish approved businesses without a manual verification pass. */
+  autoVerify: boolean;
+  /** Hide the marketplace behind a maintenance message. */
+  maintenance: boolean;
+  /** Days a customer can book ahead. */
+  horizon: number;
+  /** Minutes of lead time before an appointment can start. */
+  lead: number;
+  /** Shown on the sign-in page. */
+  notice: string;
+};
+
+export const DEFAULT_SETTINGS: PlatformSettings = {
+  applicationsOpen: true,
+  autoVerify: false,
+  maintenance: false,
+  horizon: 60,
+  lead: 30,
+  notice: "",
+};
+
+const SETTINGS_ID = "platform";
+
+export async function getSettings(): Promise<PlatformSettings> {
+  const row = await get(TABLES.settings, SETTINGS_ID);
+  if (!row || typeof row.data !== "string") return DEFAULT_SETTINGS;
+
+  try {
+    return { ...DEFAULT_SETTINGS, ...(JSON.parse(row.data) as Partial<PlatformSettings>) };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export async function updateSettings(
+  patch: Partial<PlatformSettings>,
+  actor: string,
+): Promise<PlatformSettings> {
+  const current = await getSettings();
+  const next: PlatformSettings = { ...current, ...patch };
+
+  const data = JSON.stringify(next);
+  const existing = await get(TABLES.settings, SETTINGS_ID);
+
+  if (existing) {
+    await update(TABLES.settings, SETTINGS_ID, { data, updatedby: actor });
+  } else {
+    await create(
+      TABLES.settings,
+      { data, updatedby: actor },
+      SETTINGS_ID,
+    );
+  }
+
+  await audit({
+    actor,
+    action: "settings.change",
+    kind: "platform",
+    target: SETTINGS_ID,
+    detail: Object.keys(patch).join(","),
+  });
+
+  return next;
+}
+
+/* ------------------------------------------------------------ overview */
+
+export type AdminOverview = {
+  users: number;
+  barbers: number;
+  businesses: number;
+  branches: number;
+  applications: number;
+  pendingApplications: number;
+  bookings: number;
+  todayBookings: number;
+  reviews: number;
+  flaggedReviews: number;
+  openReports: number;
+  openTickets: number;
+  pendingInvites: number;
+};
+
+export async function overview(): Promise<AdminOverview> {
+  const clock = shopClock();
+
+  const [
+    users,
+    barbers,
+    businesses,
+    branches,
+    applications,
+    pending,
+    bookings,
+    today,
+    reviews,
+    flagged,
+    reports,
+    tickets,
+    invites,
+  ] = await Promise.all([
+    count(TABLES.users, []),
+    count(TABLES.barbers, []),
+    count(TABLES.businesses, []),
+    count(TABLES.branches, []),
+    count(TABLES.applications, []),
+    count(TABLES.applications, [Query.equal("state", "submitted")]),
+    count(TABLES.bookings, []),
+    count(TABLES.bookings, [Query.equal("date", clock.date)]),
+    count(TABLES.reviews, []),
+    count(TABLES.reviews, [Query.notEqual("state", "open")]),
+    count(TABLES.reports, [Query.equal("state", "open")]),
+    count(TABLES.tickets, [Query.equal("state", "open")]),
+    count(TABLES.invites, [Query.equal("state", "pending")]),
+  ]);
+
+  return {
+    users,
+    barbers,
+    businesses,
+    branches,
+    applications,
+    pendingApplications: pending,
+    bookings,
+    todayBookings: today,
+    reviews,
+    flaggedReviews: flagged,
+    openReports: reports,
+    openTickets: tickets,
+    pendingInvites: invites,
+  };
+}
+
+async function count(table: string, queries: string[]): Promise<number> {
+  return countRows(table, queries);
+}
+
+/* --------------------------------------------------------------- users */
+
 export type AdminUser = {
   id: string;
   name: string;
-  email: string;
-  role: Role;
   phone: string;
-  barber: string;
-  /** Appwrite account status — `true` active, `false` blocked. */
-  status: boolean;
-  /** Count of low-rated reviews this member has written. */
-  flags: number;
+  role: string;
+  avatar: string;
+  state: string;
+  locale: string;
   created: string;
+  barbers: number;
+  businesses: number;
 };
 
-/** One weekly opening window (0 = Sunday … 6 = Saturday). */
-export type Hour = {
-  id: string;
-  barber: string;
-  day: number;
-  start: number;
-  end: number;
-};
+export async function listUsers(filter: {
+  q?: string;
+  state?: string;
+  limit?: number;
+}): Promise<AdminUser[]> {
+  const queries: string[] = [];
+  if (filter.state) queries.push(Query.equal("state", filter.state));
 
-/** A one-off override for a chair on a date. */
-export type DayOverride = {
-  id: string;
-  barber: string;
-  date: string;
-  open: boolean;
-  start: number;
-  end: number;
-  note: string;
-};
+  const rows = await list(TABLES.users, [
+    ...queries,
+    Query.orderDesc("$createdAt"),
+    Query.limit(Math.min(200, filter.limit ?? 100)),
+  ]);
 
-export type AdminReview = {
-  id: string;
-  user: string;
-  barber: string;
-  booking: string;
-  rate: number;
-  note: string;
-  created: string;
-};
-
-function str(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function num(value: unknown, fallback = 0): number {
-  return typeof value === "number" ? value : fallback;
-}
-
-function bool(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-function toAdminBarber(row: Row): AdminBarber {
-  return {
+  const users = rows.map((row) => ({
     id: row.$id,
     name: str(row.name),
-    title: str(row.title),
-    bio: str(row.bio),
-    photo: str(row.photo),
-    rating: num(row.rating),
-    active: bool(row.active, true),
-    user: str(row.user),
-    shop: str(row.shop),
-    address: str(row.address),
-    city: str(row.city, "Tashkent"),
-    years: num(row.years),
-    skills: str(row.skills),
     phone: str(row.phone),
-    social: str(row.social),
-    facilities: str(row.facilities),
-    policy: str(row.policy),
-    cover: str(row.cover),
-    confirm: bool(row.confirm),
-    featured: bool(row.featured),
-  };
+    role: str(row.role, "client"),
+    avatar: str(row.avatar),
+    state: str(row.state, "active"),
+    locale: str(row.locale, "uz"),
+    created: row.$createdAt,
+    barbers: 0,
+    businesses: 0,
+  }));
+
+  if (!filter.q) return users;
+  const needle = filter.q.toLowerCase();
+  return users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(needle) ||
+      user.phone.includes(needle) ||
+      user.id.toLowerCase().includes(needle),
+  );
 }
 
-function toService(row: Row): Service {
-  return {
+/** Suspend or restore an account everywhere it can act. */
+export async function setUserState(
+  userId: string,
+  state: "active" | "suspended",
+  actor: string,
+  note = "",
+): Promise<void> {
+  await update(TABLES.users, userId, { state });
+
+  const barberRows = await list(TABLES.barbers, [
+    Query.equal("user", userId),
+    Query.limit(10),
+  ]);
+  await Promise.all(
+    barberRows.map((row) =>
+      updateBarber(row.$id, {
+        state: state === "suspended" ? "suspended" : "active",
+        active: state !== "suspended",
+      }),
+    ),
+  );
+
+  await audit({
+    actor,
+    action: state === "suspended" ? "user.suspend" : "user.restore",
+    kind: "user",
+    target: userId,
+    detail: note,
+  });
+}
+
+/* --------------------------------------------------------- businesses */
+
+export type AdminBusiness = Business & {
+  ownerName: string;
+  staff: number;
+  branches: number;
+};
+
+export async function listBusinesses(filter: {
+  state?: string;
+  q?: string;
+  limit?: number;
+}): Promise<AdminBusiness[]> {
+  const queries: string[] = [];
+  if (filter.state) queries.push(Query.equal("state", filter.state));
+
+  const rows = await list(TABLES.businesses, [
+    ...queries,
+    Query.orderDesc("$createdAt"),
+    Query.limit(Math.min(200, filter.limit ?? 100)),
+  ]);
+
+  const businesses = rows.map(toBusiness);
+  const owners = await namesOf(businesses.map((row) => row.owner));
+
+  const out: AdminBusiness[] = [];
+  for (const business of businesses) {
+    const [staff, branches] = await Promise.all([
+      count(TABLES.memberships, [Query.equal("business", business.id)]),
+      count(TABLES.branches, [Query.equal("business", business.id)]),
+    ]);
+    out.push({
+      ...business,
+      ownerName: owners.get(business.owner) ?? "",
+      staff,
+      branches,
+    });
+  }
+
+  if (!filter.q) return out;
+  const needle = filter.q.toLowerCase();
+  return out.filter(
+    (row) =>
+      row.name.toLowerCase().includes(needle) ||
+      row.city.toLowerCase().includes(needle) ||
+      row.ownerName.toLowerCase().includes(needle),
+  );
+}
+
+async function namesOf(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const rows = await list(TABLES.users, [Query.equal("$id", unique), Query.limit(100)]);
+  return new Map(rows.map((row) => [row.$id, str(row.name)]));
+}
+
+/** Mark a business as checked by the platform. */
+export async function verifyBusiness(
+  businessId: string,
+  verified: boolean,
+  actor: string,
+): Promise<void> {
+  await updateBusiness(businessId, { verified });
+  await audit({
+    actor,
+    action: "business.verify",
+    kind: "business",
+    target: businessId,
+    detail: verified ? "verified" : "unverified",
+  });
+}
+
+export async function setBusinessState(
+  businessId: string,
+  state: Business["state"],
+  actor: string,
+  note = "",
+): Promise<void> {
+  await updateBusiness(businessId, { state, active: state === "active" });
+  await audit({
+    actor,
+    action: "business.suspend",
+    kind: "business",
+    target: businessId,
+    detail: `${state} ${note}`.trim(),
+  });
+}
+
+/** Independently operating professionals, for the marketplace queue. */
+export async function listProfessionals(filter: {
+  verified?: boolean;
+  q?: string;
+  limit?: number;
+}): Promise<Array<Record<string, unknown>>> {
+  const rows = await list(TABLES.barbers, [
+    Query.equal("business", ""),
+    Query.orderDesc("$createdAt"),
+    Query.limit(Math.min(200, filter.limit ?? 100)),
+  ]);
+
+  const professionals = rows.map((row) => ({
     id: row.$id,
     name: str(row.name),
-    note: str(row.note),
-    price: num(row.price),
-    time: num(row.time, 30),
-    active: bool(row.active, true),
-    image: str(row.image),
-    category: str(row.category, "Hair"),
-    featured: bool(row.featured),
-    discount: num(row.discount),
-    barber: str(row.barber),
-  };
-}
-
-function toHour(row: Row): Hour {
-  return {
-    id: row.$id,
-    barber: str(row.barber),
-    day: num(row.day),
-    start: num(row.start),
-    end: num(row.end),
-  };
-}
-
-function toDay(row: Row): DayOverride {
-  return {
-    id: row.$id,
-    barber: str(row.barber),
-    date: str(row.date),
-    open: bool(row.open),
-    start: num(row.start),
-    end: num(row.end),
-    note: str(row.note),
-  };
-}
-
-function toAdminReview(row: Row): AdminReview {
-  return {
-    id: row.$id,
     user: str(row.user),
-    barber: str(row.barber),
-    booking: str(row.booking),
-    rate: num(row.rate, 5),
+    city: str(row.city),
+    district: str(row.district),
+    rating: num(row.rating),
+    verified: bool(row.verified),
+    state: str(row.state, "active"),
+    active: bool(row.active, true),
+    created: row.$createdAt,
+  }));
+
+  if (typeof filter.verified === "boolean") {
+    return professionals.filter((row) => row.verified === filter.verified);
+  }
+  if (filter.q) {
+    const needle = filter.q.toLowerCase();
+    return professionals.filter((row) => String(row.name).toLowerCase().includes(needle));
+  }
+  return professionals;
+}
+
+export async function verifyProfessional(
+  barberId: string,
+  verified: boolean,
+  actor: string,
+): Promise<void> {
+  await updateBarber(barberId, { verified });
+  await audit({
+    actor,
+    action: "business.verify",
+    kind: "barber",
+    target: barberId,
+    detail: verified ? "verified" : "unverified",
+  });
+}
+
+/* ------------------------------------------------- reports and tickets */
+
+export function toReport(row: Row): Report {
+  return {
+    id: row.$id,
+    reporter: str(row.reporter),
+    kind: (str(row.kind, "user") || "user") as Report["kind"],
+    target: str(row.target),
     note: str(row.note),
+    detail: str(row.detail),
+    state: (str(row.state, "open") || "open") as Report["state"],
+    actor: str(row.actor),
     created: row.$createdAt,
   };
 }
 
-async function list(table: string, queries: string[]): Promise<Row[]> {
-  const result = await adminDb().listDocuments({
-    databaseId: databaseId(),
-    collectionId: table,
-    queries,
-  });
-  return result.documents as Row[];
+export function toTicket(row: Row): Ticket {
+  return {
+    id: row.$id,
+    user: str(row.user),
+    topic: str(row.topic),
+    body: str(row.body),
+    reply: str(row.reply),
+    state: (str(row.state, "open") || "open") as Ticket["state"],
+    actor: str(row.actor),
+    created: row.$createdAt,
+  };
 }
 
-/**
- * Read a whole table in pages. Reporting and moderation must not silently
- * sample the first 100 rows, so paged reads are used when counting or listing.
- */
-async function listPaged(
-  table: string,
-  queries: string[] = [],
-  cap = 1000,
-): Promise<Row[]> {
-  const rows: Row[] = [];
-  const page = 100;
-  for (let offset = 0; offset < cap; offset += page) {
-    const batch = await list(table, [
-      ...queries,
-      Query.limit(page),
-      Query.offset(offset),
-    ]);
-    rows.push(...batch);
-    if (batch.length < page) break;
-  }
-  return rows;
-}
+export async function listReports(state?: Report["state"]): Promise<Report[]> {
+  const queries: string[] = [];
+  if (state) queries.push(Query.equal("state", state));
 
-async function get(table: string, id: string): Promise<Row | null> {
-  try {
-    return await adminDb().getDocument({
-      databaseId: databaseId(),
-      collectionId: table,
-      documentId: id,
-    });
-  } catch (error) {
-    if (error instanceof AppwriteException && error.code === 404) return null;
-    throw error;
-  }
-}
-
-async function remove(table: string, id: string): Promise<void> {
-  try {
-    await adminDb().deleteDocument({
-      databaseId: databaseId(),
-      collectionId: table,
-      documentId: id,
-    });
-  } catch (error) {
-    // Removing an already-gone row is fine — admin actions are idempotent.
-    if (!(error instanceof AppwriteException && error.code === 404)) throw error;
-  }
-}
-
-/* ------------------------------------------------------------------ reads */
-
-/** Every chair, active or not, for the admin catalogue. */
-export async function listAllBarbers(): Promise<AdminBarber[]> {
-  const rows = await list(TABLES.barbers, [
-    Query.orderAsc("name"),
-    Query.limit(100),
-  ]);
-  return rows.map(toAdminBarber);
-}
-
-/** Every service, active or not. */
-export async function listAllServices(): Promise<Service[]> {
-  const rows = await list(TABLES.services, [
-    Query.orderAsc("name"),
-    Query.limit(100),
-  ]);
-  return rows.map(toService);
-}
-
-/** All weekly hours across every chair. */
-export async function listAllHours(): Promise<Hour[]> {
-  const rows = await list(TABLES.hours, [Query.limit(100)]);
-  return rows
-    .map(toHour)
-    .sort((a, b) =>
-      a.barber === b.barber ? a.day - b.day : a.barber < b.barber ? -1 : 1,
-    );
-}
-
-/** All date overrides across every chair. */
-export async function listAllDays(): Promise<DayOverride[]> {
-  const rows = await list(TABLES.days, [Query.limit(100)]);
-  return rows
-    .map(toDay)
-    .sort((a, b) =>
-      a.barber === b.barber
-        ? a.date < b.date
-          ? -1
-          : a.date > b.date
-            ? 1
-            : 0
-        : a.barber < b.barber
-          ? -1
-          : 1,
-    );
-}
-
-/** Used by write paths to confirm a chair still exists. */
-export async function findBarber(id: string): Promise<AdminBarber | null> {
-  const row = await get(TABLES.barbers, id);
-  return row ? toAdminBarber(row) : null;
-}
-
-/** Every review, newest first, for moderation. */
-export async function listAllReviews(): Promise<AdminReview[]> {
-  const rows = await list(TABLES.reviews, [
+  const rows = await list(TABLES.reports, [
+    ...queries,
     Query.orderDesc("$createdAt"),
     Query.limit(100),
   ]);
-  return rows.map(toAdminReview);
+  return rows.map(toReport);
 }
 
-/** Accounts with their profile role and the chair they are linked to. */
-export async function listUsers(): Promise<AdminUser[]> {
-  const users = new Users(createAdminClient());
-
-  const [auth, profiles, chairs, reviews] = await Promise.all([
-    users.list({ queries: [Query.limit(100)], total: false }),
-    list(TABLES.users, [Query.limit(100)]),
-    list(TABLES.barbers, [Query.limit(100)]),
-    list(TABLES.reviews, [Query.limit(100)]),
-  ]);
-
-  const profileById = new Map(profiles.map((row) => [row.$id, row]));
-  const chairByUser = new Map<string, string>();
-  for (const chair of chairs) {
-    const linked = str(chair.user);
-    if (linked && !chairByUser.has(linked)) chairByUser.set(linked, chair.$id);
-  }
-
-  // A "flag" is a real signal: a low-rated review. There is no reports table.
-  const flags = new Map<string, number>();
-  for (const review of reviews) {
-    if (num(review.rate, 5) <= 2) {
-      const author = str(review.user);
-      flags.set(author, (flags.get(author) ?? 0) + 1);
-    }
-  }
-
-  return auth.users.map((user) => {
-    const profile = profileById.get(user.$id);
-    return {
-      id: user.$id,
-      name: str(profile?.name) || user.name || "",
-      email: user.email || "",
-      role: str(profile?.role, "client") as Role,
-      phone: str(profile?.phone) || user.phone || "",
-      barber: chairByUser.get(user.$id) ?? "",
-      status: user.status !== false,
-      flags: flags.get(user.$id) ?? 0,
-      created: user.$createdAt ?? str(profile?.$createdAt),
-    };
-  });
-}
-
-/* ----------------------------------------------------------------- writes */
-
-export async function createBarber(input: {
-  name: string;
-  title: string;
-  bio: string;
-}): Promise<AdminBarber> {
-  const row = await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.barbers,
-    documentId: ID.unique(),
-    data: { ...input, photo: "", rating: 0, active: true, user: "" },
-  });
-  return toAdminBarber(row as Row);
-}
-
-export async function setBarberActive(
+export async function resolveReport(
   id: string,
-  active: boolean,
-): Promise<AdminBarber> {
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.barbers,
-    documentId: id,
-    data: { active },
-  });
-  return toAdminBarber(row as Row);
-}
-
-/** Fields an admin may edit on a published chair. */
-export type BarberEditInput = {
-  name?: string;
-  title?: string;
-  bio?: string;
-  photo?: string;
-  cover?: string;
-  shop?: string;
-  address?: string;
-  city?: string;
-  years?: number;
-  skills?: string;
-  phone?: string;
-  social?: string;
-  facilities?: string;
-  policy?: string;
-  confirm?: boolean;
-  featured?: boolean;
-  user?: string;
-};
-
-/** Change published chair details and/or its linked staff account. */
-export async function updateBarber(
-  id: string,
-  input: BarberEditInput,
-): Promise<AdminBarber> {
-  const data: Record<string, unknown> = {};
-  const textKeys = [
-    "name",
-    "title",
-    "bio",
-    "photo",
-    "cover",
-    "shop",
-    "address",
-    "city",
-    "skills",
-    "phone",
-    "social",
-    "facilities",
-    "policy",
-  ] as const;
-  for (const key of textKeys) {
-    const value = input[key];
-    if (typeof value === "string") data[key] = value;
-  }
-  if (typeof input.years === "number") data.years = input.years;
-  if (typeof input.confirm === "boolean") data.confirm = input.confirm;
-  if (typeof input.featured === "boolean") data.featured = input.featured;
-  if (typeof input.user === "string") data.user = input.user;
-
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.barbers,
-    documentId: id,
-    data,
-  });
-  return toAdminBarber(row as Row);
-}
-
-export async function createService(input: {
-  name: string;
-  note: string;
-  price: number;
-  time: number;
-}): Promise<Service> {
-  const row = await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.services,
-    documentId: ID.unique(),
-    data: { ...input, active: true },
-  });
-  return toService(row as Row);
-}
-
-export async function setServiceActive(
-  id: string,
-  active: boolean,
-): Promise<Service> {
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.services,
-    documentId: id,
-    data: { active },
-  });
-  return toService(row as Row);
-}
-
-/** Change a menu item's published details. */
-export async function updateService(
-  id: string,
-  input: { name?: string; note?: string; price?: number; time?: number },
-): Promise<Service> {
-  const data: Record<string, unknown> = {};
-  if (typeof input.name === "string") data.name = input.name;
-  if (typeof input.note === "string") data.note = input.note;
-  if (typeof input.price === "number") data.price = input.price;
-  if (typeof input.time === "number") data.time = input.time;
-
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.services,
-    documentId: id,
-    data,
-  });
-  return toService(row as Row);
-}
-
-export async function createHour(input: {
-  barber: string;
-  day: number;
-  start: number;
-  end: number;
-}): Promise<Hour> {
-  const row = await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.hours,
-    documentId: ID.unique(),
-    data: input,
-  });
-  return toHour(row as Row);
-}
-
-export async function deleteHour(id: string): Promise<void> {
-  await remove(TABLES.hours, id);
-}
-
-/**
- * One override per chair and date. Adding another replaces the existing row so
- * availability never has to guess which one wins.
- */
-export async function putDay(input: {
-  barber: string;
-  date: string;
-  open: boolean;
-  start: number;
-  end: number;
-  note: string;
-}): Promise<DayOverride> {
-  const existing = await list(TABLES.days, [
-    Query.equal("barber", input.barber),
-    Query.equal("date", input.date),
-    Query.limit(1),
-  ]);
-
-  if (existing.length > 0) {
-    const row = await adminDb().updateDocument({
-      databaseId: databaseId(),
-      collectionId: TABLES.days,
-      documentId: existing[0].$id,
-      data: {
-        open: input.open,
-        start: input.start,
-        end: input.end,
-        note: input.note,
-      },
-    });
-    return toDay(row as Row);
-  }
-
-  const row = await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.days,
-    documentId: ID.unique(),
-    data: input,
-  });
-  return toDay(row as Row);
-}
-
-export async function deleteDay(id: string): Promise<void> {
-  await remove(TABLES.days, id);
-}
-
-export async function deleteReview(id: string): Promise<void> {
-  await remove(TABLES.reviews, id);
-}
-
-/** Change a member's role in their profile row. */
-export async function setUserRole(userId: string, role: Role): Promise<void> {
-  await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.users,
-    documentId: userId,
-    data: { role },
-  });
-}
-
-/**
- * Put a staff account on one chair. The account is removed from any other
- * chair first, so a barber never appears twice. An empty chair id just clears
- * the account from every chair.
- */
-export async function linkBarberUser(
-  barberId: string,
-  userId: string,
+  state: Report["state"],
+  actor: string,
+  detail = "",
 ): Promise<void> {
-  if (!userId) {
-    if (barberId) {
-      await adminDb().updateDocument({
-        databaseId: databaseId(),
-        collectionId: TABLES.barbers,
-        documentId: barberId,
-        data: { user: "" },
-      });
-    }
+  await update(TABLES.reports, id, { state, actor, detail: clean(detail, 512) });
+  await audit({
+    actor,
+    action: "report.resolve",
+    kind: "report",
+    target: id,
+    detail: `${state} ${detail}`.trim(),
+  });
+}
+
+export async function createReport(input: {
+  reporter: string;
+  kind: Report["kind"];
+  target: string;
+  note: string;
+}): Promise<Report> {
+  const row = await create(TABLES.reports, {
+    reporter: input.reporter,
+    kind: input.kind,
+    target: input.target,
+    note: clean(input.note, 512),
+    detail: "",
+    state: "open",
+    actor: "",
+  });
+  return toReport(row);
+}
+
+export async function listTickets(state?: Ticket["state"]): Promise<Ticket[]> {
+  const queries: string[] = [];
+  if (state) queries.push(Query.equal("state", state));
+
+  const rows = await list(TABLES.tickets, [
+    ...queries,
+    Query.orderDesc("$createdAt"),
+    Query.limit(100),
+  ]);
+  return rows.map(toTicket);
+}
+
+export async function createTicket(input: {
+  user: string;
+  topic: string;
+  body: string;
+}): Promise<Ticket> {
+  const row = await create(TABLES.tickets, {
+    user: input.user,
+    topic: clean(input.topic, 64),
+    body: clean(input.body, 1024),
+    reply: "",
+    state: "open",
+    actor: "",
+  });
+  return toTicket(row);
+}
+
+export async function replyTicket(
+  id: string,
+  reply: string,
+  actor: string,
+): Promise<void> {
+  await update(TABLES.tickets, id, {
+    reply: clean(reply, 1024),
+    state: "answered",
+    actor,
+  });
+  await audit({ actor, action: "ticket.reply", kind: "ticket", target: id });
+}
+
+export async function closeTicket(id: string, actor: string): Promise<void> {
+  await update(TABLES.tickets, id, { state: "closed", actor });
+}
+
+/* ------------------------------------------------- moderation shortcuts */
+
+/** Hide or restore a review as part of moderation. */
+export async function moderateReview(
+  id: string,
+  state: "open" | "hidden",
+  actor: string,
+): Promise<void> {
+  const review = await setReviewState(id, state);
+  await refreshBarberRating(review.barber);
+  await audit({
+    actor,
+    action: state === "hidden" ? "review.hide" : "review.restore",
+    kind: "review",
+    target: id,
+  });
+}
+
+export async function applicationsQueue(limit = 100): Promise<Application[]> {
+  const rows = await list(TABLES.applications, [
+    Query.orderDesc("$createdAt"),
+    Query.limit(limit),
+  ]);
+  return rows.map(toApplication);
+}
+
+/* ------------------------------------------------------ reference data */
+
+export async function createCategory(name: string, actor: string): Promise<void> {
+  const trimmed = clean(name, 32);
+  if (!trimmed) return;
+
+  const existing = await first(TABLES.categories, [Query.equal("name", trimmed)]);
+  if (existing) {
+    await update(TABLES.categories, existing.$id, { active: true });
     return;
   }
 
-  const chairs = await list(TABLES.barbers, [
-    Query.equal("user", userId),
-    Query.limit(100),
-  ]);
-
-  for (const chair of chairs) {
-    if (chair.$id !== barberId) {
-      await adminDb().updateDocument({
-        databaseId: databaseId(),
-        collectionId: TABLES.barbers,
-        documentId: chair.$id,
-        data: { user: "" },
-      });
-    }
-  }
-
-  if (!barberId) return;
-
-  await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.barbers,
-    documentId: barberId,
-    data: { user: userId },
-  });
+  await create(TABLES.categories, { name: trimmed, active: true });
+  await audit({ actor, action: "settings.change", kind: "category", target: trimmed });
 }
 
-/* ------------------------------------------------------- extended platform */
+export async function toggleCategory(id: string, active: boolean): Promise<void> {
+  await update(TABLES.categories, id, { active });
+}
 
-/** Tables that live outside the core catalogue helper ids. */
-const EXTRA = {
-  notifications: "notifications",
-  portfolio: "portfolio",
-  categories: "categories",
-  payments: "payments",
-} as const;
-
-export type PortfolioItem = {
-  id: string;
-  barber: string;
-  url: string;
-  note: string;
-  created: string;
-};
-
-export type Category = {
-  id: string;
+export async function createPlace(input: {
   name: string;
-  active: boolean;
-};
+  kind: "city" | "district";
+  parent?: string;
+  ru?: string;
+  en?: string;
+  lat?: number;
+  lng?: number;
+}): Promise<void> {
+  const name = clean(input.name, 64);
+  if (!name) return;
 
-export type Payment = {
-  id: string;
-  booking: string;
-  amount: number;
-  status: string;
-  method: string;
-  created: string;
-};
-
-export type Announcement = {
-  id: string;
-  user: string;
-  title: string;
-  body: string;
-  kind: string;
-  state: string;
-  created: string;
-};
-
-export type Audience = "all" | Role;
-
-export type ActivityItem = {
-  id: string;
-  kind: "user" | "booking" | "review" | "payment" | "announcement";
-  title: string;
-  detail: string;
-  at: string;
-};
-
-export type NamedCount = {
-  name: string;
-  count: number;
-  value: number;
-};
-
-export type DashboardData = {
-  totals: {
-    users: number;
-    customers: number;
-    barbers: number;
-    staff: number;
-    chairs: number;
-    activeBusinesses: number;
-    bookings: number;
-    reviews: number;
-    revenue: number;
-    bookedValue: number;
-  };
-  growth: { users: number; bookings: number; revenue: number };
-  byStatus: Record<Status, number>;
-  cancellationRate: number;
-  recent: ActivityItem[];
-  popularServices: NamedCount[];
-  cities: NamedCount[];
-  featured: number;
-};
-
-export type ReportPoint = { date: string; count: number; value: number };
-
-export type ReportData = {
-  days: number;
-  from: string;
-  to: string;
-  series: {
-    users: ReportPoint[];
-    barbers: ReportPoint[];
-    bookings: ReportPoint[];
-    revenue: ReportPoint[];
-  };
-  totals: {
-    users: number;
-    barbers: number;
-    bookings: number;
-    revenue: number;
-    done: number;
-    cancel: number;
-    noshow: number;
-  };
-  popularServices: NamedCount[];
-  cities: NamedCount[];
-  retention: number;
-  cancellationRate: number;
-};
-
-export type BookingDetail = {
-  booking: BookingRow;
-  review: AdminReview | null;
-  payments: Payment[];
-  history: BookingRow[];
-};
-
-function toBooking(row: Row): Booking {
-  return {
-    id: row.$id,
-    user: str(row.user),
-    barber: str(row.barber),
-    service: str(row.service),
-    date: str(row.date),
-    start: num(row.start),
-    end: num(row.end),
-    price: num(row.price),
-    status: str(row.status, "booked") as Status,
-    note: str(row.note),
-    created: row.$createdAt,
-  };
+  await create(TABLES.places, {
+    name,
+    ru: clean(input.ru ?? "", 64),
+    en: clean(input.en ?? "", 64),
+    kind: input.kind,
+    parent: input.parent ?? "",
+    lat: input.lat ?? 0,
+    lng: input.lng ?? 0,
+    sort: 0,
+    active: true,
+  });
 }
 
-function toPayment(row: Row): Payment {
-  return {
-    id: row.$id,
-    booking: str(row.booking),
-    amount: num(row.amount),
-    status: str(row.status, "pending"),
-    method: str(row.method, "cash"),
-    created: row.$createdAt,
-  };
+export async function togglePlace(id: string, active: boolean): Promise<void> {
+  await update(TABLES.places, id, { active });
 }
 
-function toPortfolio(row: Row): PortfolioItem {
-  return {
-    id: row.$id,
-    barber: str(row.barber),
-    url: str(row.url),
-    note: str(row.note),
-    created: row.$createdAt,
-  };
-}
+/* ------------------------------------------------------------- export */
 
-function toCategory(row: Row): Category {
-  return { id: row.$id, name: str(row.name), active: bool(row.active, true) };
-}
+export type ExportRow = Record<string, string | number>;
 
-function toAnnouncement(row: Row): Announcement {
-  return {
-    id: row.$id,
-    user: str(row.user),
-    title: str(row.title),
-    body: str(row.body),
-    kind: str(row.kind),
-    state: str(row.state),
-    created: row.$createdAt,
-  };
-}
+/**
+ * Turn appointments into CSV for the business owner who asked.
+ *
+ * Only the owner's own rows are ever selected — the caller passes the
+ * business id it has already authorized — and nothing financial is included,
+ * because the platform never handles money.
+ */
+export async function exportBookings(businessId: string, range: { from: string; to: string }): Promise<string> {
+  const rows = await list(TABLES.bookings, [
+    Query.equal("business", businessId),
+    Query.greaterThanEqual("date", range.from),
+    Query.lessThanEqual("date", range.to),
+    Query.orderAsc("date"),
+    Query.limit(1000),
+  ]);
 
-function percentage(part: number, whole: number): number {
-  if (whole <= 0) return 0;
-  return Math.round((part / whole) * 1000) / 10;
-}
+  const header = [
+    "date",
+    "start",
+    "end",
+    "status",
+    "source",
+    "barber",
+    "service",
+    "price",
+    "note",
+  ];
 
-function changePercent(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0;
-  return Math.round(((current - previous) / previous) * 100);
-}
-
-/** Last 30 days vs the 30 days before it, using document creation dates. */
-function growth<T extends { $createdAt: string }>(
-  rows: T[],
-  amount?: (row: T) => number,
-): number {
-  const day = 86_400_000;
-  const now = Date.now();
-  const recentStart = now - 30 * day;
-  const priorStart = now - 60 * day;
-  let recent = 0;
-  let prior = 0;
-
+  const lines = [header.join(",")];
   for (const row of rows) {
-    const time = Date.parse(row.$createdAt);
-    if (Number.isNaN(time)) continue;
-    const value = amount ? amount(row) : 1;
-    if (time >= recentStart) recent += value;
-    else if (time >= priorStart) prior += value;
+    lines.push(
+      [
+        str(row.date),
+        str(row.start),
+        str(row.end),
+        str(row.status),
+        str(row.source, "online"),
+        str(row.barber),
+        str(row.service),
+        num(row.price),
+        csv(str(row.note)),
+      ].join(","),
+    );
   }
 
-  return changePercent(recent, prior);
+  return lines.join("\n");
 }
 
-function rankCounts(items: NamedCount[]): NamedCount[] {
-  return items
-    .filter((item) => item.name)
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-    .slice(0, 8);
+function csv(value: string): string {
+  const escaped = value.replace(/"/g, '""');
+  return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
 }
-
-/* ------------------------------------------------------------- user writes */
-
-/** Block or reactivate an Appwrite account without deleting its profile. */
-export async function setUserStatus(userId: string, active: boolean): Promise<void> {
-  const users = new Users(createAdminClient());
-  await users.updateStatus({ userId, status: active });
-}
-
-/* ------------------------------------------------------- barber management */
-
-/** Put a chair on the featured list, or take it off. */
-export async function setBarberFeatured(
-  id: string,
-  featured: boolean,
-): Promise<AdminBarber> {
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: TABLES.barbers,
-    documentId: id,
-    data: { featured },
-  });
-  return toAdminBarber(row as Row);
-}
-
-/** Every portfolio item, newest first, optionally for one chair. */
-export async function listPortfolio(barber?: string): Promise<PortfolioItem[]> {
-  const queries = barber
-    ? [Query.equal("barber", barber), Query.limit(100)]
-    : [Query.orderDesc("$createdAt"), Query.limit(100)];
-  const rows = await list(EXTRA.portfolio, queries);
-  return rows
-    .map(toPortfolio)
-    .sort((a, b) => (a.created < b.created ? 1 : a.created > b.created ? -1 : 0));
-}
-
-/** Remove a portfolio image that breaches the house rules. */
-export async function deletePortfolioItem(id: string): Promise<void> {
-  await remove(EXTRA.portfolio, id);
-}
-
-/* -------------------------------------------------------- appointment reads */
-
-export type BookingFilter = {
-  status?: string;
-  date?: string;
-  barber?: string;
-};
-
-/** All bookings with names, newest first. Filters are applied in Appwrite. */
-export async function listAdminBookings(
-  filter: BookingFilter = {},
-): Promise<BookingRow[]> {
-  const queries = [Query.orderDesc("$createdAt")];
-  if (filter.status) queries.push(Query.equal("status", filter.status));
-  if (filter.date) queries.push(Query.equal("date", filter.date));
-  if (filter.barber) queries.push(Query.equal("barber", filter.barber));
-
-  const rows = await listPaged(TABLES.bookings, queries);
-  return enrich(rows.map(toBooking), { withUser: true });
-}
-
-/** Lightweight lookup before a status write, so a missing row is a real 404. */
-export async function findAdminBooking(id: string): Promise<BookingRow | null> {
-  const row = await get(TABLES.bookings, id);
-  if (!row) return null;
-  const [enriched] = await enrich([toBooking(row)], { withUser: true });
-  return enriched;
-}
-
-/** One booking with the supporting rows an admin needs for a dispute. */
-export async function getAdminBookingDetail(
-  id: string,
-): Promise<BookingDetail | null> {
-  const row = await get(TABLES.bookings, id);
-  if (!row) return null;
-  const booking = toBooking(row);
-
-  const [enriched, reviews, payments, historyRows] = await Promise.all([
-    enrich([booking], { withUser: true }),
-    list(TABLES.reviews, [Query.equal("booking", id), Query.limit(1)]),
-    list(EXTRA.payments, [Query.equal("booking", id), Query.limit(100)]),
-    list(TABLES.bookings, [
-      Query.equal("user", booking.user),
-      Query.orderDesc("$createdAt"),
-      Query.limit(100),
-    ]),
-  ]);
-
-  const history = await enrich(
-    historyRows
-      .map(toBooking)
-      .sort((a, b) => (a.created < b.created ? 1 : a.created > b.created ? -1 : 0)),
-    { withUser: false },
-  );
-
-  return {
-    booking: enriched[0],
-    review: reviews[0] ? toAdminReview(reviews[0]) : null,
-    payments: payments.map(toPayment),
-    history,
-  };
-}
-
-/** Change any visit status with the same writer the booking API uses. */
-export async function setAdminBookingStatus(
-  id: string,
-  status: Status,
-): Promise<BookingRow> {
-  const updated = await setBookingStatus(id, status);
-  const [row] = await enrich([updated], { withUser: true });
-  return row;
-}
-
-/* ---------------------------------------------------------- configuration */
-
-export async function listCategories(): Promise<Category[]> {
-  const rows = await list(EXTRA.categories, [
-    Query.orderAsc("name"),
-    Query.limit(100),
-  ]);
-  return rows.map(toCategory);
-}
-
-export async function createCategory(name: string): Promise<Category> {
-  const row = await adminDb().createDocument({
-    databaseId: databaseId(),
-    collectionId: EXTRA.categories,
-    documentId: ID.unique(),
-    data: { name, active: true },
-  });
-  return toCategory(row as Row);
-}
-
-export async function renameCategory(id: string, name: string): Promise<Category> {
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: EXTRA.categories,
-    documentId: id,
-    data: { name },
-  });
-  return toCategory(row as Row);
-}
-
-export async function setCategoryActive(
-  id: string,
-  active: boolean,
-): Promise<Category> {
-  const row = await adminDb().updateDocument({
-    databaseId: databaseId(),
-    collectionId: EXTRA.categories,
-    documentId: id,
-    data: { active },
-  });
-  return toCategory(row as Row);
-}
-
-export async function deleteCategory(id: string): Promise<void> {
-  await remove(EXTRA.categories, id);
-}
-
-/** Broadcast a message to every profile, or one role, as inbox notifications. */
-export async function createAnnouncement(input: {
-  title: string;
-  body: string;
-  audience: Audience;
-}): Promise<{ sent: number }> {
-  const queries =
-    input.audience === "all"
-      ? [Query.limit(100)]
-      : [Query.equal("role", input.audience), Query.limit(100)];
-  const recipients = await list(TABLES.users, queries);
-
-  for (const recipient of recipients) {
-    await adminDb().createDocument({
-      databaseId: databaseId(),
-      collectionId: EXTRA.notifications,
-      documentId: ID.unique(),
-      data: {
-        user: recipient.$id,
-        title: input.title,
-        body: input.body,
-        kind: "announcement",
-        state: "new",
-      },
-    });
-  }
-
-  return { sent: recipients.length };
-}
-
-/** Recent broadcasts, for the composer's history list. */
-export async function listAnnouncements(): Promise<Announcement[]> {
-  const rows = await list(EXTRA.notifications, [
-    Query.equal("kind", "announcement"),
-    Query.orderDesc("$createdAt"),
-    Query.limit(50),
-  ]);
-  return rows.map(toAnnouncement);
-}
-
-/* ------------------------------------------------------------------- stats */
-
-/** Live platform overview. Every figure comes from a table or the Users API. */
-export async function getDashboard(): Promise<DashboardData> {
-  const [auth, profiles, chairs, bookings, reviews, payments, announcements] =
-    await Promise.all([
-      new Users(createAdminClient()).list({
-        queries: [Query.limit(100)],
-        total: true,
-      }),
-      list(TABLES.users, [Query.limit(100)]),
-      list(TABLES.barbers, [Query.limit(100)]),
-      listPaged(TABLES.bookings, [Query.orderDesc("$createdAt")]),
-      list(TABLES.reviews, [Query.limit(100)]),
-      listPaged(EXTRA.payments, [Query.orderDesc("$createdAt")]),
-      list(EXTRA.notifications, [
-        Query.equal("kind", "announcement"),
-        Query.orderDesc("$createdAt"),
-        Query.limit(10),
-      ]),
-    ]);
-
-  const serviceNames = new Map(
-    (
-      await list(TABLES.services, [Query.limit(100)])
-    ).map((row) => [row.$id, str(row.name)]),
-  );
-  const cityByChair = new Map(
-    chairs.map((row) => [row.$id, str(row.city, "Tashkent")]),
-  );
-
-  const byStatus = Object.fromEntries(
-    STATUSES.map((status) => [status, 0]),
-  ) as Record<Status, number>;
-  const services = new Map<string, NamedCount>();
-  const cities = new Map<string, NamedCount>();
-  let bookedValue = 0;
-
-  for (const row of bookings) {
-    const status = str(row.status, "booked") as Status;
-    byStatus[status] = (byStatus[status] ?? 0) + 1;
-    const service = str(row.service);
-    if (service && status !== "cancel" && status !== "rejected") {
-      const entry = services.get(service) ?? {
-        name: serviceNames.get(service) || "Service",
-        count: 0,
-        value: 0,
-      };
-      entry.count += 1;
-      entry.value += num(row.price);
-      services.set(service, entry);
-      bookedValue += num(row.price);
-    }
-    const city = cityByChair.get(str(row.barber)) ?? "Tashkent";
-    const place = cities.get(city) ?? { name: city, count: 0, value: 0 };
-    place.count += 1;
-    cities.set(city, place);
-  }
-
-  const paid = payments.filter((row) => str(row.status, "pending") === "paid");
-  const revenue = paid.reduce((total, row) => total + num(row.amount), 0);
-  const customers = profiles.filter(
-    (row) => str(row.role, "client") === "client",
-  ).length;
-  const barbers = profiles.filter((row) => str(row.role) === "barber").length;
-  const staff = profiles.filter((row) =>
-    ["barber", "admin"].includes(str(row.role)),
-  ).length;
-
-  const usersRows: Array<{ $createdAt: string }> = profiles.map((row) => ({
-    $createdAt: row.$createdAt,
-  }));
-  const recent: ActivityItem[] = [
-    ...profiles.map((row) => ({
-      id: row.$id,
-      kind: "user" as const,
-      title: str(row.name) || "New member",
-      detail: "Joined icone",
-      at: row.$createdAt,
-    })),
-    ...bookings.slice(0, 20).map((row) => ({
-      id: row.$id,
-      kind: "booking" as const,
-      title: str(row.status, "booked"),
-      detail: `${str(row.date)} · ${str(row.service)}`,
-      at: row.$createdAt,
-    })),
-    ...reviews.map((row) => ({
-      id: row.$id,
-      kind: "review" as const,
-      title: `${num(row.rate, 5)} / 5`,
-      detail: str(row.note).slice(0, 80) || "Review",
-      at: row.$createdAt,
-    })),
-    ...paid.slice(0, 20).map((row) => ({
-      id: row.$id,
-      kind: "payment" as const,
-      title: `${num(row.amount).toLocaleString("ru-RU")} UZS`,
-      detail: `Paid by ${str(row.method, "cash")}`,
-      at: row.$createdAt,
-    })),
-    ...announcements.map(toAnnouncement).map((row) => ({
-      id: row.id,
-      kind: "announcement" as const,
-      title: row.title,
-      detail: "Broadcast sent",
-      at: row.created,
-    })),
-  ]
-    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
-    .slice(0, 12);
-
-  return {
-    totals: {
-      users: auth.total || profiles.length,
-      customers,
-      barbers,
-      staff,
-      chairs: chairs.length,
-      activeBusinesses: chairs.filter(
-        (row) => bool(row.active) && str(row.shop),
-      ).length,
-      bookings: bookings.length,
-      reviews: reviews.length,
-      revenue,
-      bookedValue,
-    },
-    growth: {
-      users: growth(usersRows),
-      bookings: growth(bookings),
-      revenue: growth(paid, (row) => num(row.amount)),
-    },
-    byStatus,
-    cancellationRate: percentage(byStatus.cancel, bookings.length),
-    recent,
-    popularServices: rankCounts([...services.values()]),
-    cities: rankCounts([...cities.values()]),
-    featured: chairs.filter((row) => bool(row.featured)).length,
-  };
-}
-
-function buildSeries<T extends { $createdAt: string }>(
-  days: number,
-  rows: T[],
-  amount?: (row: T) => number,
-): ReportPoint[] {
-  const day = 86_400_000;
-  const bucketDays = Math.max(1, Math.ceil(days / 30));
-  const bucketMs = bucketDays * day;
-  const end = Date.now();
-  const start = end - days * day;
-  const points: ReportPoint[] = Array.from(
-    { length: Math.max(1, Math.ceil(days / bucketDays)) },
-    (_, index) => ({
-      date: new Date(start + index * bucketMs).toISOString().slice(0, 10),
-      count: 0,
-      value: 0,
-    }),
-  );
-
-  for (const row of rows) {
-    const time = Date.parse(row.$createdAt);
-    if (Number.isNaN(time) || time < start || time > end) continue;
-    const index = Math.min(points.length - 1, Math.floor((time - start) / bucketMs));
-    points[index].count += 1;
-    if (amount) points[index].value += amount(row);
-  }
-  return points;
-}
-
-/** Trend and breakdown report over a real window of document creation dates. */
-export async function getReports(days: number): Promise<ReportData> {
-  const [profiles, chairs, bookings, payments] = await Promise.all([
-    listPaged(TABLES.users),
-    listPaged(TABLES.barbers),
-    listPaged(TABLES.bookings),
-    listPaged(EXTRA.payments),
-  ]);
-
-  const day = 86_400_000;
-  const end = Date.now();
-  const from = new Date(end - days * day).toISOString().slice(0, 10);
-  const to = new Date(end).toISOString().slice(0, 10);
-
-  const inWindow = (row: Row): boolean => {
-    const time = Date.parse(row.$createdAt);
-    return !Number.isNaN(time) && time >= end - days * day && time <= end;
-  };
-
-  const paid = payments.filter(
-    (row) => str(row.status, "pending") === "paid",
-  );
-  const serviceNames = new Map(
-    (
-      await list(TABLES.services, [Query.limit(100)])
-    ).map((row) => [row.$id, str(row.name)]),
-  );
-  const cityByChair = new Map(
-    chairs.map((row) => [row.$id, str(row.city, "Tashkent")]),
-  );
-
-  const services = new Map<string, NamedCount>();
-  const cities = new Map<string, NamedCount>();
-  const bookingsByUser = new Map<string, number>();
-
-  for (const row of bookings) {
-    const status = str(row.status, "booked") as Status;
-    const service = str(row.service);
-    if (service && status !== "cancel" && status !== "rejected") {
-      const entry = services.get(service) ?? {
-        name: serviceNames.get(service) || "Service",
-        count: 0,
-        value: 0,
-      };
-      entry.count += 1;
-      entry.value += num(row.price);
-      services.set(service, entry);
-    }
-    const placeName = cityByChair.get(str(row.barber)) ?? "Tashkent";
-    const place = cities.get(placeName) ?? {
-      name: placeName,
-      count: 0,
-      value: 0,
-    };
-    place.count += 1;
-    cities.set(placeName, place);
-    const user = str(row.user);
-    bookingsByUser.set(user, (bookingsByUser.get(user) ?? 0) + 1);
-  }
-
-  const withBooking = [...bookingsByUser.values()].filter((count) => count > 0);
-  const returning = withBooking.filter((count) => count >= 2).length;
-  const cancelled = bookings.filter(
-    (row) => str(row.status) === "cancel",
-  ).length;
-
-  return {
-    days,
-    from,
-    to,
-    series: {
-      users: buildSeries(days, profiles),
-      barbers: buildSeries(days, chairs),
-      bookings: buildSeries(days, bookings),
-      revenue: buildSeries(days, paid, (row) => num(row.amount)),
-    },
-    totals: {
-      users: profiles.filter(inWindow).length,
-      barbers: profiles.filter(
-        (row) => inWindow(row) && str(row.role) === "barber",
-      ).length,
-      bookings: bookings.filter(inWindow).length,
-      revenue: paid.filter(inWindow).reduce((sum, row) => sum + num(row.amount), 0),
-      done: bookings.filter(
-        (row) => inWindow(row) && str(row.status) === "done",
-      ).length,
-      cancel: bookings.filter(
-        (row) => inWindow(row) && str(row.status) === "cancel",
-      ).length,
-      noshow: bookings.filter(
-        (row) => inWindow(row) && str(row.status) === "noshow",
-      ).length,
-    },
-    popularServices: rankCounts([...services.values()]),
-    cities: rankCounts([...cities.values()]),
-    retention: percentage(returning, withBooking.length),
-    cancellationRate: percentage(cancelled, bookings.length),
-  };
-}
-
-

@@ -24,9 +24,13 @@ training data.
 - TanStack Query owns server data (`lib/api/queries.ts`). Zustand holds only
   ephemeral UI state (`lib/store/`). Never seed client state from the clock
   during render.
-- Booking prices are computed once in `lib/domain/pricing.ts` (`priceOf`) and
-  stored on the booking at creation. Discounts shown in the UI are the discounts
-  charged.
+- Booking prices are resolved from the offered services once, in
+  `lib/domain/pricing.ts`, and stored on the booking at creation. There are no
+  platform promotions or discounts: a barbershop may set different prices per
+  employee, and that is the price the customer sees and pays at the shop.
+- Availability is server-owned (`lib/domain/availability.ts`). Walk-ins write
+  real booking rows and therefore block the same slots as online bookings.
+  Concurrent requests are resolved after insert with a deterministic winner.
 
 ## Auth rules
 

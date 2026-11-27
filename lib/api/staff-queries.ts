@@ -2,40 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
-import type { StaffDay, StaffHour } from "@/lib/domain/staff";
-import type { Barber, BookingRow } from "@/lib/domain/types";
+import type { Barber, DayRow, HourRow } from "@/lib/domain/types";
 
 import { api } from "./client";
 import { keys } from "./queries";
 
-export type { StaffDay, StaffHour } from "@/lib/domain/staff";
-export type { Barber, BookingRow } from "@/lib/domain/types";
+export type { Barber, DayRow, HourRow } from "@/lib/domain/types";
 
 export type MyChairData = {
-  chair: Barber | null;
-  hours: StaffHour[];
-  days: StaffDay[];
-  upcoming?: BookingRow[];
+  barber: Barber | null;
+  hours: HourRow[];
+  days: DayRow[];
 };
 
-export type ChairPatch = {
-  title: string;
-  bio: string;
-  photo: string;
-  shop?: string;
-  address?: string;
-  city?: string;
-  years?: number;
-  skills?: string;
-  phone?: string;
-  social?: string;
-  facilities?: string;
-  policy?: string;
-  cover?: string;
-  confirm?: boolean;
-  featured?: boolean;
-  active?: boolean;
-};
 export type HourInput = { day: number; start: number; end: number };
 export type DayInput = {
   date: string;
@@ -47,51 +26,30 @@ export type DayInput = {
 
 export const staffKeys = {
   chair: ["staff", "chair"] as const,
-  upcoming: (days: number) => ["staff", "upcoming", days] as const,
+  hours: ["staff", "hours"] as const,
+  days: ["staff", "days"] as const,
 };
 
-/** Shared invalidation: availability and agenda rows depend on the chair. */
-function refresh(client: QueryClient, withCatalogue = true) {
+function refresh(client: QueryClient) {
   void client.invalidateQueries({ queryKey: staffKeys.chair });
-  void client.invalidateQueries({ queryKey: ["staff", "upcoming"] });
+  void client.invalidateQueries({ queryKey: staffKeys.hours });
+  void client.invalidateQueries({ queryKey: staffKeys.days });
   void client.invalidateQueries({ queryKey: ["agenda"] });
   void client.invalidateQueries({ queryKey: ["availability"] });
-  if (withCatalogue) {
-    void client.invalidateQueries({ queryKey: keys.barbers });
-  }
+  void client.invalidateQueries({ queryKey: keys.barbers });
 }
-
-/* ------------------------------------------------------------------ reads */
 
 export function useMyChair() {
   return useQuery({
     queryKey: staffKeys.chair,
-    queryFn: () => api<MyChairData>("/api/staff/chair"),
-  });
-}
-
-export function useMyUpcoming(days: number) {
-  return useQuery({
-    queryKey: staffKeys.upcoming(days),
-    queryFn: () =>
-      api<{ upcoming: BookingRow[] }>(`/api/staff/chair?upcoming=${days}`).then(
-        (result) => result.upcoming ?? [],
-      ),
-    refetchInterval: 60_000,
-  });
-}
-
-/* ----------------------------------------------------------------- writes */
-
-export function useUpdateMyChair() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (input: ChairPatch) =>
-      api<{ chair: Barber }>("/api/staff/chair", {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }).then((result) => result.chair),
-    onSuccess: () => refresh(client),
+    queryFn: async (): Promise<MyChairData> => {
+      const [settings, hours, days] = await Promise.all([
+        api<{ barber: Barber | null }>("/api/barber/settings"),
+        api<{ hours: HourRow[] }>("/api/staff/hours"),
+        api<{ days: DayRow[] }>("/api/staff/days"),
+      ]);
+      return { barber: settings.barber, hours: hours.hours, days: days.days };
+    },
   });
 }
 
@@ -99,22 +57,23 @@ export function useCreateMyHour() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: HourInput) =>
-      api<{ hour: StaffHour }>("/api/staff/hours", {
+      api<{ ok: true }>("/api/staff/hours", {
         method: "POST",
         body: JSON.stringify(input),
-      }).then((result) => result.hour),
-    onSuccess: () => refresh(client, false),
+      }),
+    onSuccess: () => refresh(client),
   });
 }
 
 export function useDeleteMyHour() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api<{ ok: true }>(`/api/staff/hours?id=${encodeURIComponent(id)}`, {
+    mutationFn: (input: { day: number; start: number }) =>
+      api<{ ok: true }>("/api/staff/hours", {
         method: "DELETE",
+        body: JSON.stringify(input),
       }),
-    onSuccess: () => refresh(client, false),
+    onSuccess: () => refresh(client),
   });
 }
 
@@ -122,21 +81,22 @@ export function useSaveMyDay() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: DayInput) =>
-      api<{ day: StaffDay }>("/api/staff/days", {
+      api<{ ok: true }>("/api/staff/days", {
         method: "POST",
         body: JSON.stringify(input),
-      }).then((result) => result.day),
-    onSuccess: () => refresh(client, false),
+      }),
+    onSuccess: () => refresh(client),
   });
 }
 
 export function useDeleteMyDay() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      api<{ ok: true }>(`/api/staff/days?id=${encodeURIComponent(id)}`, {
+    mutationFn: (date: string) =>
+      api<{ ok: true }>("/api/staff/days", {
         method: "DELETE",
+        body: JSON.stringify({ date }),
       }),
-    onSuccess: () => refresh(client, false),
+    onSuccess: () => refresh(client),
   });
 }

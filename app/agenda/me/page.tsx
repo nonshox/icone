@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { StaffView } from "@/components/staff/staff-view";
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
-import { currentMember } from "@/lib/domain/member";
+import { StaffView } from "@/components/staff/staff-view";
+import { getActor } from "@/lib/domain/access";
 
 export const metadata: Metadata = {
   title: "My chair",
@@ -12,17 +13,17 @@ export const metadata: Metadata = {
 };
 
 async function StaffGate() {
-  const member = await currentMember();
+  const actor = await getActor();
 
-  if (!member) {
+  if (!actor) {
     redirect(`/sign-in?next=${encodeURIComponent("/agenda/me")}`);
   }
 
-  if (member.profile.role === "admin") {
+  if (actor.profile.role === "admin") {
     redirect("/admin");
   }
 
-  if (member.profile.role !== "barber") {
+  if (actor.profile.role !== "barber") {
     redirect("/account");
   }
 
@@ -45,7 +46,12 @@ export default function MyChairPage() {
       <SiteHeader />
 
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">My chair</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          <T k="work.staff.chair" />
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <T k="work.staff.chairHint" />
+        </p>
 
         <div className="mt-6">
           <Suspense fallback={<StaffSkeleton />}>
@@ -53,7 +59,6 @@ export default function MyChairPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

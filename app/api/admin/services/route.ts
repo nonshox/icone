@@ -1,28 +1,38 @@
 import "server-only";
 
+import { Query } from "node-appwrite";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import {
-  createService,
-  listAllServices,
-  setServiceActive,
-  updateService,
-} from "@/lib/domain/admin";
-import { currentMember, isStaff } from "@/lib/domain/member";
-import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { requireAdmin } from "@/lib/api/guard";
+import { TABLES } from "@/lib/appwrite/db";
+import { createService, getService, toService, updateService } from "@/lib/domain/catalog";
+import { audit } from "@/lib/domain/audit";
+import { list } from "@/lib/domain/crud";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
-const createSchema = z.object({
-  name: z.string().trim().min(1, "Give the service a name.").max(64),
-  note: z.string().trim().max(256),
-  price: z.number().int("Price must be a whole number of UZS.").min(0),
-  time: z
-    .number()
-    .int("Duration must be a whole number of minutes.")
-    .min(5, "Duration must be at least 5 minutes.")
-    .max(240, "Duration cannot exceed 4 hours."),
-});
+const ownerSchema = {
+  barber: z.string().trim().max(36).optional(),
+  business: z.string().trim().max(36).optional(),
+};
+
+const createSchema = z
+  .object({
+    ...ownerSchema,
+    name: z.string().trim().min(1, "Give the service a name.").max(64),
+    note: z.string().trim().max(256).default(""),
+    price: z.number().int("Price must be a whole number of UZS.").min(0),
+    time: z
+      .number()
+      .int("Duration must be a whole number of minutes.")
+      .min(5, "Duration must be at least 5 minutes.")
+      .max(480, "Duration cannot exceed 8 hours."),
+  })
+  .refine((value) => Boolean(value.barber || value.business), {
+    message: "Choose a barber or business that owns this service.",
+    path: ["barber"],
+  });
 
 const serviceId = z.string().trim().min(1, "Pick a service.").max(36);
 
@@ -53,8 +63,8 @@ const patchSchema = z.preprocess(
         time: z
           .number()
           .int("Duration must be a whole number of minutes.")
-          .min(5, "Duration must be at least 5 minutes.")
-          .max(240, "Duration cannot exceed 4 hours.")
+          .min(5)
+          .max(480)
           .optional(),
       })
       .strict(),
@@ -67,39 +77,31 @@ function firstIssue(error: z.ZodError, fallback: string): string {
 
 /** GET /api/admin/services — the full menu, including inactive rows. */
 export async function GET() {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage the catalogue.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
   try {
-    return NextResponse.json({
-      ok: true as const,
-      services: await listAllServices(),
-    });
+    const rows = await list(TABLES.services, [
+      Query.orderAsc("sort"),
+      Query.limit(200),
+    ]);
+    return apiOk({ services: rows.map(toService) });
   } catch (error) {
     console.error("[admin] services list failed", error);
     return apiError("Could not load services.", 502, "services_failed");
   }
 }
 
-/** POST /api/admin/services — add a menu item. Admin only. */
+/** POST /api/admin/services — add a service to a barber or business. */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage the catalogue.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
-  if (member.profile.role !== "admin") {
-    return apiError("Only an admin can change the catalogue.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:services:${member.user.id}`, 60, 10 * 60_000);
+  const limit = rateLimit(`admin:services:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -115,7 +117,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const service = await createService(parsed.data);
+    const data = parsed.data;
+    const service = await createService({
+      name: data.name,
+      note: data.note,
+      price: data.price,
+      time: data.time,
+      barber: data.barber ?? "",
+      business: data.business ?? "",
+    });
+    await audit({
+      actor: guard.actor.userId,
+      action: "settings.change",
+      kind: "service",
+      target: service.id,
+      detail: "created",
+    });
     return NextResponse.json({ ok: true as const, service }, { status: 201 });
   } catch (error) {
     console.error("[admin] service create failed", error);
@@ -123,22 +140,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** PATCH /api/admin/services — put a menu item on or off sale. Admin only. */
+/** PATCH /api/admin/services — put a menu item on or off sale, or edit it. */
 export async function PATCH(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage the catalogue.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
-  if (member.profile.role !== "admin") {
-    return apiError("Only an admin can change the catalogue.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:services:${member.user.id}`, 60, 10 * 60_000);
+  const limit = rateLimit(`admin:services:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -155,24 +166,28 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const data = parsed.data;
-    let service: Awaited<ReturnType<typeof setServiceActive>>;
-
-    if (data.op === "active") {
-      service = await setServiceActive(data.id, data.active);
-    } else {
-      const fields = {
-        name: data.name,
-        note: data.note,
-        price: data.price,
-        time: data.time,
-      };
-      if (Object.values(fields).every((value) => value === undefined)) {
-        return apiError("Nothing to update.", 400, "invalid_service");
-      }
-      service = await updateService(data.id, fields);
+    if (!(await getService(data.id))) {
+      return apiError("Service not found.", 404, "not_found");
     }
 
-    return NextResponse.json({ ok: true as const, service });
+    const service =
+      data.op === "active"
+        ? await updateService(data.id, { active: data.active })
+        : await updateService(data.id, {
+            name: data.name,
+            note: data.note,
+            price: data.price,
+            time: data.time,
+          });
+
+    await audit({
+      actor: guard.actor.userId,
+      action: "settings.change",
+      kind: "service",
+      target: data.id,
+      detail: data.op,
+    });
+    return apiOk({ service });
   } catch (error) {
     console.error("[admin] service update failed", error);
     return apiError("Could not update the service.", 502, "service_failed");

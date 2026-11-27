@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth/telegram";
 import { toSessionUser } from "@/lib/auth/user";
 import { createWebLoginTicket } from "@/lib/auth/web-login";
-import { safeEnsureProfile } from "@/lib/domain/member";
+import { ensureProfile } from "@/lib/domain/account";
 import { serverEnv } from "@/lib/env";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { session, user } = await signInWithTelegram(telegramUser);
-    await safeEnsureProfile({ $id: user.$id, name: user.name });
+    await ensureProfile({ $id: user.$id, name: user.name });
 
     const webLoginUrl = await createWebLoginTicket(user.$id).catch((error) => {
       console.error("[auth] could not create website login link", error);

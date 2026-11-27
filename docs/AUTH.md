@@ -1,7 +1,8 @@
 # Authentication
 
-Telegram only. There is one account per person, identified by
-`tg_<telegram_id>`. No email, SMS, Login Widget, `/mini` page, or second account.
+Telegram only. One account per person, identified by `tg_<telegram_id>`. No
+email, SMS, Login Widget, `/mini` page, or second account. The same account is a
+customer and can become a professional without signing in again.
 
 ## Web and in-app flow
 
@@ -15,8 +16,8 @@ Telegram only. There is one account per person, identified by
    checks it in constant time, expires it after 5 minutes, allows five tries,
    creates the `tg_<id>` account/session and deletes the temporary user.
 4. Inside the Telegram Mini App, signed `initData` signs the member in
-   automatically and keeps them on the same page. The in-app contact button
-   saves the phone on the same `tg_<id>` account.
+   automatically on any page — the whole site is the Mini App. The in-app
+   contact button saves the phone on the same `tg_<id>` account.
 
 `?next=` preserves a protected deep link through sign-in. `lib/next-path.ts`
 allows local paths only and rejects sign-in loops and protocol-relative URLs.
@@ -26,8 +27,23 @@ allows local paths only and rejects sign-in loops and protocol-relative URLs.
 - Session secret: `icone_session`, HttpOnly, server-set. No client SDK sessions
   and no tokens in `localStorage`.
 - `proxy.ts` is a cheap cookie-presence redirect only. Every protected route
-  validates the session against Appwrite in the page/route handler.
-- Mutating route handlers check the same-origin header.
+  validates the session against Appwrite in the page/route handler via
+  `getCurrentUser()` / `getActor()`.
+- `lib/domain/access.ts` is the single source of authorization truth. It
+  resolves the actor's professional row, business memberships and per-member
+  permission overrides. `lib/api/guard.ts` exposes `requireUser`,
+  `requireCap` and `requireAdmin` for route handlers.
+- Mutating route handlers check the same-origin header and apply rate limits.
 - Bot token and webhook secret are server-only. The webhook verifies Telegram's
   signature before acting.
 - Manual phone entry remains a fallback; it uses the same code path and account.
+- Account deletion and suspension keep historical booking records; a suspended
+  profile cannot sign in or receive new bookings.
+
+## Professional states
+
+Onboarding applications move through `not applied`, `draft`, `submitted`,
+`under review`, `additional information required`, `approved`, `rejected` and
+`suspended`. Only an approved, active professional receives workspace access
+and a verification badge. Team members use their own accounts — credentials
+are never shared between employees.

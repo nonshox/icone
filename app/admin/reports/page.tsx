@@ -4,16 +4,13 @@ import { AdminFrame } from "@/components/admin/admin-frame";
 import { ReportsView } from "@/components/admin/reports-view";
 
 export const metadata: Metadata = {
-  title: "Admin · Reports",
+  title: "Admin — Reports",
   robots: { index: false, follow: false },
 };
 
 export default function AdminReportsPage() {
   return (
-    <AdminFrame
-      title="Reports"
-      description="Growth and revenue."
-    >
+    <AdminFrame titleKey="admin.reports.title" descriptionKey="admin.reports.description">
       <ReportsView />
     </AdminFrame>
   );

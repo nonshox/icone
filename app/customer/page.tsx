@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { CustomerView } from "@/components/customer/customer-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { customerOverview } from "@/lib/domain/customer";
-import { currentMember } from "@/lib/domain/member";
+import { requireUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Your space",
@@ -14,15 +13,8 @@ export const metadata: Metadata = {
 };
 
 async function CustomerPanel() {
-  const member = await currentMember();
-  if (!member) redirect(`/sign-in?next=${encodeURIComponent("/customer")}`);
-  if (member.profile.role !== "client") redirect("/account");
-
-  const overview = await customerOverview(member.user.id);
-
-  return (
-    <CustomerView user={member.user} profile={member.profile} initial={overview} />
-  );
+  await requireUser("/customer");
+  return <CustomerView />;
 }
 
 function CustomerSkeleton() {
@@ -45,8 +37,8 @@ export default function CustomerPage() {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
 
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 pt-10 pb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Your space</h1>
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pt-10 pb-10 sm:px-6">
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="customer.eyebrow" /></h1>
 
         <div className="mt-6">
           <Suspense fallback={<CustomerSkeleton />}>
@@ -54,7 +46,6 @@ export default function CustomerPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

@@ -1,20 +1,25 @@
 import "server-only";
 
+import { Query } from "node-appwrite";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { requireUser } from "@/lib/api/guard";
 import { TABLES } from "@/lib/appwrite/db";
-import { book } from "@/lib/domain/book";
-import { barberForUser, getMany } from "@/lib/domain/data";
-import { createNotification } from "@/lib/domain/customer";
-import { currentMember, isStaff } from "@/lib/domain/member";
-import { ensurePayment } from "@/lib/domain/payments";
-import { formatDate, isDate, label } from "@/lib/domain/time";
-import { agenda, enrich, myBookings } from "@/lib/domain/views";
-import { serverEnv } from "@/lib/env";
-import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { inBusiness, onBarber, readableBarbers } from "@/lib/domain/access";
+import { toBooking, book } from "@/lib/domain/booking";
+import { toBookingRow, toBookingRows } from "@/lib/domain/appointment";
+import { list } from "@/lib/domain/crud";
+import {
+  appointmentParams,
+  businessAudience,
+  notify,
+  notifyMany,
+} from "@/lib/domain/notify";
+import { getBarber } from "@/lib/domain/professional";
+import { isDate } from "@/lib/domain/time";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
-import { sendTelegramMessage } from "@/lib/telegram/notify";
 
 const bodySchema = z.object({
   barber: z.string().trim().min(1).max(36),
@@ -24,47 +29,97 @@ const bodySchema = z.object({
   note: z.string().trim().max(200).default(""),
 });
 
+/** Booking rows with the flag both visit views use for the review form. */
+async function withReviewed(bookings: Awaited<ReturnType<typeof toBookingRows>>) {
+  if (bookings.length === 0) return bookings;
+  const ids = new Set(
+    bookings.map((booking) => booking.id),
+  );
+  const rows = await list(TABLES.reviews, [
+    Query.equal("booking", [...ids]),
+    Query.limit(100),
+  ]);
+  const reviewed = new Set(rows.map((row) => String(row.booking)));
+  return bookings.map((booking) => ({
+    ...booking,
+    reviewed: reviewed.has(booking.id),
+  }));
+}
+
 /**
  * GET /api/bookings — the member's bookings.
- * GET /api/bookings?date=YYYY-MM-DD — staff agenda for a day.
+ * GET /api/bookings?date=YYYY-MM-DD — a staff agenda for one day.
  */
 export async function GET(request: NextRequest) {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to see your bookings.", 401, "signed_out");
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
 
+  const actor = guarded.actor;
   const params = request.nextUrl.searchParams;
   const date = params.get("date");
 
   try {
-    if (date && isStaff(member.profile.role)) {
+    if (date) {
       if (!isDate(date)) {
         return apiError("Pick a valid date.", 400, "bad_date");
       }
 
-      let barberId = params.get("barber") ?? undefined;
+      const staff = actor.profile.role === "admin" || actor.summary.staff;
+      if (!staff) {
+        return apiError("You do not have access to this.", 403, "forbidden");
+      }
 
-      if (member.profile.role === "barber") {
-        const own = await barberForUser(member.user.id);
-        if (!own) {
+      let barberId = params.get("barber") ?? undefined;
+      if (barberId && actor.profile.role !== "admin") {
+        const requested = await getBarber(barberId);
+        if (!requested) {
+          return apiError("Professional not found.", 404, "no_barber");
+        }
+        const permitted =
+          onBarber(actor, barberId) ||
+          (Boolean(requested.business) && inBusiness(actor, requested.business));
+        if (!permitted) {
+          return apiError("You do not have access to this calendar.", 403, "forbidden");
+        }
+      }
+      if (actor.profile.role === "barber" && !barberId) {
+        if (!actor.barber) {
           return apiError(
             "Your account is not linked to a chair yet.",
             403,
             "no_chair",
           );
         }
-        barberId = own.id;
+        barberId = actor.barber.id;
       }
 
-      return NextResponse.json({
-        ok: true as const,
-        bookings: await agenda(date, barberId),
-      });
+      const allowed = barberId ? [barberId] : await readableBarbers(actor);
+      if (allowed.length === 0 && actor.profile.role !== "admin") {
+        return apiOk({ bookings: [] });
+      }
+
+      const queries = [Query.equal("date", date)];
+      if (actor.profile.role !== "admin") {
+        queries.push(Query.equal("barber", allowed));
+      } else if (barberId) {
+        queries.push(Query.equal("barber", barberId));
+      }
+
+      const rows = await list(TABLES.bookings, [
+        ...queries,
+        Query.orderAsc("start"),
+        Query.limit(200),
+      ]);
+      return apiOk({ bookings: await toBookingRows(rows.map(toBooking)) });
     }
 
-    return NextResponse.json({
-      ok: true as const,
-      bookings: await myBookings(member.user.id),
-    });
+    const rows = await list(TABLES.bookings, [
+      Query.equal("user", actor.userId),
+      Query.orderDesc("$createdAt"),
+      Query.limit(100),
+    ]);
+    const bookings = await withReviewed(await toBookingRows(rows.map(toBooking)));
+    return apiOk({ bookings });
   } catch (error) {
     console.error("[api] bookings list failed", error);
     return apiError("Could not load bookings.", 502, "bookings_failed");
@@ -77,10 +132,11 @@ export async function POST(request: NextRequest) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to book a chair.", 401, "signed_out");
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
 
-  const limit = rateLimit(`book:${member.user.id}`, 12, 60 * 60_000);
+  const actor = guarded.actor;
+  const limit = rateLimit(`book:${actor.userId}`, 12, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -96,66 +152,55 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await book({ ...parsed.data, user: member.user.id });
+    const result = await book({
+      user: actor.userId,
+      barber: parsed.data.barber,
+      services: [parsed.data.service],
+      date: parsed.data.date,
+      start: parsed.data.start,
+      note: parsed.data.note,
+    });
 
     if (!result.ok) {
       return apiError(result.message, result.status, result.code);
     }
 
-    // Open the shop payment row alongside the booking. Like the Telegram note
-    // below, this is best effort: a confirmed chair is never rolled back.
-    try {
-      await ensurePayment(result.booking.id, result.booking.price);
-    } catch (error) {
-      console.error("[booking] payment row failed", error);
-    }
+    const row = await toBookingRow(result.booking);
+    const params = appointmentParams({
+      date: row.date,
+      start: row.start,
+      barber: row.barberName,
+    });
+    const link = `/bookings/${row.id}`;
 
-    const [row] = await enrich([result.booking]);
-
-    // In-app confirmation for the customer and a new-booking alert for staff.
-    const body = `${row.serviceName} with ${row.barberName}, ${formatDate(row.date)} at ${label(row.start)}.`;
-    await createNotification({
-      user: member.user.id,
-      title: result.booking.status === "pending" ? "Booking requested" : "Chair booked",
-      body,
-      kind: "booking",
+    // Notifications are best effort: a confirmed chair is never rolled back.
+    await notify({
+      userId: actor.userId,
+      key: result.booking.status === "pending" ? "booked" : "confirmed",
+      params,
+      link,
     }).catch((error) => console.error("[booking] customer notice failed", error));
 
-    const chairRows = await getMany(TABLES.barbers, [parsed.data.barber]).catch(() => []);
-    const staffId = chairRows[0]?.user;
-    if (typeof staffId === "string" && staffId) {
-      await createNotification({
-        user: staffId,
-        title: "New booking request",
-        body,
-        kind: "booking",
-      }).catch((error) => console.error("[booking] staff notice failed", error));
+    const chair = await getBarber(result.booking.barber).catch(() => null);
+    const staff = new Set<string>(chair?.user ? [chair.user] : []);
+    if (chair?.business) {
+      const audience = await businessAudience(chair.business, [
+        "owner",
+        "manager",
+        "reception",
+      ]).catch(() => []);
+      audience.forEach((id) => staff.add(id));
+    }
+    if (staff.size > 0) {
+      await notifyMany([...staff], { key: "booked", params, link }).catch((error) =>
+        console.error("[booking] staff notice failed", error),
+      );
     }
 
-    // Best-effort confirmation for Telegram members. A messaging failure must
-    // never undo a confirmed chair — the reminder cron can still reach them.
-    if (
-      member.user.provider === "telegram" &&
-      member.user.id.startsWith("tg_")
-    ) {
-      const chatId = Number(member.user.id.slice(3));
-      if (Number.isSafeInteger(chatId) && chatId > 0) {
-        const env = serverEnv();
-        await sendTelegramMessage(
-          env.TELEGRAM_BOT_TOKEN,
-          chatId,
-          `Chair booked: ${row.serviceName} with ${row.barberName}, ${formatDate(row.date)} at ${label(row.start)}. See you there!`,
-          env.NEXT_PUBLIC_APP_URL,
-        ).catch((error) => {
-          console.error(
-            "[booking] telegram confirmation failed",
-            error instanceof Error ? error.message : "unknown",
-          );
-        });
-      }
-    }
-
-    return NextResponse.json({ ok: true as const, booking: row }, { status: 201 });
+    return NextResponse.json(
+      { ok: true as const, booking: { ...row, reviewed: false } },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[api] booking failed", error);
     return apiError("Could not save the booking.", 502, "booking_failed");

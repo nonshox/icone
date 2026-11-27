@@ -3,32 +3,49 @@ import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { SiteHeader } from "@/components/layout/site-header";
-import { currentMember } from "@/lib/domain/member";
+import { T } from "@/components/i18n/t";
+import { getActor, hasTeam, can, type Capability } from "@/lib/domain/access";
 
-const LINKS = [
-  { href: "/barber", label: "Overview" },
-  { href: "/barber/services", label: "Services" },
-  { href: "/barber/customers", label: "Customers" },
-  { href: "/barber/earnings", label: "Earnings" },
-  { href: "/barber/promotions", label: "Offers" },
-  { href: "/barber/portfolio", label: "Portfolio" },
-  { href: "/barber/notifications", label: "Inbox" },
-  { href: "/barber/settings", label: "Settings" },
+/** Links shown to every professional, independent barbers included. */
+const BASE_LINKS: ReadonlyArray<{ href: string; label: string }> = [
+  { href: "/barber", label: "nav.account" },
+  { href: "/agenda", label: "nav.agenda" },
+  { href: "/barber/services", label: "nav.services" },
+  { href: "/barber/customers", label: "nav.myVisits" },
+  { href: "/barber/portfolio", label: "nav.profile" },
+  { href: "/barber/notifications", label: "nav.inbox" },
+  { href: "/barber/settings", label: "nav.settings" },
 ];
 
-export function BarberNav() {
+/** Shown only inside a business with a team. */
+const TEAM_LINKS: ReadonlyArray<{ href: string; label: string; cap: Capability }> = [
+  { href: "/barber/team", label: "nav.team", cap: "team.read" },
+  { href: "/barber/branches", label: "nav.branches", cap: "branch.read" },
+  { href: "/barber/analytics", label: "nav.analytics", cap: "analytics.read" },
+];
+
+export async function BarberNav() {
+  const actor = await getActor();
+  const team = !!actor && hasTeam(actor);
+  const links = [
+    ...BASE_LINKS,
+    ...(team
+      ? TEAM_LINKS.filter((link) => !!actor && can(actor, link.cap))
+      : []),
+  ];
+
   return (
     <nav
       aria-label="Business sections"
       className="flex flex-wrap gap-2 border-b border-border pb-4"
     >
-      {LINKS.map((link) => (
+      {links.map((link) => (
         <Link
           key={link.href}
           href={link.href}
           className="rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-brand/10 hover:text-foreground"
         >
-          {link.label}
+          <T k={link.label} />
         </Link>
       ))}
     </nav>
@@ -37,17 +54,11 @@ export function BarberNav() {
 
 /** Session check happens inside Suspense so the page shell stays static. */
 export async function BarberGate({ children }: { children: ReactNode }) {
-  const member = await currentMember();
+  const actor = await getActor();
 
-  if (!member) {
-    redirect("/sign-in?next=%2Fbarber");
-  }
-  if (member.profile.role === "admin") {
-    redirect("/admin");
-  }
-  if (member.profile.role !== "barber") {
-    redirect("/account");
-  }
+  if (!actor) redirect("/sign-in?next=%2Fbarber");
+  if (actor.profile.role === "admin") redirect("/admin");
+  if (!actor.barber && actor.memberships.length === 0) redirect("/account");
 
   return <>{children}</>;
 }
@@ -84,13 +95,14 @@ export function BarberShell({
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>
 
         <div className="mt-6">
-          <BarberNav />
+          <Suspense fallback={<BarberSkeleton />}>
+            <BarberNav />
+          </Suspense>
           <Suspense fallback={<BarberSkeleton />}>
             <BarberGate>{children}</BarberGate>
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

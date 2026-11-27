@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import { MessagesView } from "@/components/messages/messages-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { requireUser } from "@/lib/auth/session";
-import { staffUserForChair } from "@/lib/domain/messages";
+import { redirect } from "next/navigation";
+
+import { getActor } from "@/lib/domain/access";
+import { getBarber } from "@/lib/domain/professional";
 
 export const metadata: Metadata = {
   title: "Messages",
@@ -16,13 +18,15 @@ type Search = { searchParams: Promise<{ with?: string; barber?: string }> };
 
 async function MessagesGate({ searchParams }: Search) {
   const params = await searchParams;
-  await requireUser("/messages");
+  const actor = await getActor();
+  if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/messages")}`);
 
   let target: string | null = null;
 
   if (params.barber) {
-    // A booking holds a chair id; conversations are between user ids.
-    target = await staffUserForChair(params.barber.slice(0, 36));
+    // A booking holds a barber id; conversations are between user ids.
+    const barber = await getBarber(params.barber.slice(0, 36));
+    target = barber?.user ?? null;
   } else if (params.with) {
     target = params.with.slice(0, 36);
   }

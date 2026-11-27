@@ -3,38 +3,46 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
-  AdminBarber,
-  AdminUser,
-  Announcement,
-  Audience,
-  BookingDetail,
-  Category,
-  DashboardData,
-  DayOverride,
-  Hour,
+  Barber,
+  BookingRow,
+  BreakRow,
+  DayRow,
+  HourRow,
   PortfolioItem,
-  ReportData,
-} from "@/lib/domain/admin";
-import type { BookingRow, Role, Service, Status } from "@/lib/domain/types";
+  Review,
+  Role,
+  Service,
+  Status,
+} from "@/lib/domain/types";
 
 import { api } from "./client";
 import { keys } from "./queries";
 
-export type {
-  AdminBarber,
-  AdminUser,
-  Announcement,
-  Audience,
-  BookingDetail,
-  Category,
-  DashboardData,
-  DayOverride,
-  Hour,
-  PortfolioItem,
-  ReportData,
-} from "@/lib/domain/admin";
-export type { ReportPoint } from "@/lib/domain/admin";
 export type { BookingRow, Service, Status } from "@/lib/domain/types";
+
+/** Shapes returned by the admin routes. Kept here so client hooks stay typed. */
+export type AdminBarber = Barber;
+export type AdminUser = {
+  id: string;
+  name: string;
+  phone: string;
+  role: Role;
+  avatar: string;
+  locale: string;
+  state: "active" | "suspended";
+  created?: string;
+  barber?: string;
+};
+export type Announcement = { title: string; body: string; created?: string };
+export type Audience = "all" | "clients" | "barbers" | "businesses";
+export type BookingDetail = BookingRow & { log?: Array<Record<string, unknown>> };
+export type Category = { id: string; name: string; active: boolean };
+export type DashboardData = Record<string, number | string>;
+export type DayOverride = DayRow;
+export type Hour = HourRow;
+export type ReportData = { points: ReportPoint[]; total?: number };
+export type ReportPoint = { label: string; value: number };
+export type { BreakRow, PortfolioItem, Review };
 
 export type NewBarber = { name: string; title: string; bio: string };
 export type NewService = {

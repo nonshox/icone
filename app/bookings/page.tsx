@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { BookingsView } from "@/components/bookings/bookings-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { requireUser } from "@/lib/auth/session";
@@ -29,8 +30,9 @@ export default function BookingsPage() {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
 
-      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">My visits</h1>
+      <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="visits.title" /></h1>
+        <p className="mt-1 text-sm text-muted-foreground"><T k="visits.subtitle" /></p>
 
         <div className="mt-6">
           <Suspense fallback={<VisitsSkeleton />}>
@@ -38,7 +40,6 @@ export default function BookingsPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

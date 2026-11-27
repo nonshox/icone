@@ -1,11 +1,18 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Settings2 } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Settings2,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -35,20 +41,38 @@ import {
 } from "@/components/ui/table";
 import { useAgenda, useBarbers, useSetStatus } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
-import { addDays, formatDate, formatPrice, label } from "@/lib/domain/time";
-import { STATUS_LABEL, type Role, type Status } from "@/lib/domain/types";
+import { addDays, formatDate, label } from "@/lib/domain/time";
+import type { Role, Status } from "@/lib/domain/types";
 
 const badgeVariant: Record<
   Status,
   "default" | "secondary" | "outline" | "destructive"
 > = {
   pending: "outline",
-  accepted: "secondary",
-  booked: "default",
-  done: "secondary",
-  cancel: "outline",
-  noshow: "destructive",
+  confirmed: "default",
   rejected: "destructive",
+  cancelled: "outline",
+  done: "secondary",
+  noshow: "destructive",
+};
+
+/** Only the transitions the domain actually accepts. */
+const NEXT: Record<Status, Status[]> = {
+  pending: ["confirmed", "rejected", "cancelled"],
+  confirmed: ["done", "noshow", "cancelled"],
+  rejected: [],
+  cancelled: [],
+  done: [],
+  noshow: [],
+};
+
+const ACTION_KEY: Record<Status, string> = {
+  pending: "work.agenda.accept",
+  confirmed: "work.agenda.done",
+  rejected: "",
+  cancelled: "",
+  done: "",
+  noshow: "",
 };
 
 export function AgendaView({ role }: { role: Role }) {
@@ -59,24 +83,25 @@ export function AgendaView({ role }: { role: Role }) {
   const barbers = useBarbers();
   const agenda = useAgenda(date, barber);
   const setStatus = useSetStatus();
+  const t = useT();
 
   const bookings = agenda.data ?? [];
-  const booked = bookings.filter((row) => row.status === "booked").length;
+  const pending = bookings.filter((row) => row.status === "pending").length;
+  const confirmed = bookings.filter((row) => row.status === "confirmed").length;
   const done = bookings.filter((row) => row.status === "done").length;
-  const revenue = bookings
-    .filter((row) => row.status === "done")
-    .reduce((total, row) => total + row.price, 0);
 
-  function close(id: string, status: Status) {
+  function change(id: string, status: Status) {
     setStatus.mutate(
       { id, status },
       {
         onSuccess: () =>
-          toast.success(`Marked ${STATUS_LABEL[status].toLowerCase()}`),
+          toast.success(
+            `${t("work.agenda.toastStatus")}: ${t(`status.${status}`)}`,
+          ),
         onError: (error) =>
-          toast.error("Could not update", {
+          toast.error(t("work.toast.failed"), {
             description:
-              error instanceof Error ? error.message : "Please try again.",
+              error instanceof Error ? error.message : t("common.tryAgain"),
           }),
       },
     );
@@ -86,13 +111,15 @@ export function AgendaView({ role }: { role: Role }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="space-y-2">
-          <Label htmlFor="agenda-date">Day</Label>
+          <Label htmlFor="agenda-date">
+            <T k="common.date" />
+          </Label>
           <div className="flex items-center gap-1">
             <Button
               type="button"
               size="icon-sm"
               variant="outline"
-              aria-label="Previous day"
+              aria-label={t("work.agenda.prevDay")}
               disabled={!date}
               onClick={() => setChosenDate(addDays(date, -1))}
             >
@@ -109,7 +136,7 @@ export function AgendaView({ role }: { role: Role }) {
               type="button"
               size="icon-sm"
               variant="outline"
-              aria-label="Next day"
+              aria-label={t("work.agenda.nextDay")}
               disabled={!date}
               onClick={() => setChosenDate(addDays(date, 1))}
             >
@@ -120,7 +147,9 @@ export function AgendaView({ role }: { role: Role }) {
 
         {role === "admin" ? (
           <div className="space-y-2">
-            <Label htmlFor="agenda-barber">Barber</Label>
+            <Label htmlFor="agenda-barber">
+              <T k="booking.barber" />
+            </Label>
             <Select
               value={barber || "all"}
               onValueChange={(value) =>
@@ -131,7 +160,9 @@ export function AgendaView({ role }: { role: Role }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All barbers</SelectItem>
+                <SelectItem value="all">
+                  <T k="work.agenda.allBarbers" />
+                </SelectItem>
                 {(barbers.data ?? []).map((item) => (
                   <SelectItem key={item.id} value={item.id}>
                     {item.name}
@@ -143,19 +174,31 @@ export function AgendaView({ role }: { role: Role }) {
         ) : null}
 
         <div className="flex flex-wrap gap-2 sm:ml-auto">
-          <Badge variant="secondary">{booked} booked</Badge>
-          <Badge variant="outline">{done} done</Badge>
-          <Badge variant="outline">{formatPrice(revenue)}</Badge>
+          <Badge variant="outline">
+            {pending} <T k="status.pending" />
+          </Badge>
+          <Badge variant="secondary">
+            {confirmed} <T k="status.confirmed" />
+          </Badge>
+          <Badge variant="outline">
+            {done} <T k="status.done" />
+          </Badge>
         </div>
       </div>
 
-      <Card>
+      <Card className="glass">
         <CardHeader>
           <CardTitle>
-            {date ? formatDate(date) : "Pick a day"}
+            {date ? formatDate(date) : t("work.agenda.pickDay")}
           </CardTitle>
           <CardDescription>
-            {role === "barber" ? "Your chair for the day." : "Every chair for the day."}
+            <T
+              k={
+                role === "barber"
+                  ? "work.agenda.forChair"
+                  : "work.agenda.forAll"
+              }
+            />
           </CardDescription>
           {role === "barber" ? (
             <Link
@@ -163,41 +206,58 @@ export function AgendaView({ role }: { role: Role }) {
               className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               <Settings2 className="size-3.5" aria-hidden />
-              My chair settings
+              <T k="work.agenda.chairSettings" />
             </Link>
           ) : null}
+          <Link
+            href="/agenda/walkin"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <T k="nav.appointments" /> · <T k="common.add" />
+          </Link>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {!date || agenda.isPending ? (
-            <div className="space-y-2" aria-hidden>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+            <div className="space-y-2 py-2" aria-hidden>
+              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
             </div>
           ) : agenda.isError ? (
-            <p className="py-6 text-sm text-destructive">
+            <p role="alert" className="py-6 text-sm text-destructive">
               {agenda.error instanceof Error
                 ? agenda.error.message
-                : "Could not load the agenda."}
+                : t("work.agenda.loadError")}
             </p>
           ) : bookings.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-center">
               <CalendarDays className="size-6 text-muted-foreground" aria-hidden />
-              <p className="text-sm font-medium">No bookings</p>
+              <p className="text-sm font-medium">
+                <T k="work.agenda.noBookings" />
+              </p>
               <p className="text-sm text-muted-foreground">
-                The day is open.
+                <T k="work.agenda.dayOpen" />
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>
+                    <T k="common.time" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="common.member" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="booking.service" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="common.status" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="work.agenda.actions" />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -206,78 +266,61 @@ export function AgendaView({ role }: { role: Role }) {
                     <TableCell className="font-medium tabular-nums">
                       {label(booking.start)}–{label(booking.end)}
                     </TableCell>
-                    <TableCell>{booking.userName ?? "Member"}</TableCell>
                     <TableCell>
-                      {booking.serviceName}
+                      <span className="font-medium">
+                        {booking.customerName}
+                      </span>
+                      {booking.customerPhone ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {booking.customerPhone}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {booking.serviceName || "—"}
                       <span className="text-muted-foreground">
                         {" "}
                         · {booking.barberName}
                       </span>
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      {formatPrice(booking.price)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={badgeVariant[booking.status]}>
                         <T k={`status.${booking.status}`} />
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        {booking.status === "pending" ? (
-                          <>
-                            <Button
-                              size="xs"
-                              disabled={setStatus.isPending}
-                              onClick={() => close(booking.id, "accepted")}
-                            >
-                              Accept
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="destructive"
-                              disabled={setStatus.isPending}
-                              onClick={() => close(booking.id, "rejected")}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        ) : null}
-                        {booking.status === "accepted" || booking.status === "booked" ? (
-                          <>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {NEXT[booking.status].map((target) => (
                           <Button
+                            key={target}
                             size="xs"
-                            variant="secondary"
+                            variant={
+                              target === "rejected" ||
+                              target === "cancelled" ||
+                              target === "noshow"
+                                ? "destructive"
+                                : target === "done"
+                                  ? "secondary"
+                                  : "outline"
+                            }
                             disabled={setStatus.isPending}
-                            onClick={() => close(booking.id, "done")}
+                            onClick={() => change(booking.id, target)}
                           >
-                            Done
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            disabled={setStatus.isPending}
-                            onClick={() => close(booking.id, "noshow")}
-                          >
-                            No-show
-                          </Button>
-                          </>
-                        ) : null}
-                        {(booking.status === "pending" ||
-                          booking.status === "accepted" ||
-                          booking.status === "booked") ? (
-                          <Button
-                            size="xs"
-                            variant="destructive"
-                            disabled={setStatus.isPending}
-                            onClick={() => close(booking.id, "cancel")}
-                          >
+                            {target === "confirmed" ||
+                            target === "done" ? (
+                              <T k={ACTION_KEY[target]} />
+                            ) : target === "rejected" ? (
+                              <T k="work.agenda.reject" />
+                            ) : target === "cancelled" ? (
+                              <T k="work.agenda.cancel" />
+                            ) : (
+                              <T k="work.agenda.noshow" />
+                            )}
                             {setStatus.isPending ? (
                               <Loader2 className="size-3 animate-spin" aria-hidden />
                             ) : null}
-                            Cancel
                           </Button>
-                        ) : null}
+                        ))}
                       </div>
                     </TableCell>
                   </TableRow>

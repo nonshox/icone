@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,15 +22,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import {
   useAdminAppointmentDetail,
   useAdminAppointments,
   useAdminBarbers,
   useSetAppointmentStatus,
   type AppointmentFilter,
+  type BookingDetail,
 } from "@/lib/api/admin-queries";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import { STATUSES, STATUS_LABEL, type Status } from "@/lib/domain/types";
+import { STATUSES, type BookingRow, type Status } from "@/lib/domain/types";
 
 import {
   Empty,
@@ -41,7 +44,14 @@ import {
   message,
 } from "./admin-ui";
 
+type Investigation = {
+  booking: BookingRow;
+  review?: { rate: number; note: string } | null;
+  history?: BookingRow[];
+};
+
 export function AppointmentsView() {
+  const t = useT();
   const [filter, setFilter] = useState<AppointmentFilter>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -54,18 +64,19 @@ export function AppointmentsView() {
   const rows = useMemo(() => list.data ?? [], [list.data]);
   const error =
     errorText ??
-    (list.error ? message(list.error, "Could not load appointments.") : null) ??
-    (detail.error ? message(detail.error, "Could not load the investigation.") : null);
+    (list.error ? message(list.error, t("admin.loadError")) : null) ??
+    (detail.error ? message(detail.error, t("admin.loadError")) : null);
 
   function changeStatus(id: string, status: Status) {
     setErrorText(null);
     setStatus.mutate(
       { id, status },
       {
-        onSuccess: () => toast.success(`Status set to ${STATUS_LABEL[status]}`),
+        onSuccess: () => toast.success(t("admin.statusUpdated")),
         onError: (cause) => {
-          setErrorText(message(cause, "Could not update the status."));
-          toast.error("Could not update the status");
+          const text = message(cause, t("admin.saveError"));
+          setErrorText(text);
+          toast.error(text);
         },
       },
     );
@@ -73,13 +84,10 @@ export function AppointmentsView() {
 
   return (
     <div className="space-y-6">
-      <Section
-        title="All appointments"
-        description="Filter and investigate visits."
-      >
+      <Section title={<T k="admin.appointments.title" />} description={<T k="admin.filterHint" />}>
         <div className="mb-4 grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="appt-status">Status</Label>
+            <Label htmlFor="appt-status"><T k="common.status" /></Label>
             <Select
               value={filter.status || "all"}
               onValueChange={(value) =>
@@ -93,33 +101,33 @@ export function AppointmentsView() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="all"><T k="admin.allStatuses" /></SelectItem>
                 {STATUSES.map((status) => (
                   <SelectItem key={status} value={status}>
-                    {STATUS_LABEL[status]}
+                    {t(`status.${status}`).startsWith("status.")
+                      ? status
+                      : t(`status.${status}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="appt-date">Date</Label>
-            <div className="relative">
-              <Input
-                id="appt-date"
-                type="date"
-                value={filter.date ?? ""}
-                onChange={(event) =>
-                  setFilter((current) => ({
-                    ...current,
-                    date: event.target.value || undefined,
-                  }))
-                }
-              />
-            </div>
+            <Label htmlFor="appt-date"><T k="common.date" /></Label>
+            <Input
+              id="appt-date"
+              type="date"
+              value={filter.date ?? ""}
+              onChange={(event) =>
+                setFilter((current) => ({
+                  ...current,
+                  date: event.target.value || undefined,
+                }))
+              }
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="appt-barber">Chair</Label>
+            <Label htmlFor="appt-barber"><T k="admin.chair" /></Label>
             <Select
               value={filter.barber || "all"}
               onValueChange={(value) =>
@@ -133,7 +141,7 @@ export function AppointmentsView() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All chairs</SelectItem>
+                <SelectItem value="all"><T k="admin.allChairs" /></SelectItem>
                 {(barbers.data ?? []).map((barber) => (
                   <SelectItem key={barber.id} value={barber.id}>
                     {barber.name}
@@ -149,19 +157,19 @@ export function AppointmentsView() {
         {list.isPending ? (
           <LoadingRows />
         ) : rows.length === 0 ? (
-          <Empty>No appointments match these filters.</Empty>
+          <Empty><T k="admin.emptyFilter" /></Empty>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Chair</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead><T k="common.date" /></TableHead>
+                  <TableHead><T k="common.member" /></TableHead>
+                  <TableHead><T k="admin.chair" /></TableHead>
+                  <TableHead><T k="admin.service" /></TableHead>
+                  <TableHead><T k="common.price" /></TableHead>
+                  <TableHead><T k="common.status" /></TableHead>
+                  <TableHead className="text-right"><T k="admin.actions" /></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -176,15 +184,11 @@ export function AppointmentsView() {
                         {label(booking.start)}–{label(booking.end)}
                       </span>
                     </TableCell>
-                    <TableCell>{booking.userName || "Member"}</TableCell>
-                    <TableCell>{booking.barberName}</TableCell>
-                    <TableCell>{booking.serviceName}</TableCell>
-                    <TableCell className="tabular-nums">
-                      {formatPrice(booking.price)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={booking.status} />
-                    </TableCell>
+                    <TableCell>{booking.customerName || booking.user || "—"}</TableCell>
+                    <TableCell>{booking.barberName || "—"}</TableCell>
+                    <TableCell>{booking.serviceName || "—"}</TableCell>
+                    <TableCell className="tabular-nums">{formatPrice(booking.price)}</TableCell>
+                    <TableCell><StatusBadge status={booking.status} /></TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <Select
@@ -195,7 +199,7 @@ export function AppointmentsView() {
                           }
                         >
                           <SelectTrigger
-                            aria-label={`Status for booking ${booking.id}`}
+                            aria-label={`${t("common.status")}: ${booking.id}`}
                             className="h-8 w-32"
                           >
                             <SelectValue />
@@ -203,7 +207,9 @@ export function AppointmentsView() {
                           <SelectContent>
                             {STATUSES.map((status) => (
                               <SelectItem key={status} value={status}>
-                                {STATUS_LABEL[status]}
+                                {t(`status.${status}`).startsWith("status.")
+                                  ? status
+                                  : t(`status.${status}`)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -216,7 +222,7 @@ export function AppointmentsView() {
                             setSelectedId(selectedId === booking.id ? null : booking.id)
                           }
                         >
-                          {selectedId === booking.id ? "Close" : "Investigate"}
+                          {selectedId === booking.id ? <T k="common.close" /> : <T k="admin.investigate" />}
                         </Button>
                       </div>
                     </TableCell>
@@ -229,67 +235,13 @@ export function AppointmentsView() {
       </Section>
 
       {selectedId ? (
-        <Section
-          title="Investigation"
-          description="Notes, reviews and payments."
-        >
+        <Section title={<T k="admin.investigation" />}>
           {detail.isPending ? (
             <LoadingRows />
           ) : detail.isError || !detail.data ? (
-            <FormError text={message(detail.error, "Could not load this appointment.")} />
+            <FormError text={message(detail.error, t("admin.loadError"))} />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Detail label="Booking id" value={detail.data.booking.id} />
-              <Detail label="Member" value={detail.data.booking.userName || "Member"} />
-              <Detail label="Chair" value={detail.data.booking.barberName} />
-              <Detail label="Service" value={detail.data.booking.serviceName} />
-              <Detail
-                label="When"
-                value={`${detail.data.booking.date} ${label(detail.data.booking.start)}–${label(detail.data.booking.end)}`}
-              />
-              <Detail label="Status" value={STATUS_LABEL[detail.data.booking.status]} />
-              <Detail label="Price" value={formatPrice(detail.data.booking.price)} />
-              <Detail
-                label="Member note"
-                value={detail.data.booking.note || "None"}
-              />
-              <Detail
-                label="Review"
-                value={
-                  detail.data.review
-                    ? `${detail.data.review.rate} / 5 — ${detail.data.review.note || "No note"}`
-                    : "No review"
-                }
-              />
-              <Detail
-                label="Payments"
-                value={
-                  detail.data.payments.length > 0
-                    ? detail.data.payments
-                        .map(
-                          (payment) =>
-                            `${formatPrice(payment.amount)} · ${payment.status} · ${payment.method}`,
-                        )
-                        .join("; ")
-                    : "No payment records"
-                }
-              />
-              <div className="sm:col-span-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Member history ({detail.data.history.length})
-                </p>
-                <ul className="mt-2 space-y-1 text-sm">
-                  {detail.data.history.slice(0, 8).map((row) => (
-                    <li key={row.id} className="flex justify-between gap-4">
-                      <span>
-                        {row.date} · {row.barberName} · {row.serviceName}
-                      </span>
-                      <Badge variant="outline">{STATUS_LABEL[row.status]}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <InvestigationDetail detail={detail.data} />
           )}
         </Section>
       ) : null}
@@ -297,7 +249,57 @@ export function AppointmentsView() {
   );
 }
 
-function Detail({ label: name, value }: { label: string; value: string }) {
+function InvestigationDetail({ detail }: { detail: BookingDetail }) {
+  const t = useT();
+  const data = detail as unknown as Investigation;
+  const booking = data.booking;
+  const history = data.history ?? [];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Detail label={<T k="admin.bookingId" />} value={booking.id} />
+      <Detail label={<T k="common.member" />} value={booking.customerName || booking.user || "—"} />
+      <Detail label={<T k="admin.chair" />} value={booking.barberName || "—"} />
+      <Detail label={<T k="admin.service" />} value={booking.serviceName || "—"} />
+      <Detail
+        label={<T k="admin.when" />}
+        value={`${booking.date} ${label(booking.start)}–${label(booking.end)}`}
+      />
+      <Detail label={<T k="common.status" />} value={booking.status} />
+      <Detail label={<T k="common.price" />} value={formatPrice(booking.price)} />
+      <Detail label={<T k="admin.memberNote" />} value={booking.note || "—"} />
+      <Detail
+        label={<T k="admin.review" />}
+        value={
+          data.review
+            ? `${data.review.rate}/5 — ${data.review.note || "—"}`
+            : t("admin.noReview")
+        }
+      />
+      <div className="sm:col-span-2">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          <T k="common.history" /> ({history.length})
+        </p>
+        {history.length === 0 ? (
+          <Empty><T k="common.noData" /></Empty>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm">
+            {history.map((row) => (
+              <li key={row.id} className="flex flex-wrap justify-between gap-2">
+                <span>
+                  {row.date} · {row.barberName} · {row.serviceName}
+                </span>
+                <Badge variant="outline">{row.status}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Detail({ label: name, value }: { label: ReactNode; value: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{name}</p>

@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
-import { Users } from "node-appwrite";
+import "server-only";
 
-import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
+import { Users } from "node-appwrite";
+import { NextResponse } from "next/server";
+
+import { TABLES } from "@/lib/appwrite/db";
 import { createAdminClient } from "@/lib/appwrite/server";
+import { list } from "@/lib/domain/crud";
 import { serverEnv } from "@/lib/env";
 
 /**
@@ -22,11 +25,7 @@ export async function GET() {
 
   const [users, database] = await Promise.allSettled([
     new Users(createAdminClient()).list({ queries: [], total: true }),
-    adminDb().listDocuments({
-      databaseId: databaseId(),
-      collectionId: TABLES.users,
-      queries: [],
-    }),
+    list(TABLES.users, []),
   ]);
 
   const checks = {

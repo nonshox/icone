@@ -4,6 +4,8 @@ import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,10 +42,8 @@ const BLANK = {
   note: "",
   price: "",
   time: "45",
-  image: "",
+  buffer: "0",
   category: "Hair",
-  discount: "0",
-  featured: false,
   active: true,
 };
 
@@ -52,6 +52,7 @@ export function BarberServices() {
   const create = useCreateBarberService();
   const update = useUpdateBarberService();
   const remove = useDeleteBarberService();
+  const t = useT();
 
   const [form, setForm] = useState(BLANK);
   const [editing, setEditing] = useState<string | null>(null);
@@ -74,10 +75,8 @@ export function BarberServices() {
       note: service.note,
       price: String(service.price),
       time: String(service.time),
-      image: service.image,
+      buffer: String(service.buffer ?? 0),
       category: service.category,
-      discount: String(service.discount),
-      featured: service.featured,
       active: service.active,
     });
     setFormError(null);
@@ -89,21 +88,21 @@ export function BarberServices() {
 
     const price = Number(form.price);
     const time = Number(form.time);
-    const discount = Number(form.discount);
+    const buffer = Number(form.buffer);
     if (!form.name.trim()) {
-      setFormError("Give the service a name.");
+      setFormError(t("work.services.nameRequired"));
       return;
     }
     if (!Number.isInteger(price) || price < 0) {
-      setFormError("Price must be a whole number of UZS.");
+      setFormError(t("work.services.priceRequired"));
       return;
     }
     if (!Number.isInteger(time) || time < 5 || time > 240) {
-      setFormError("Duration must be between 5 and 240 minutes.");
+      setFormError(t("work.services.durationInvalid"));
       return;
     }
-    if (!Number.isInteger(discount) || discount < 0 || discount > 100) {
-      setFormError("Discount must be between 0 and 100 percent.");
+    if (!Number.isInteger(buffer) || buffer < 0 || buffer > 120) {
+      setFormError(t("work.services.bufferInvalid"));
       return;
     }
 
@@ -112,38 +111,25 @@ export function BarberServices() {
       note: form.note.trim(),
       price,
       time,
-      image: form.image.trim(),
-      category: form.category.trim() || "Hair",
-      featured: form.featured,
-      discount,
+      buffer,
+      category: form.category.trim() || t("barber.hair"),
       active: form.active,
     };
 
+    const done = () => {
+      toast.success(t(editing ? "work.toast.updated" : "work.toast.added"));
+      reset();
+    };
+    const failed = (error: unknown) => {
+      const text = message(error, t("work.toast.failed"));
+      setFormError(text);
+      toast.error(text);
+    };
+
     if (editing) {
-      update.mutate(
-        { ...input, id: editing },
-        {
-          onSuccess: () => {
-            toast.success("Service updated");
-            reset();
-          },
-          onError: (error) => {
-            setFormError(message(error, "Could not update the service."));
-            toast.error("Could not update the service");
-          },
-        },
-      );
+      update.mutate({ ...input, id: editing }, { onSuccess: done, onError: failed });
     } else {
-      create.mutate(input, {
-        onSuccess: () => {
-          toast.success("Service added");
-          reset();
-        },
-        onError: (error) => {
-          setFormError(message(error, "Could not add the service."));
-          toast.error("Could not add the service");
-        },
-      });
+      create.mutate(input, { onSuccess: done, onError: failed });
     }
   }
 
@@ -153,51 +139,120 @@ export function BarberServices() {
     <div className="space-y-6">
       <Card className="glass">
         <CardHeader>
-          <CardTitle>{editing ? "Edit service" : "Add a service"}</CardTitle>
-          <CardDescription>Active services appear in booking.</CardDescription>
+          <CardTitle>
+            <T k={editing ? "work.services.editTitle" : "work.services.addTitle"} />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.services.hint" />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="service-name">Name</Label>
-              <Input id="service-name" value={form.name} maxLength={64} onChange={(e) => set("name", e.target.value)} />
+              <Label htmlFor="service-name">
+                <T k="common.name" />
+              </Label>
+              <Input
+                id="service-name"
+                value={form.name}
+                maxLength={64}
+                onChange={(event) => set("name", event.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="service-category">Category</Label>
-              <Input id="service-category" value={form.category} maxLength={32} onChange={(e) => set("category", e.target.value)} />
+              <Label htmlFor="service-category">
+                <T k="work.services.category" />
+              </Label>
+              <Input
+                id="service-category"
+                value={form.category}
+                maxLength={32}
+                onChange={(event) => set("category", event.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="service-price">Price (UZS)</Label>
-              <Input id="service-price" type="number" min={0} step={1} value={form.price} onChange={(e) => set("price", e.target.value)} />
+              <Label htmlFor="service-price">
+                <T k="common.price" /> (UZS)
+              </Label>
+              <Input
+                id="service-price"
+                type="number"
+                min={0}
+                step={1}
+                value={form.price}
+                onChange={(event) => set("price", event.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="service-time">Duration (minutes)</Label>
-              <Input id="service-time" type="number" min={5} max={240} step={5} value={form.time} onChange={(e) => set("time", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="service-discount">Discount (%)</Label>
-              <Input id="service-discount" type="number" min={0} max={100} step={1} value={form.discount} onChange={(e) => set("discount", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="service-image">Image link</Label>
-              <Input id="service-image" type="url" value={form.image} maxLength={512} placeholder="https://…" onChange={(e) => set("image", e.target.value)} />
+              <Label htmlFor="service-time">
+                <T k="work.services.duration" />
+              </Label>
+              <Input
+                id="service-time"
+                type="number"
+                min={5}
+                max={240}
+                step={5}
+                value={form.time}
+                onChange={(event) => set("time", event.target.value)}
+              />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="service-note">Note</Label>
-              <Textarea id="service-note" value={form.note} maxLength={256} onChange={(e) => set("note", e.target.value)} />
+              <Label htmlFor="service-buffer">
+                <T k="work.services.buffer" />
+              </Label>
+              <Input
+                id="service-buffer"
+                type="number"
+                min={0}
+                max={120}
+                step={5}
+                value={form.buffer}
+                onChange={(event) => set("buffer", event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                <T k="work.services.bufferHint" />
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="service-note">
+                <T k="common.note" />
+              </Label>
+              <Textarea
+                id="service-note"
+                value={form.note}
+                maxLength={256}
+                onChange={(event) => set("note", event.target.value)}
+              />
             </div>
             <div className="sm:col-span-2">
-              <ToggleRow id="service-featured" label="Featured" checked={form.featured} onChange={(v) => set("featured", v)} />
-              <ToggleRow id="service-active" label="Active" hint="Visible to members." checked={form.active} onChange={(v) => set("active", v)} />
+              <ToggleRow
+                id="service-active"
+                label={t("work.settings.active")}
+                hint={t("work.services.activeHint")}
+                checked={form.active}
+                onChange={(value) => set("active", value)}
+              />
             </div>
             <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
               <Button type="submit" disabled={pending} className="h-10">
-                {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : editing ? <Pencil className="size-4" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-                {editing ? "Save changes" : "Add service"}
+                {pending ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : editing ? (
+                  <Pencil className="size-4" aria-hidden />
+                ) : (
+                  <Plus className="size-4" aria-hidden />
+                )}
+                <T k={editing ? "common.save" : "work.services.addAction"} />
               </Button>
               {editing ? (
-                <Button type="button" variant="ghost" onClick={reset} disabled={pending}>
-                  Cancel
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={reset}
+                  disabled={pending}
+                >
+                  <T k="common.cancel" />
                 </Button>
               ) : null}
               <FormError text={formError} />
@@ -208,45 +263,73 @@ export function BarberServices() {
 
       <Card className="glass">
         <CardHeader>
-          <CardTitle>Your menu</CardTitle>
-          <CardDescription>{services.data?.length ?? 0} services.</CardDescription>
+          <CardTitle>
+            <T k="work.services.menu" />
+          </CardTitle>
+          <CardDescription>
+            {services.data?.length ?? 0} <T k="barber.services" />
+          </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {services.isPending ? (
             <LoadingRows />
           ) : services.isError ? (
-            <FormError text={message(services.error, "Could not load your services.")} />
+            <FormError text={message(services.error, t("work.loadError"))} />
           ) : !services.data || services.data.length === 0 ? (
-            <Empty>No services yet.</Empty>
+            <Empty>{t("work.services.empty")}</Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>
+                    <T k="common.name" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="work.services.category" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="common.price" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="common.time" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="common.status" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="work.agenda.actions" />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {services.data.map((service) => (
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{service.category}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatPrice(service.price)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{service.time} min</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {service.category}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatPrice(service.price)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {service.time} {t("common.minutes")}
+                    </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
-                        {service.active ? "Active" : "Hidden"}
-                        {service.featured ? " · Featured" : ""}
-                        {service.discount > 0 ? ` · ${service.discount}% off` : ""}
+                        {service.active
+                          ? t("common.open")
+                          : t("work.services.hidden")}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button type="button" size="icon-sm" variant="ghost" aria-label={`Edit ${service.name}`} onClick={() => edit(service)}>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`${t("common.edit")} ${service.name}`}
+                          onClick={() => edit(service)}
+                        >
                           <Pencil aria-hidden />
                         </Button>
                         <Button
@@ -258,24 +341,32 @@ export function BarberServices() {
                             update.mutate(
                               { id: service.id, active: !service.active },
                               {
-                                onSuccess: () => toast.success(service.active ? "Service hidden" : "Service is live"),
-                                onError: (error) => toast.error(message(error, "Could not change the status.")),
+                                onSuccess: () =>
+                                  toast.success(t("work.toast.updated")),
+                                onError: (error) =>
+                                  toast.error(
+                                    message(error, t("work.toast.failed")),
+                                  ),
                               },
                             )
                           }
                         >
-                          {service.active ? "Hide" : "Show"}
+                          <T k={service.active ? "work.services.hide" : "work.services.show"} />
                         </Button>
                         <Button
                           type="button"
                           size="icon-sm"
                           variant="destructive"
-                          aria-label={`Remove ${service.name}`}
+                          aria-label={`${t("common.remove")} ${service.name}`}
                           disabled={remove.isPending}
                           onClick={() =>
                             remove.mutate(service.id, {
-                              onSuccess: () => toast.success("Service removed"),
-                              onError: (error) => toast.error(message(error, "Could not remove the service.")),
+                              onSuccess: () =>
+                                toast.success(t("work.toast.removed")),
+                              onError: (error) =>
+                                toast.error(
+                                  message(error, t("work.toast.failed")),
+                                ),
                             })
                           }
                         >

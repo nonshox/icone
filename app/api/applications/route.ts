@@ -1,35 +1,56 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { requireUser } from "@/lib/api/guard";
 import {
-  getMyApplication,
+  applicationFor,
+  saveDraft,
   submitApplication,
-} from "@/lib/domain/applications";
-import { currentMember } from "@/lib/domain/member";
-import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+} from "@/lib/domain/application";
+import type { Application } from "@/lib/domain/types";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({
+  model: z.enum(["a", "b"]).default("a"),
   name: z.string().trim().min(1, "Add your name.").max(64),
-  shop: z.string().trim().max(64),
-  city: z.string().trim().max(64),
-  address: z.string().trim().max(128),
-  phone: z.string().trim().max(32).regex(/^[+\d\s()-]*$/, "Use digits and + ( ) - only."),
-  bio: z.string().trim().max(512),
+  shop: z.string().trim().max(64).default(""),
+  city: z.string().trim().max(64).default(""),
+  address: z.string().trim().max(128).default(""),
+  phone: z.string().trim().max(32).regex(/^[+\d\s()-]*$/, "Use digits and + ( ) - only.").default(""),
+  bio: z.string().trim().max(512).default(""),
 });
+
+/**
+ * The customer form only knows three labels. The canonical state travels in
+ * `appState` so the review queue and the applicant cannot disagree.
+ */
+function visibleApplication(application: Application) {
+  const state =
+    application.state === "approved"
+      ? "approved"
+      : application.state === "rejected" || application.state === "suspended"
+        ? "rejected"
+        : "pending";
+
+  return {
+    ...application,
+    state,
+    appState: application.state,
+    note: application.note || application.reason,
+  };
+}
 
 /** GET /api/applications — the caller's application status. */
 export async function GET() {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in first.", 401, "signed_out");
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
 
   try {
-    return NextResponse.json({
-      ok: true as const,
-      application: await getMyApplication(member.user.id),
-    });
+    const application = await applicationFor(guarded.actor.userId);
+    return apiOk({ application: application ? visibleApplication(application) : null });
   } catch (error) {
     console.error("[applications] read failed — check the applications collection in db:setup", error);
     return apiError(
@@ -40,19 +61,19 @@ export async function GET() {
   }
 }
 
-/** POST /api/applications — self-service switch to a barber, approved on submit. */
+/** POST /api/applications — save the form and enter the review queue. */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in first.", 401, "signed_out");
-  if (member.profile.role !== "client") {
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
+  if (guarded.actor.profile.role !== "client") {
     return apiError("Only client accounts can apply.", 403, "forbidden");
   }
 
-  const limit = rateLimit(`applications:${member.user.id}`, 10, 60 * 60_000);
+  const limit = rateLimit(`applications:${guarded.actor.userId}`, 10, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -72,10 +93,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const application = await submitApplication(member.user.id, parsed.data, {
-      autoApprove: true,
-    });
-    return NextResponse.json({ ok: true as const, application }, { status: 201 });
+    const userId = guarded.actor.userId;
+    await saveDraft(userId, parsed.data);
+    const application = await submitApplication(userId);
+    return apiOk({ application: visibleApplication(application) });
   } catch (error) {
     console.error("[applications] submit failed — check the applications collection in db:setup", error);
     return apiError(

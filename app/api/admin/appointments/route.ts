@@ -1,45 +1,41 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { Query } from "node-appwrite";
+import { type NextRequest } from "next/server";
 import { z } from "zod";
 
-import {
-  findAdminBooking,
-  listAdminBookings,
-  setAdminBookingStatus,
-} from "@/lib/domain/admin";
-import { currentMember, isStaff } from "@/lib/domain/member";
+import { requireAdmin } from "@/lib/api/guard";
+import { TABLES } from "@/lib/appwrite/db";
+import { transition, toBookingRow, toBookingRows } from "@/lib/domain/appointment";
+import { audit } from "@/lib/domain/audit";
+import { getBooking, normalizeStatus, toBooking } from "@/lib/domain/booking";
+import { list } from "@/lib/domain/crud";
 import { isDate } from "@/lib/domain/time";
-import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
+
+/** Legacy status names are still present in older booking rows. */
+const statusInput = z.enum([
+  "pending",
+  "confirmed",
+  "rejected",
+  "cancelled",
+  "done",
+  "noshow",
+  "booked",
+  "accepted",
+  "cancel",
+]);
 
 const patchSchema = z.object({
   id: z.string().trim().min(1, "Pick a booking.").max(36),
-  status: z.enum([
-    "pending",
-    "accepted",
-    "booked",
-    "done",
-    "cancel",
-    "noshow",
-    "rejected",
-  ]),
+  status: statusInput,
 });
 
-function firstIssue(error: z.ZodError, fallback: string): string {
-  return error.issues[0]?.message ?? fallback;
-}
-
-/**
- * GET /api/admin/appointments?status=&date=&barber=
- * Every visit on the platform, with filters. Staff only.
- */
+/** GET /api/admin/appointments?status=&date=&barber= — every visit. */
 export async function GET(request: NextRequest) {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage appointments.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
   const params = request.nextUrl.searchParams;
   const date = params.get("date");
@@ -47,14 +43,31 @@ export async function GET(request: NextRequest) {
     return apiError("Pick a date as YYYY-MM-DD.", 400, "bad_date");
   }
 
+  const rawStatus = params.get("status") ?? undefined;
+  const parsedStatus = statusInput.safeParse(rawStatus);
+  if (rawStatus && !parsedStatus.success) {
+    return apiError("Pick a valid status.", 400, "bad_status");
+  }
+  const wanted = parsedStatus.success ? normalizeStatus(parsedStatus.data) : undefined;
+
+  const barber = params.get("barber") ?? undefined;
+
   try {
-    return NextResponse.json({
-      ok: true as const,
-      bookings: await listAdminBookings({
-        status: params.get("status") ?? undefined,
-        date: date ?? undefined,
-        barber: params.get("barber") ?? undefined,
-      }),
+    const queries: string[] = [Query.orderDesc("$createdAt"), Query.limit(200)];
+    if (date) queries.unshift(Query.equal("date", date));
+    if (barber) queries.unshift(Query.equal("barber", barber));
+
+    const rows = await list(TABLES.bookings, queries);
+    const bookings = rows
+      .map(toBooking)
+      .filter((booking) => !wanted || booking.status === wanted);
+    const enriched = await toBookingRows(bookings);
+
+    return apiOk({
+      bookings: enriched.map((booking) => ({
+        ...booking,
+        userName: booking.customerName,
+      })),
     });
   } catch (error) {
     console.error("[admin] appointments list failed", error);
@@ -62,23 +75,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** PATCH /api/admin/appointments — set any visit status. Admin only. */
+/** PATCH /api/admin/appointments — move a visit to a valid next status. */
 export async function PATCH(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage appointments.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
-  if (member.profile.role !== "admin") {
-    return apiError("Only an admin can change appointment status.", 403, "forbidden");
-  }
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
 
   const limit = rateLimit(
-    `admin:appointments:${member.user.id}`,
+    `admin:appointments:${guard.actor.userId}`,
     60,
     10 * 60_000,
   );
@@ -94,18 +101,36 @@ export async function PATCH(request: NextRequest) {
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return apiError(
-      firstIssue(parsed.error, "Check the appointment details."),
+      parsed.error.issues[0]?.message ?? "Check the appointment details.",
       400,
       "invalid_appointment",
     );
   }
 
   try {
-    if (!(await findAdminBooking(parsed.data.id))) {
-      return apiError("Appointment not found.", 404, "not_found");
+    const booking = await getBooking(parsed.data.id);
+    if (!booking) return apiError("Appointment not found.", 404, "not_found");
+
+    const result = await transition({
+      booking,
+      to: normalizeStatus(parsed.data.status),
+      by: guard.actor.userId,
+      kind: "admin",
+    });
+    if (!result.ok) {
+      return apiError(result.message, result.status, result.code);
     }
-    const booking = await setAdminBookingStatus(parsed.data.id, parsed.data.status);
-    return NextResponse.json({ ok: true as const, booking });
+
+    await audit({
+      actor: guard.actor.userId,
+      action: "appointment.status",
+      kind: "booking",
+      target: booking.id,
+      detail: result.booking.status,
+    });
+
+    const row = await toBookingRow(result.booking);
+    return apiOk({ booking: { ...row, userName: row.customerName } });
   } catch (error) {
     console.error("[admin] appointment update failed", error);
     return apiError("Could not update the appointment.", 502, "appointment_failed");

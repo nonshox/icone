@@ -11,7 +11,7 @@ import {
   sendCode,
 } from "@/lib/auth/phone";
 import { createWebLoginTicket } from "@/lib/auth/web-login";
-import { ensureProfile, updateProfile } from "@/lib/domain/data";
+import { ensureProfile, updateProfile } from "@/lib/domain/account";
 import { serverEnv } from "@/lib/env";
 import { isValidSecret, sendMessage } from "@/lib/telegram/webhook";
 

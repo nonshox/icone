@@ -1,15 +1,14 @@
 import "server-only";
 
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 
-import {
-  markAllNotificationsRead,
-  markNotificationRead,
-  notificationInbox,
-} from "@/lib/domain/customer";
-import { currentMember } from "@/lib/domain/member";
-import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { requireUser } from "@/lib/api/guard";
+import { TABLES } from "@/lib/appwrite/db";
+import { get, str } from "@/lib/domain/crud";
+import { listNotifications, markRead, unreadCount } from "@/lib/domain/notify";
+import type { Notification } from "@/lib/domain/types";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
 const bodySchema = z
@@ -21,11 +20,16 @@ const bodySchema = z
     message: "Pick a notification or mark all as read.",
   });
 
+/** The inbox uses the canonical `new`/`read` states from the domain. */
+function clientNotification(item: Notification): Notification {
+  return item;
+}
+
 /** GET /api/notifications?limit= — inbox preview and unread count. */
 export async function GET(request: NextRequest) {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in first.", 401, "signed_out");
-  if (member.profile.role !== "client") {
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
+  if (guarded.actor.profile.role !== "client") {
     return apiError("This area is for client accounts.", 403, "forbidden");
   }
 
@@ -33,8 +37,14 @@ export async function GET(request: NextRequest) {
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 50) : 20;
 
   try {
-    const inbox = await notificationInbox(member.user.id, limit);
-    return NextResponse.json({ ok: true as const, ...inbox });
+    const [notifications, unread] = await Promise.all([
+      listNotifications(guarded.actor.userId, { limit }),
+      unreadCount(guarded.actor.userId),
+    ]);
+    return apiOk({
+      notifications: notifications.map(clientNotification),
+      unread,
+    });
   } catch (error) {
     console.error("[api] notifications failed", error);
     return apiError("Could not load your inbox.", 502, "notifications_failed");
@@ -47,13 +57,13 @@ export async function PATCH(request: NextRequest) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const member = await currentMember();
-  if (!member) return apiError("Sign in first.", 401, "signed_out");
-  if (member.profile.role !== "client") {
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
+  if (guarded.actor.profile.role !== "client") {
     return apiError("This area is for client accounts.", 403, "forbidden");
   }
 
-  const limit = rateLimit(`notifications:${member.user.id}`, 60, 10 * 60_000);
+  const limit = rateLimit(`notifications:${guarded.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -69,17 +79,23 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const count = parsed.data.all
-      ? await markAllNotificationsRead(member.user.id)
-      : (await markNotificationRead(member.user.id, parsed.data.id ?? ""))
-        ? 1
-        : 0;
+    const userId = guarded.actor.userId;
+    let count: number;
 
-    if (count === 0 && !parsed.data.all) {
-      return apiError("That notification was not found.", 404, "not_found");
+    if (parsed.data.all) {
+      count = await unreadCount(userId);
+      await markRead(userId);
+    } else {
+      const id = parsed.data.id ?? "";
+      const row = await get(TABLES.notifications, id);
+      if (!row || str(row.user) !== userId) {
+        return apiError("That notification was not found.", 404, "not_found");
+      }
+      await markRead(userId, id);
+      count = 1;
     }
 
-    return NextResponse.json({ ok: true as const, count });
+    return apiOk({ count });
   } catch (error) {
     console.error("[api] notification update failed", error);
     return apiError("Could not update your inbox.", 502, "notification_failed");

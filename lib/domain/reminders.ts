@@ -41,7 +41,8 @@ function toReminder(row: Row): Reminder {
 
 /**
  * Queue a reminder. A 409 means the unique `once` index already has a row for
- * this booking — that is the normal repeat-run case, not an error.
+ * this booking — that is the normal repeat-run case. A reschedule refreshes
+ * that row instead of creating a second one.
  *
  * Returns true only when a new row was created.
  */
@@ -60,9 +61,38 @@ export async function ensureReminder(data: {
     });
     return true;
   } catch (error) {
-    if (error instanceof AppwriteException && error.code === 409) return false;
-    throw error;
+    if (!(error instanceof AppwriteException && error.code === 409)) throw error;
+    const existing = await adminDb().listDocuments({
+      databaseId: databaseId(),
+      collectionId: REMINDERS,
+      queries: [Query.equal("booking", data.booking), Query.limit(1)],
+    });
+    const row = existing.documents[0];
+    if (row && str(row.state) !== "sent") {
+      await adminDb().updateDocument({
+        databaseId: databaseId(),
+        collectionId: REMINDERS,
+        documentId: row.$id,
+        data: { date: data.date, at: data.at, user: data.user, state: "pending", tries: 0 },
+      });
+    }
+    return false;
   }
+}
+
+/** Every still-pending reminder due on or before `date`. */
+export async function listPending(date: string): Promise<Reminder[]> {
+  const result = await adminDb().listDocuments({
+    databaseId: databaseId(),
+    collectionId: REMINDERS,
+    queries: [
+      Query.lessThanEqual("date", date),
+      Query.equal("state", "pending"),
+      Query.orderAsc("date"),
+      Query.limit(100),
+    ],
+  });
+  return (result.documents as Row[]).map(toReminder);
 }
 
 /** Pending reminders due on `nowDate` inside [fromMinute, toMinute]. */

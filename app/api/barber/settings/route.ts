@@ -3,13 +3,18 @@ import "server-only";
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { barberAuth, businessFailure, firstIssue, readJson } from "@/app/api/barber/_auth";
 import {
-  getBusinessPrefs,
-  requireChair,
-  updateBusinessPrefs,
-  updateBusinessProfile,
-} from "@/lib/domain/barber-business";
+  businessFailure,
+  firstIssue,
+  readJson,
+  requireWorkspace,
+  writeDenied,
+} from "@/app/api/barber/_auth";
+import { setPrefs } from "@/lib/domain/account";
+import { audit } from "@/lib/domain/audit";
+import { getBusiness, updateBusiness } from "@/lib/domain/business";
+import { getBarber, updateBarber } from "@/lib/domain/professional";
+import type { Business, NotificationPrefs } from "@/lib/domain/types";
 import { apiError, apiOk } from "@/lib/http";
 
 const phone = z
@@ -41,53 +46,139 @@ const profileSchema = z.object({
 });
 
 const prefsSchema = z.object({
+  booking: z.boolean().optional(),
+  reminder: z.boolean().optional(),
+  waitlist: z.boolean().optional(),
+  business: z.boolean().optional(),
+  marketing: z.boolean().optional(),
+  // Older hooks still send these names; keep accepting them for one release.
   newBookings: z.boolean().optional(),
   cancellations: z.boolean().optional(),
   reviews: z.boolean().optional(),
   reminders: z.boolean().optional(),
 });
+
 const patchSchema = z.object({
   profile: profileSchema.optional(),
   prefs: prefsSchema.optional(),
 });
 
-/** GET /api/barber/settings — business profile and notification preferences. */
-export async function GET(request: NextRequest) {
-  const auth = await barberAuth(request);
-  if (!auth.ok) return auth.response;
+type PrefsPatch = z.infer<typeof prefsSchema>;
 
+function mergedPrefs(current: NotificationPrefs, patch: PrefsPatch): NotificationPrefs {
+  const next: NotificationPrefs = { ...current };
+  if (typeof patch.booking === "boolean") next.booking = patch.booking;
+  if (typeof patch.newBookings === "boolean") next.booking = patch.newBookings;
+  if (typeof patch.cancellations === "boolean") next.booking = patch.cancellations;
+  if (typeof patch.reminder === "boolean") next.reminder = patch.reminder;
+  if (typeof patch.reminders === "boolean") next.reminder = patch.reminders;
+  if (typeof patch.waitlist === "boolean") next.waitlist = patch.waitlist;
+  if (typeof patch.business === "boolean") next.business = patch.business;
+  if (typeof patch.reviews === "boolean") next.business = patch.reviews;
+  if (typeof patch.marketing === "boolean") next.marketing = patch.marketing;
+  return next;
+}
+
+/** Keep the old toggle names readable while the new categories are canonical. */
+function prefsView(prefs: NotificationPrefs) {
+  return {
+    ...prefs,
+    newBookings: prefs.booking,
+    cancellations: prefs.booking,
+    reviews: prefs.business,
+    reminders: prefs.reminder,
+  };
+}
+
+function businessPatch(input: z.infer<typeof profileSchema>): Partial<Business> {
+  const patch: Partial<Business> = {};
+  if (typeof input.name === "string") patch.name = input.name;
+  if (typeof input.phone === "string") patch.phone = input.phone;
+  if (typeof input.city === "string") patch.city = input.city;
+  if (typeof input.address === "string") patch.address = input.address;
+  if (typeof input.facilities === "string") patch.facilities = input.facilities;
+  if (typeof input.policy === "string") patch.policy = input.policy;
+  if (typeof input.cover === "string") patch.cover = input.cover;
+  if (typeof input.confirm === "boolean") patch.confirm = input.confirm;
+  if (typeof input.active === "boolean") patch.active = input.active;
+  return patch;
+}
+
+/** GET /api/barber/settings — professional/business profile and prefs. */
+export async function GET() {
+  const guarded = await requireWorkspace("settings.profile");
+  if (!guarded.ok) return guarded.response;
+
+  const { actor, workspace } = guarded;
   try {
-    const chair = await requireChair(auth.userId);
-    const prefs = await getBusinessPrefs(auth.secret);
-    return apiOk({ chair, prefs });
+    const chair = workspace.barber
+      ? await getBarber(workspace.barber)
+      : workspace.business
+        ? await getBusiness(workspace.business)
+        : null;
+    return apiOk({ barber: chair, chair, prefs: prefsView(actor.profile.prefs) });
   } catch (error) {
     return businessFailure(error, "Could not load your settings.", "settings_failed");
   }
 }
 
-/** PATCH /api/barber/settings — save business details or notification prefs. */
+/** PATCH /api/barber/settings — save profile details or notification prefs. */
 export async function PATCH(request: NextRequest) {
-  const auth = await barberAuth(request, true);
-  if (!auth.ok) return auth.response;
+  const guarded = await requireWorkspace("settings.profile");
+  if (!guarded.ok) return guarded.response;
+
+  const denied = writeDenied(request, `barber:settings:${guarded.actor.userId}`, 60);
+  if (denied) return denied;
 
   const json = await readJson(request);
   if (!json.ok) return json.response;
   const parsed = patchSchema.safeParse(json.value);
   if (!parsed.success) {
-    return apiError(firstIssue(parsed.error, "Check your settings."), 400, "invalid_settings");
+    return apiError(
+      firstIssue(parsed.error, "Check your settings."),
+      400,
+      "invalid_settings",
+    );
   }
   if (!parsed.data.profile && !parsed.data.prefs) {
     return apiError("Nothing to update.", 400, "invalid_settings");
   }
 
+  const { actor, workspace } = guarded;
   try {
-    const chair = parsed.data.profile
-      ? await updateBusinessProfile(auth.userId, parsed.data.profile)
-      : await requireChair(auth.userId);
-    const prefs = parsed.data.prefs
-      ? await updateBusinessPrefs(auth.secret, parsed.data.prefs)
-      : await getBusinessPrefs(auth.secret);
-    return apiOk({ chair, prefs });
+    let chair = workspace.barber
+      ? await getBarber(workspace.barber)
+      : workspace.business
+        ? await getBusiness(workspace.business)
+        : null;
+
+    if (parsed.data.profile) {
+      if (workspace.barber) {
+        chair = await updateBarber(workspace.barber, parsed.data.profile);
+      } else if (workspace.business) {
+        chair = await updateBusiness(workspace.business, businessPatch(parsed.data.profile));
+      } else {
+        return apiError("Set up your workspace first.", 403, "no_workspace");
+      }
+    }
+
+    let prefs = actor.profile.prefs;
+    if (parsed.data.prefs) {
+      const profile = await setPrefs(
+        actor.userId,
+        mergedPrefs(actor.profile.prefs, parsed.data.prefs),
+      );
+      prefs = profile.prefs;
+    }
+
+    await audit({
+      actor: actor.userId,
+      action: "settings.change",
+      kind: workspace.barber ? "barber" : "business",
+      target: workspace.barber || workspace.business,
+    });
+
+    return apiOk({ barber: chair, chair, prefs: prefsView(prefs) });
   } catch (error) {
     return businessFailure(error, "Could not save your settings.", "settings_failed");
   }

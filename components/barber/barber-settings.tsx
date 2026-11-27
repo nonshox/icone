@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,7 +25,7 @@ import {
   type NotificationPrefs,
 } from "@/lib/api/barber-queries";
 
-import { FormError, LoadingRows, message, ToggleRow } from "./barber-ui";
+import { Empty, FormError, LoadingRows, message, ToggleRow } from "./barber-ui";
 
 type FormState = {
   name: string;
@@ -75,6 +77,7 @@ function SettingsForm({
   prefs: NotificationPrefs;
 }) {
   const save = useUpdateBarberSettings();
+  const t = useT();
   const [form, setForm] = useState<FormState>(() => stateFrom(chair));
   const [notificationPrefs, setNotificationPrefs] = useState(prefs);
   const [formError, setFormError] = useState<string | null>(null);
@@ -83,17 +86,21 @@ function SettingsForm({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function setPref(key: keyof NotificationPrefs, value: boolean) {
+    setNotificationPrefs((current) => ({ ...current, [key]: value }));
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
 
     const years = Number(form.years);
     if (!form.name.trim()) {
-      setFormError("Add the name members see.");
+      setFormError(t("work.settings.nameRequired"));
       return;
     }
     if (!Number.isInteger(years) || years < 0 || years > 80) {
-      setFormError("Years on the chair must be between 0 and 80.");
+      setFormError(t("work.settings.yearsInvalid"));
       return;
     }
 
@@ -121,10 +128,11 @@ function SettingsForm({
         prefs: notificationPrefs,
       },
       {
-        onSuccess: () => toast.success("Settings saved"),
+        onSuccess: () => toast.success(t("work.toast.saved")),
         onError: (error) => {
-          setFormError(message(error, "Could not save your settings."));
-          toast.error("Could not save your settings");
+          const text = message(error, t("work.toast.failed"));
+          setFormError(text);
+          toast.error(text);
         },
       },
     );
@@ -134,105 +142,257 @@ function SettingsForm({
     <form onSubmit={submit} className="space-y-6">
       <Card className="glass">
         <CardHeader>
-          <CardTitle>Public profile</CardTitle>
-          <CardDescription>What members see.</CardDescription>
+          <CardTitle>
+            <T k="work.settings.profile" />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.settings.profileHint" />
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="biz-name">Name</Label>
-            <Input id="biz-name" value={form.name} maxLength={64} onChange={(e) => set("name", e.target.value)} />
+            <Label htmlFor="biz-name">
+              <T k="common.name" />
+            </Label>
+            <Input
+              id="biz-name"
+              value={form.name}
+              maxLength={64}
+              onChange={(event) => set("name", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-title">Title</Label>
-            <Input id="biz-title" value={form.title} maxLength={64} onChange={(e) => set("title", e.target.value)} />
+            <Label htmlFor="biz-title">
+              <T k="work.settings.title" />
+            </Label>
+            <Input
+              id="biz-title"
+              value={form.title}
+              maxLength={64}
+              onChange={(event) => set("title", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="biz-bio">Bio</Label>
-            <Textarea id="biz-bio" value={form.bio} maxLength={512} onChange={(e) => set("bio", e.target.value)} />
+            <Label htmlFor="biz-bio">
+              <T k="work.settings.bio" />
+            </Label>
+            <Textarea
+              id="biz-bio"
+              value={form.bio}
+              maxLength={512}
+              onChange={(event) => set("bio", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-photo">Photo link</Label>
-            <Input id="biz-photo" type="url" value={form.photo} maxLength={512} onChange={(e) => set("photo", e.target.value)} />
+            <Label htmlFor="biz-photo">
+              <T k="work.settings.photo" />
+            </Label>
+            <Input
+              id="biz-photo"
+              type="url"
+              value={form.photo}
+              maxLength={512}
+              onChange={(event) => set("photo", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-cover">Cover link</Label>
-            <Input id="biz-cover" type="url" value={form.cover} maxLength={512} onChange={(e) => set("cover", e.target.value)} />
+            <Label htmlFor="biz-cover">
+              <T k="work.settings.cover" />
+            </Label>
+            <Input
+              id="biz-cover"
+              type="url"
+              value={form.cover}
+              maxLength={512}
+              onChange={(event) => set("cover", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-shop">Shop</Label>
-            <Input id="biz-shop" value={form.shop} maxLength={64} onChange={(e) => set("shop", e.target.value)} />
+            <Label htmlFor="biz-shop">
+              <T k="work.settings.shop" />
+            </Label>
+            <Input
+              id="biz-shop"
+              value={form.shop}
+              maxLength={64}
+              onChange={(event) => set("shop", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-city">City</Label>
-            <Input id="biz-city" value={form.city} maxLength={64} onChange={(e) => set("city", e.target.value)} />
+            <Label htmlFor="biz-city">
+              <T k="work.settings.city" />
+            </Label>
+            <Input
+              id="biz-city"
+              value={form.city}
+              maxLength={64}
+              onChange={(event) => set("city", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="biz-address">Address</Label>
-            <Input id="biz-address" value={form.address} maxLength={128} onChange={(e) => set("address", e.target.value)} />
+            <Label htmlFor="biz-address">
+              <T k="work.settings.address" />
+            </Label>
+            <Input
+              id="biz-address"
+              value={form.address}
+              maxLength={128}
+              onChange={(event) => set("address", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-years">Years on the chair</Label>
-            <Input id="biz-years" type="number" min={0} max={80} value={form.years} onChange={(e) => set("years", e.target.value)} />
+            <Label htmlFor="biz-years">
+              <T k="work.settings.years" />
+            </Label>
+            <Input
+              id="biz-years"
+              type="number"
+              min={0}
+              max={80}
+              value={form.years}
+              onChange={(event) => set("years", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-phone">Phone</Label>
-            <Input id="biz-phone" value={form.phone} maxLength={32} onChange={(e) => set("phone", e.target.value)} />
+            <Label htmlFor="biz-phone">
+              <T k="common.phone" />
+            </Label>
+            <Input
+              id="biz-phone"
+              value={form.phone}
+              maxLength={32}
+              onChange={(event) => set("phone", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="biz-skills">Skills</Label>
-            <Input id="biz-skills" value={form.skills} maxLength={512} onChange={(e) => set("skills", e.target.value)} />
+            <Label htmlFor="biz-skills">
+              <T k="work.settings.skills" />
+            </Label>
+            <Input
+              id="biz-skills"
+              value={form.skills}
+              maxLength={512}
+              onChange={(event) => set("skills", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="biz-social">Social links</Label>
-            <Input id="biz-social" value={form.social} maxLength={512} onChange={(e) => set("social", e.target.value)} />
+            <Label htmlFor="biz-social">
+              <T k="work.settings.social" />
+            </Label>
+            <Input
+              id="biz-social"
+              value={form.social}
+              maxLength={512}
+              onChange={(event) => set("social", event.target.value)}
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="biz-facilities">Facilities</Label>
-            <Input id="biz-facilities" value={form.facilities} maxLength={512} onChange={(e) => set("facilities", e.target.value)} />
+            <Label htmlFor="biz-facilities">
+              <T k="work.settings.facilities" />
+            </Label>
+            <Input
+              id="biz-facilities"
+              value={form.facilities}
+              maxLength={512}
+              onChange={(event) => set("facilities", event.target.value)}
+            />
           </div>
           <div className="sm:col-span-2">
-            <ToggleRow id="biz-active" label="Active" hint="Hidden when off." checked={form.active} onChange={(v) => set("active", v)} />
-            <ToggleRow id="biz-featured" label="Featured" hint="Highlighted in the directory." checked={form.featured} onChange={(v) => set("featured", v)} />
+            <ToggleRow
+              id="biz-active"
+              label={t("work.settings.active")}
+              hint={t("work.settings.activeHint")}
+              checked={form.active}
+              onChange={(value) => set("active", value)}
+            />
+            <ToggleRow
+              id="biz-featured"
+              label={t("work.settings.featured")}
+              hint={t("work.settings.featuredHint")}
+              checked={form.featured}
+              onChange={(value) => set("featured", value)}
+            />
           </div>
         </CardContent>
       </Card>
 
       <Card className="glass">
         <CardHeader>
-          <CardTitle>Booking policies</CardTitle>
-          <CardDescription>Shown before booking.</CardDescription>
+          <CardTitle>
+            <T k="work.settings.policies" />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.settings.policiesHint" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <ToggleRow
+            id="biz-confirm"
+            label={t("work.settings.confirm")}
+            hint={t("work.settings.confirmHint")}
+            checked={form.confirm}
+            onChange={(value) => set("confirm", value)}
+          />
+          <div className="space-y-1.5">
+            <Label htmlFor="biz-policy">
+              <T k="work.settings.policy" />
+            </Label>
+            <Textarea
+              id="biz-policy"
+              value={form.policy}
+              maxLength={512}
+              onChange={(event) => set("policy", event.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>
+            <T k="work.settings.notifications" />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.settings.notificationsHint" />
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ToggleRow
-            id="biz-confirm"
-            label="Confirm each booking"
-            hint="Approve new bookings first."
-            checked={form.confirm}
-            onChange={(v) => set("confirm", v)}
+            id="pref-booking"
+            label={t("work.settings.prefBooking")}
+            checked={notificationPrefs.booking}
+            onChange={(value) => setPref("booking", value)}
           />
-          <div className="space-y-1.5">
-            <Label htmlFor="biz-policy">Policy</Label>
-            <Textarea id="biz-policy" value={form.policy} maxLength={512} onChange={(e) => set("policy", e.target.value)} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle>Notifications</CardTitle>
-          <CardDescription>Your preferences.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ToggleRow id="pref-bookings" label="New bookings" checked={notificationPrefs.newBookings} onChange={(v) => setNotificationPrefs((current) => ({ ...current, newBookings: v }))} />
-          <ToggleRow id="pref-cancellations" label="Cancellations" checked={notificationPrefs.cancellations} onChange={(v) => setNotificationPrefs((current) => ({ ...current, cancellations: v }))} />
-          <ToggleRow id="pref-reviews" label="Reviews" checked={notificationPrefs.reviews} onChange={(v) => setNotificationPrefs((current) => ({ ...current, reviews: v }))} />
-          <ToggleRow id="pref-reminders" label="Reminders" checked={notificationPrefs.reminders} onChange={(v) => setNotificationPrefs((current) => ({ ...current, reminders: v }))} />
+          <ToggleRow
+            id="pref-reminder"
+            label={t("work.settings.prefReminder")}
+            checked={notificationPrefs.reminder}
+            onChange={(value) => setPref("reminder", value)}
+          />
+          <ToggleRow
+            id="pref-waitlist"
+            label={t("work.settings.prefWaitlist")}
+            checked={notificationPrefs.waitlist}
+            onChange={(value) => setPref("waitlist", value)}
+          />
+          <ToggleRow
+            id="pref-business"
+            label={t("work.settings.prefBusiness")}
+            checked={notificationPrefs.business}
+            onChange={(value) => setPref("business", value)}
+          />
+          <ToggleRow
+            id="pref-marketing"
+            label={t("work.settings.prefMarketing")}
+            checked={notificationPrefs.marketing}
+            onChange={(value) => setPref("marketing", value)}
+          />
         </CardContent>
       </Card>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" className="h-11" disabled={save.isPending}>
-          {save.isPending ? "Saving…" : "Save settings"}
+          <T k={save.isPending ? "common.loading" : "common.save"} />
         </Button>
         <Separator orientation="vertical" className="hidden h-8 sm:block" />
         <SignOutButton />
@@ -244,17 +404,24 @@ function SettingsForm({
 
 export function BarberSettings() {
   const settings = useBarberSettings();
+  const t = useT();
 
   if (settings.isPending) return <LoadingRows />;
   if (settings.isError) {
-    return <p role="alert" className="text-sm text-destructive">{message(settings.error, "Could not load your settings.")}</p>;
+    return (
+      <p role="alert" className="text-sm text-destructive">
+        {message(settings.error, t("work.loadError"))}
+      </p>
+    );
   }
-  if (!settings.data) return null;
+  if (!settings.data?.barber) {
+    return <Empty>{t("work.settings.noProfile")}</Empty>;
+  }
 
   return (
     <SettingsForm
-      key={`${settings.data.chair.id}-${JSON.stringify(settings.data.prefs)}`}
-      chair={settings.data.chair}
+      key={`${settings.data.barber.id}-${JSON.stringify(settings.data.prefs)}`}
+      chair={settings.data.barber}
       prefs={settings.data.prefs}
     />
   );

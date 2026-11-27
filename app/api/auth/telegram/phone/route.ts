@@ -7,7 +7,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/appwrite/server";
 import { normalizePhone } from "@/lib/auth/phone";
 import { verifyWebAppInitData } from "@/lib/auth/telegram";
-import { ensureProfile, updateProfile } from "@/lib/domain/data";
+import { ensureProfile, updateProfile } from "@/lib/domain/account";
 import { serverEnv } from "@/lib/env";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rate-limit";

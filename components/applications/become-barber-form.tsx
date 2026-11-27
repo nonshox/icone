@@ -2,6 +2,7 @@
 
 import { Check, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -40,6 +41,10 @@ export function BecomeBarberForm() {
   const profile = useProfile();
   const submit = useSubmitApplication();
   const t = useT();
+  const params = useSearchParams();
+  const [model, setModel] = useState<"a" | "b">(
+    params.get("model") === "b" ? "b" : "a",
+  );
   const [name, setName] = useState("");
   const [shop, setShop] = useState("");
   const [city, setCity] = useState("Tashkent");
@@ -79,7 +84,8 @@ export function BecomeBarberForm() {
     );
   }
 
-  if (application?.state === "pending") {
+  const state = application?.appState ?? application?.state;
+  if (application && ["submitted", "review", "info", "pending"].includes(state ?? "")) {
     return (
       <Card>
         <CardHeader>
@@ -102,7 +108,7 @@ export function BecomeBarberForm() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     submit.mutate(
-      { name, shop, city, address, phone, bio },
+      { model, name, shop, city, address, phone, bio },
       {
         onSuccess: () => toast.success(t("apply.live")),
         onError: (error) =>
@@ -131,6 +137,41 @@ export function BecomeBarberForm() {
               {application.note || t("apply.rejectedBody")}
             </p>
           ) : null}
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              <T k="apply.modelTitle" />
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setModel("a")}
+                className={`rounded-xl border p-3 text-left text-sm transition-colors ${
+                  model === "a" ? "border-brand bg-brand/10" : "border-border hover:bg-muted"
+                }`}
+              >
+                <span className="block font-medium">
+                  <T k="apply.modelA" />
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  <T k="apply.modelAHint" />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModel("b")}
+                className={`rounded-xl border p-3 text-left text-sm transition-colors ${
+                  model === "b" ? "border-brand bg-brand/10" : "border-border hover:bg-muted"
+                }`}
+              >
+                <span className="block font-medium">
+                  <T k="apply.modelB" />
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  <T k="apply.modelBHint" />
+                </span>
+              </button>
+            </div>
+          </fieldset>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="bb-name">

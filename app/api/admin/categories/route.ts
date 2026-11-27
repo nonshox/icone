@@ -1,16 +1,14 @@
 import "server-only";
 
+import { Query } from "node-appwrite";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import {
-  createCategory,
-  deleteCategory,
-  listCategories,
-  renameCategory,
-  setCategoryActive,
-} from "@/lib/domain/admin";
-import { currentMember, isStaff } from "@/lib/domain/member";
+import { requireAdmin } from "@/lib/api/guard";
+import { TABLES } from "@/lib/appwrite/db";
+import { createCategory, toggleCategory } from "@/lib/domain/admin";
+import { audit } from "@/lib/domain/audit";
+import { bool, clean, first, get, list, str, update, type Row } from "@/lib/domain/crud";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -36,29 +34,50 @@ function firstIssue(error: z.ZodError, fallback: string): string {
   return error.issues[0]?.message ?? fallback;
 }
 
-/** GET /api/admin/categories — the service category list. Staff only. */
-export async function GET() {
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage categories.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
+function categoryOf(row: Row) {
+  return {
+    id: row.$id,
+    name: str(row.name),
+    active: bool(row.active, true),
+  };
+}
+
+/** Origin, admin role and rate limit in one step; the actor is reused by the caller. */
+async function writeGuard(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
+  const limit = rateLimit(`admin:categories:${guard.actor.userId}`, 60, 10 * 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+  return { actor: guard.actor };
+}
+
+/** GET /api/admin/categories — the service category list. */
+export async function GET() {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.response;
+
   try {
-    return NextResponse.json({
-      ok: true as const,
-      categories: await listCategories(),
-    });
+    const rows = await list(TABLES.categories, [
+      Query.orderAsc("name"),
+      Query.limit(100),
+    ]);
+    return NextResponse.json({ ok: true as const, categories: rows.map(categoryOf) });
   } catch (error) {
     console.error("[admin] categories list failed", error);
     return apiError("Could not load categories.", 502, "categories_failed");
   }
 }
 
-/** POST /api/admin/categories — add a category. Admin only. */
+/** POST /api/admin/categories — add or reactivate a category. */
 export async function POST(request: NextRequest) {
-  const guard = await writeGuard(request, "categories");
-  if (guard) return guard;
+  const guard = await writeGuard(request);
+  if (guard instanceof NextResponse) return guard;
+  const actor = guard.actor;
 
   let body: unknown;
   try {
@@ -76,18 +95,26 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const category = await createCategory(parsed.data.name);
-    return NextResponse.json({ ok: true as const, category }, { status: 201 });
+    await createCategory(parsed.data.name, actor.userId);
+    const row = await first(TABLES.categories, [
+      Query.equal("name", clean(parsed.data.name, 32)),
+    ]);
+    if (!row) return apiError("Could not read that category.", 502, "category_failed");
+    return NextResponse.json(
+      { ok: true as const, category: categoryOf(row) },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[admin] category create failed", error);
     return apiError("Could not add the category.", 502, "category_failed");
   }
 }
 
-/** PATCH /api/admin/categories — rename or disable. Admin only. */
+/** PATCH /api/admin/categories — rename or enable/disable. */
 export async function PATCH(request: NextRequest) {
-  const guard = await writeGuard(request, "categories");
-  if (guard) return guard;
+  const guard = await writeGuard(request);
+  if (guard instanceof NextResponse) return guard;
+  const actor = guard.actor;
 
   let body: unknown;
   try {
@@ -105,21 +132,35 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const category =
-      parsed.data.op === "active"
-        ? await setCategoryActive(parsed.data.id, parsed.data.active)
-        : await renameCategory(parsed.data.id, parsed.data.name);
-    return NextResponse.json({ ok: true as const, category });
+    const data = parsed.data;
+    if (data.op === "active") {
+      await toggleCategory(data.id, data.active);
+    } else {
+      await update(TABLES.categories, data.id, { name: clean(data.name, 32) });
+    }
+
+    const row = await get(TABLES.categories, data.id);
+    if (!row) return apiError("Category not found.", 404, "not_found");
+
+    await audit({
+      actor: actor.userId,
+      action: "settings.change",
+      kind: "category",
+      target: data.id,
+      detail: data.op,
+    });
+    return NextResponse.json({ ok: true as const, category: categoryOf(row) });
   } catch (error) {
     console.error("[admin] category update failed", error);
     return apiError("Could not update the category.", 502, "category_failed");
   }
 }
 
-/** DELETE /api/admin/categories?id=… — remove a category. Admin only. */
+/** DELETE /api/admin/categories?id=… — retire a category without breaking services. */
 export async function DELETE(request: NextRequest) {
-  const guard = await writeGuard(request, "categories");
-  if (guard) return guard;
+  const guard = await writeGuard(request);
+  if (guard instanceof NextResponse) return guard;
+  const actor = guard.actor;
 
   const parsed = z
     .object({ id })
@@ -133,30 +174,17 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    await deleteCategory(parsed.data.id);
+    await toggleCategory(parsed.data.id, false);
+    await audit({
+      actor: actor.userId,
+      action: "settings.change",
+      kind: "category",
+      target: parsed.data.id,
+      detail: "disabled",
+    });
     return NextResponse.json({ ok: true as const });
   } catch (error) {
     console.error("[admin] category delete failed", error);
     return apiError("Could not remove the category.", 502, "category_failed");
   }
-}
-
-/** Shared admin guard for all category writes. Returns an error response or null. */
-async function writeGuard(request: NextRequest, scope: string) {
-  if (!isSameOrigin(request)) {
-    return apiError("This request came from an unexpected origin.", 403, "bad_origin");
-  }
-
-  const member = await currentMember();
-  if (!member) return apiError("Sign in to manage categories.", 401, "signed_out");
-  if (!isStaff(member.profile.role)) {
-    return apiError("Staff access only.", 403, "forbidden");
-  }
-  if (member.profile.role !== "admin") {
-    return apiError("Only an admin can change categories.", 403, "forbidden");
-  }
-
-  const limit = rateLimit(`admin:${scope}:${member.user.id}`, 60, 10 * 60_000);
-  if (!limit.ok) return tooManyRequests(limit.retryAfter);
-  return null;
 }

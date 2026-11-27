@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { T } from "@/components/i18n/t";
+
 const LINKS = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/barbers", label: "Barbers" },
-  { href: "/admin/appointments", label: "Appointments" },
-  { href: "/admin/moderation", label: "Moderation" },
-  { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/settings", label: "Settings" },
-  { href: "/admin/catalogue", label: "Catalogue" },
-  { href: "/admin/applications", label: "Applications" },
+  { href: "/admin", key: "admin.nav.dashboard" },
+  { href: "/admin/users", key: "admin.nav.users" },
+  { href: "/admin/barbers", key: "admin.nav.barbers" },
+  { href: "/admin/appointments", key: "admin.nav.appointments" },
+  { href: "/admin/moderation", key: "admin.nav.moderation" },
+  { href: "/admin/reports", key: "admin.nav.reports" },
+  { href: "/admin/settings", key: "admin.nav.settings" },
+  { href: "/admin/catalogue", key: "admin.nav.catalogue" },
+  { href: "/admin/applications", key: "admin.nav.applications" },
 ] as const;
 
 export function AdminNav() {
@@ -37,7 +39,7 @@ export function AdminNav() {
                 : "inline-flex items-center rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
             }
           >
-            {link.label}
+            <T k={link.key} />
           </Link>
         );
       })}

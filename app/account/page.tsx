@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { T } from "@/components/i18n/t";
 import { AccountView } from "@/components/account/account-view";
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
-import { currentMember } from "@/lib/domain/member";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getProfile } from "@/lib/domain/account";
 
 export const metadata: Metadata = {
   title: "Account",
@@ -13,13 +14,18 @@ export const metadata: Metadata = {
 };
 
 async function AccountPanel() {
-  const member = await currentMember();
+  const user = await getCurrentUser();
 
-  if (!member) {
+  if (!user) {
     redirect(`/sign-in?next=${encodeURIComponent("/account")}`);
   }
 
-  return <AccountView user={member.user} profile={member.profile} />;
+  const profile = await getProfile(user.id);
+  if (!profile) {
+    redirect(`/sign-in?next=${encodeURIComponent("/account")}`);
+  }
+
+  return <AccountView user={user} profile={profile} />;
 }
 
 function AccountSkeleton() {
@@ -49,7 +55,6 @@ export default function AccountPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

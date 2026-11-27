@@ -4,16 +4,13 @@ import { AdminFrame } from "@/components/admin/admin-frame";
 import { DashboardView } from "@/components/admin/dashboard-view";
 
 export const metadata: Metadata = {
-  title: "Admin · Dashboard",
+  title: "Admin — Dashboard",
   robots: { index: false, follow: false },
 };
 
 export default function AdminPage() {
   return (
-    <AdminFrame
-      title="Dashboard"
-      description="Platform at a glance."
-    >
+    <AdminFrame titleKey="admin.dashboard.title" descriptionKey="admin.dashboard.description">
       <DashboardView />
     </AdminFrame>
   );

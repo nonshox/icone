@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,27 +27,36 @@ import {
   useBarberCustomer,
   useBarberCustomers,
   useSaveBarberNote,
+  type BookingRow,
   type CustomerDetail,
 } from "@/lib/api/barber-queries";
-import { formatDate, formatPrice } from "@/lib/domain/time";
+import { formatDate, formatPrice, label } from "@/lib/domain/time";
 
-import { Empty, FormError, LoadingRows, message, StatusBadge } from "./barber-ui";
+import {
+  Empty,
+  FormError,
+  LoadingRows,
+  message,
+  StatusBadge,
+} from "./barber-ui";
 
 function NoteForm({ detail }: { detail: CustomerDetail }) {
   const save = useSaveBarberNote();
-  const [note, setNote] = useState(detail.customer.note);
+  const t = useT();
+  const [note, setNote] = useState(detail.note);
   const [formError, setFormError] = useState<string | null>(null);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
     save.mutate(
-      { userId: detail.customer.id, note },
+      { client: detail.id, note },
       {
-        onSuccess: () => toast.success("Private note saved"),
+        onSuccess: () => toast.success(t("work.customers.noteSaved")),
         onError: (error) => {
-          setFormError(message(error, "Could not save the note."));
-          toast.error("Could not save the note");
+          const text = message(error, t("work.toast.failed"));
+          setFormError(text);
+          toast.error(text);
         },
       },
     );
@@ -53,20 +64,26 @@ function NoteForm({ detail }: { detail: CustomerDetail }) {
 
   return (
     <form onSubmit={submit} className="space-y-2">
-      <Label htmlFor="customer-note">Private note</Label>
+      <Label htmlFor="customer-note">
+        <T k="common.note" />
+      </Label>
       <Textarea
         id="customer-note"
         value={note}
         maxLength={512}
-        placeholder="Preferences worth keeping."
+        placeholder={t("work.customers.noteHint")}
         onChange={(event) => setNote(event.target.value)}
       />
       <p className="text-xs text-muted-foreground">
-        Only you can see this.
+        <T k="work.customers.notePrivate" />
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="sm" disabled={save.isPending}>
-          {save.isPending ? "Saving…" : "Save note"}
+          {save.isPending ? (
+            <T k="common.loading" />
+          ) : (
+            <T k="work.customers.saveNote" />
+          )}
         </Button>
         <FormError text={formError} />
       </div>
@@ -74,60 +91,115 @@ function NoteForm({ detail }: { detail: CustomerDetail }) {
   );
 }
 
+type HistoryRow = {
+  id: string;
+  date: string;
+  time: string;
+  service: string;
+  status: BookingRow["status"];
+  price: number;
+};
+
+/** Accept both the enriched booking rows and the compact history view. */
+function historyOf(detail: CustomerDetail): HistoryRow[] {
+  const raw = detail as unknown as {
+    visits?: unknown;
+    bookings?: unknown;
+  };
+  const source = Array.isArray(raw.visits) ? raw.visits : raw.bookings;
+  if (!Array.isArray(source)) return [];
+
+  return (source as BookingRow[]).map((row) => {
+    const compact = row as unknown as { time?: string; service?: string };
+    return {
+      id: row.id,
+      date: row.date,
+      time: compact.time || label(row.start),
+      service: compact.service || row.serviceName || "—",
+      status: row.status,
+      price: row.price,
+    };
+  });
+}
+
 function Detail({ detail }: { detail: CustomerDetail }) {
+  const t = useT();
+  const rows = historyOf(detail);
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Visits</p>
-          <p className="text-lg font-semibold tabular-nums">{detail.customer.visits}</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <T k="work.customers.visits" />
+          </p>
+          <p className="text-lg font-semibold tabular-nums">{rows.length}</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Completed</p>
-          <p className="text-lg font-semibold tabular-nums">{detail.customer.completed}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Spend</p>
-          <p className="text-lg font-semibold tabular-nums">{formatPrice(detail.customer.spend)}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Last visit</p>
-          <p className="text-lg font-semibold">{detail.customer.last ? formatDate(detail.customer.last) : "—"}</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            <T k="work.customers.last" />
+          </p>
+          <p className="text-lg font-semibold">
+            {detail.last ? formatDate(detail.last) : "—"}
+          </p>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Service</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {detail.bookings.map((booking) => (
-              <TableRow key={booking.id}>
-                <TableCell className="font-medium">{formatDate(booking.date)}</TableCell>
-                <TableCell className="tabular-nums">{booking.time}</TableCell>
-                <TableCell>{booking.service}</TableCell>
-                <TableCell><StatusBadge label={booking.status} /></TableCell>
-                <TableCell className="text-right tabular-nums">{formatPrice(booking.price)}</TableCell>
+      {rows.length === 0 ? (
+        <Empty>{t("work.customers.noVisits")}</Empty>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <T k="common.date" />
+                </TableHead>
+                <TableHead>
+                  <T k="common.time" />
+                </TableHead>
+                <TableHead>
+                  <T k="work.customers.service" />
+                </TableHead>
+                <TableHead>
+                  <T k="common.status" />
+                </TableHead>
+                <TableHead className="text-right">
+                  <T k="common.price" />
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {rows.map((booking) => (
+                <TableRow key={booking.id}>
+                  <TableCell className="font-medium">
+                    {formatDate(booking.date)}
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    {booking.time}
+                  </TableCell>
+                  <TableCell>{booking.service}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={booking.status} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatPrice(booking.price)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-      <NoteForm key={`${detail.customer.id}-${detail.customer.note}`} detail={detail} />
+      <NoteForm key={`${detail.id}-${detail.note}`} detail={detail} />
     </div>
   );
 }
 
 export function BarberCustomers() {
   const customers = useBarberCustomers();
+  const t = useT();
   const [selected, setSelected] = useState("");
   const detail = useBarberCustomer(selected);
 
@@ -135,48 +207,80 @@ export function BarberCustomers() {
     <div className="space-y-6">
       <Card className="glass">
         <CardHeader>
-          <CardTitle>Customers</CardTitle>
-          <CardDescription>Members and private notes.</CardDescription>
+          <CardTitle>
+            <T k="work.customers.title" />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.customers.hint" />
+          </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {customers.isPending ? (
             <LoadingRows />
           ) : customers.isError ? (
-            <FormError text={message(customers.error, "Could not load your customers.")} />
+            <FormError text={message(customers.error, t("work.loadError"))} />
           ) : !customers.data || customers.data.length === 0 ? (
-            <Empty>No customers yet.</Empty>
+            <Empty>{t("work.customers.empty")}</Empty>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead className="text-right">Visits</TableHead>
-                  <TableHead className="text-right">Spend</TableHead>
-                  <TableHead>Last visit</TableHead>
-                  <TableHead>Services</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead>
+                    <T k="common.member" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="common.phone" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="work.customers.visits" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="work.customers.last" />
+                  </TableHead>
+                  <TableHead className="max-w-52">
+                    <T k="common.note" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="work.agenda.actions" />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {customers.data.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{customer.phone || "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{customer.visits}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatPrice(customer.spend)}</TableCell>
-                    <TableCell>{customer.last ? formatDate(customer.last) : "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {customer.phone || "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {customer.visits}
+                    </TableCell>
+                    <TableCell>
+                      {customer.last ? formatDate(customer.last) : "—"}
+                    </TableCell>
                     <TableCell className="max-w-52 truncate text-muted-foreground">
-                      {customer.services.join(", ") || "—"}
+                      {customer.note || "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
                         size="sm"
-                        variant={selected === customer.id ? "default" : "outline"}
-                        onClick={() => setSelected(selected === customer.id ? "" : customer.id)}
+                        variant={
+                          selected === customer.id ? "default" : "outline"
+                        }
+                        onClick={() =>
+                          setSelected(
+                            selected === customer.id ? "" : customer.id,
+                          )
+                        }
                       >
-                        {selected === customer.id ? "Close" : "History"}
+                        <T
+                          k={
+                            selected === customer.id
+                              ? "common.close"
+                              : "work.customers.history"
+                          }
+                        />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -190,17 +294,23 @@ export function BarberCustomers() {
       {selected ? (
         <Card className="glass">
           <CardHeader>
-            <CardTitle>{detail.data?.customer.name ?? "Member"}</CardTitle>
-            <CardDescription>History and your note.</CardDescription>
+            <CardTitle>
+              {detail.data?.name ?? t("common.member")}
+            </CardTitle>
+            <CardDescription>
+              <T k="work.customers.detailHint" />
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {detail.isPending ? (
               <LoadingRows />
             ) : detail.isError ? (
-              <FormError text={message(detail.error, "Could not load this member.")} />
+              <FormError text={message(detail.error, t("work.loadError"))} />
             ) : detail.data ? (
-              <Detail key={detail.data.customer.note} detail={detail.data} />
-            ) : null}
+              <Detail detail={detail.data} />
+            ) : (
+              <Empty>{t("work.customers.noVisits")}</Empty>
+            )}
           </CardContent>
         </Card>
       ) : null}

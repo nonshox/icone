@@ -2,30 +2,35 @@
 
 import { Heart, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { toast } from "sonner";
 
+import { T } from "@/components/i18n/t";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
-import { useToggleFavorite } from "@/lib/api/customer-queries";
+import { useFavorites, useToggleFavorite } from "@/lib/api/customer-queries";
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
 
 export function FavoriteButton({
   barber,
-  initialSaved,
+  initialSaved = false,
 }: {
   barber: string;
-  initialSaved: boolean;
+  initialSaved?: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const toggle = useToggleFavorite();
-  const [saved, setSaved] = useState(initialSaved);
+  const favorites = useFavorites();
+
+  const saved = favorites.isPending
+    ? initialSaved
+    : (favorites.data ?? []).some((item) => item.barber === barber);
 
   function onClick() {
     toggle.mutate(barber, {
       onSuccess: (result) => {
-        setSaved(result.saved);
-        toast.success(result.saved ? "Saved to your chairs" : "Removed from saved chairs");
+        toast.success(result.saved ? t("common.saved") : t("favorites.removed"));
       },
       onError: (error) => {
         if (error instanceof ApiError && error.status === 401) {
@@ -34,8 +39,8 @@ export function FavoriteButton({
           );
           return;
         }
-        toast.error("Could not update", {
-          description: error instanceof Error ? error.message : "Please try again.",
+        toast.error(t("inbox.failed"), {
+          description: error instanceof Error ? error.message : t("auth.tryAgain"),
         });
       },
     });
@@ -51,7 +56,7 @@ export function FavoriteButton({
         saved && "border-brand/60 bg-brand/10 text-brand-strong",
       )}
       aria-pressed={saved}
-      aria-label={saved ? "Remove from saved barbers" : "Save this barber"}
+      aria-label={saved ? t("favorites.removeAsk") : t("favorites.saveThis")}
       disabled={toggle.isPending}
       onClick={onClick}
     >
@@ -60,7 +65,7 @@ export function FavoriteButton({
       ) : (
         <Heart className={cn("size-3.5", saved && "fill-current")} aria-hidden />
       )}
-      {saved ? "Saved" : "Save"}
+      {saved ? <T k="common.saved" /> : <T k="favorites.save" />}
     </Button>
   );
 }

@@ -11,12 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/lib/i18n/use-t";
 import { STATUS_LABEL, type Status } from "@/lib/domain/types";
 
 import type { ReportPoint } from "@/lib/api/admin-queries";
 
 export function message(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export function FormError({ text }: { text: string | null }) {
@@ -49,8 +50,8 @@ export function Section({
   description,
   children,
 }: {
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -69,9 +70,9 @@ export function StatCard({
   value,
   note,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
-  note?: string;
+  note?: ReactNode;
 }) {
   return (
     <Card>
@@ -89,17 +90,19 @@ export function StatCard({
 }
 
 export function StatusBadge({ status }: { status: Status }) {
+  const t = useT();
+  const label = t(`status.${status}`);
   return (
     <Badge
       variant={
         status === "done"
           ? "secondary"
-          : status === "cancel" || status === "noshow" || status === "rejected"
+          : status === "cancelled" || status === "noshow" || status === "rejected"
             ? "destructive"
             : "outline"
       }
     >
-      {STATUS_LABEL[status] ?? status}
+      {label.startsWith("status.") ? (STATUS_LABEL[status] ?? status) : label}
     </Badge>
   );
 }
@@ -107,44 +110,40 @@ export function StatusBadge({ status }: { status: Status }) {
 /** Minimal CSS chart. Heights come only from the supplied real figures. */
 export function Bars({
   points,
-  mode = "count",
   format,
 }: {
   points: ReportPoint[];
-  mode?: "count" | "value";
   format?: (value: number) => string;
 }) {
-  if (points.length === 0) return <Empty>No data in this range.</Empty>;
-
-  const values = points.map((point) =>
-    mode === "value" ? point.value : point.count,
-  );
+  const t = useT();
+  const values = points.map((point) => point.value);
   const max = Math.max(1, ...values);
-  const first = points[0]?.date ?? "";
-  const last = points[points.length - 1]?.date ?? "";
-  const render = (value: number) =>
-    format ? format(value) : value.toLocaleString("ru-RU");
+  const render = (value: number) => (format ? format(value) : value.toLocaleString("ru-RU"));
 
   return (
     <div>
       <div
         className="flex h-28 items-end gap-1"
         role="img"
-        aria-label={`${mode === "value" ? "Revenue" : "Volume"} over ${points.length} periods`}
+        aria-label={t("admin.chart").replace("{count}", String(points.length))}
       >
-        {values.map((value, index) => (
+        {points.map((point, index) => (
           <div
-            key={`${points[index]?.date ?? index}-${index}`}
+            key={`${point.label}-${index}`}
             className="min-w-0 flex-1 rounded-t-sm bg-primary/70"
-            style={{ height: `${Math.max(2, Math.round((value / max) * 100))}%` }}
-            title={`${points[index]?.date}: ${render(value)}`}
+            style={{ height: `${Math.max(2, Math.round((point.value / max) * 100))}%` }}
+            title={`${point.label}: ${render(point.value)}`}
           />
         ))}
       </div>
-      <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-        <span>{first}</span>
-        <span className="tabular-nums">peak {render(max)}</span>
-        <span>{last}</span>
+      <div className="mt-2 flex justify-between gap-2 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate">{points[0]?.label ?? ""}</span>
+        <span className="shrink-0 tabular-nums">
+          {t("admin.peak")} {render(max)}
+        </span>
+        <span className="min-w-0 truncate text-right">
+          {points[points.length - 1]?.label ?? ""}
+        </span>
       </div>
     </div>
   );

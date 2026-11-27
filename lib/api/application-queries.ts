@@ -13,7 +13,9 @@ export type Application = {
   address: string;
   phone: string;
   bio: string;
-  state: "pending" | "approved" | "rejected";
+  state: "pending" | "approved" | "rejected" | "draft" | "submitted" | "review" | "info" | "suspended";
+  /** Canonical state; `state` is the legacy three-value view. */
+  appState?: string;
   note: string;
   created: string;
 };
@@ -42,6 +44,7 @@ export function useSubmitApplication() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: {
+      model?: "a" | "b";
       name: string;
       shop: string;
       city: string;

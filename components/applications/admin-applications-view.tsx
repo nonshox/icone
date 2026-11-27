@@ -81,7 +81,7 @@ export function AdminApplicationsView() {
                   <TableCell>
                     <Badge
                       variant={
-                        item.state === "pending"
+                        ["submitted", "review", "info"].includes(item.state)
                           ? "outline"
                           : item.state === "approved"
                             ? "secondary"
@@ -92,7 +92,7 @@ export function AdminApplicationsView() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {item.state === "pending" ? (
+                    {["submitted", "review", "info"].includes(item.state) ? (
                       <div className="flex items-center justify-end gap-1">
                         <Input
                           aria-label="Note"

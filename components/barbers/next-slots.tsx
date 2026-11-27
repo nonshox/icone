@@ -1,11 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { T } from "@/components/i18n/t";
+import { useAvailability } from "@/lib/api/queries";
+import { useShopDate } from "@/lib/client/date";
 import { useT } from "@/lib/i18n/use-t";
 import {
   Card,
@@ -14,13 +15,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { api } from "@/lib/api/client";
-import { useShopDate } from "@/lib/client/date";
-import { formatDate, nextDates } from "@/lib/domain/time";
-import type { Service, Slot } from "@/lib/domain/types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { addDays, formatDate } from "@/lib/domain/time";
+import type { Service } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
-
-type Preview = { date: string; slots: Slot[] };
 
 /** Nearby open times live in the client so no build-day clock leaks into HTML. */
 export function NextSlots({
@@ -32,70 +30,92 @@ export function NextSlots({
 }) {
   const t = useT();
   const shopDate = useShopDate();
-  const dates = useMemo(() => (shopDate ? nextDates(3) : []), [shopDate]);
+  const [selected, setSelected] = useState("");
 
-  const preview = useQuery({
-    queryKey: ["barber-preview", barber, service?.id ?? "", dates.join(",")],
-    enabled: Boolean(shopDate && service),
-    staleTime: 60_000,
-    queryFn: async (): Promise<Preview | null> => {
-      if (!service) return null;
-      for (const date of dates) {
-        try {
-          const { slots } = await api<{ slots: Slot[] }>(
-            `/api/availability?barber=${encodeURIComponent(barber)}&date=${encodeURIComponent(date)}&service=${encodeURIComponent(service.id)}`,
-          );
-          if (slots.length > 0) return { date, slots };
-        } catch {
-          // A chair can be closed on one day and open on the next.
-        }
-      }
-      return null;
-    },
+  const dates = useMemo(
+    () => (shopDate ? [0, 1, 2].map((offset) => addDays(shopDate, offset)) : []),
+    [shopDate],
+  );
+  const date = selected && dates.includes(selected) ? selected : (dates[0] ?? "");
+
+  const availability = useAvailability({
+    barber,
+    date,
+    service: service?.id ?? "",
   });
-
-  const shown = preview.data;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle><T k="barber.nextTimes" /></CardTitle>
-        {shown ? (
+        {date && service ? (
           <CardDescription>
-            {formatDate(shown.date)} · {service?.name}
+            {formatDate(date)} · {service.name}
           </CardDescription>
         ) : null}
       </CardHeader>
       <CardContent>
         {!service ? (
           <p className="py-2 text-sm leading-relaxed text-muted-foreground">
-            <T k="barber.noTimes" />
+            <T k="booking.pickServiceBarber" />
           </p>
-        ) : preview.isPending ? (
+        ) : !date ? (
           <div className="flex flex-wrap gap-2" aria-hidden>
             {Array.from({ length: 6 }).map((_, index) => (
-              <span
-                key={index}
-                className="h-8 w-14 animate-pulse rounded-lg bg-foreground/[0.06]"
-              />
+              <Skeleton key={index} className="h-8 w-14" />
             ))}
           </div>
-        ) : shown ? (
+        ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {shown.slots.slice(0, 10).map((slot) => (
-                <Link
-                  key={slot.start}
-                  href={`/book?barber=${encodeURIComponent(barber)}&service=${encodeURIComponent(service.id)}&date=${encodeURIComponent(shown.date)}&start=${slot.start}`}
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t("slots.chooseDate")}>
+              {dates.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setSelected(day)}
+                  aria-pressed={day === date}
                   className={cn(
-                    "h-8 rounded-lg px-2.5 tabular-nums",
-                    "inline-flex items-center justify-center border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                    "h-8 rounded-lg px-2.5 text-sm font-medium transition-colors",
+                    day === date
+                      ? "bg-brand text-brand-foreground"
+                      : "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
-                  {slot.label}
-                </Link>
+                  {formatDate(day)}
+                </button>
               ))}
             </div>
+
+            {availability.isPending ? (
+              <div className="flex flex-wrap gap-2" aria-hidden>
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-8 w-14" />
+                ))}
+              </div>
+            ) : availability.isError ? (
+              <p role="alert" className="text-sm text-destructive">
+                <T k="slots.error" />
+              </p>
+            ) : (availability.data ?? []).length === 0 ? (
+              <p className="py-2 text-sm leading-relaxed text-muted-foreground">
+                <T k="slots.empty" />
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {availability.data.slice(0, 10).map((slot) => (
+                  <Link
+                    key={slot.start}
+                    href={`/book?barber=${encodeURIComponent(barber)}&service=${encodeURIComponent(service.id)}&date=${encodeURIComponent(date)}&start=${slot.start}`}
+                    className={cn(
+                      "inline-flex h-8 items-center justify-center rounded-lg border border-input bg-background px-2.5 text-sm font-medium tabular-nums hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    {slot.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
             <Link
               href={`/book?barber=${encodeURIComponent(barber)}`}
               className="inline-flex items-center gap-1 text-sm font-medium text-brand-strong hover:underline"
@@ -104,10 +124,6 @@ export function NextSlots({
               <ExternalLink className="size-3.5" aria-hidden />
             </Link>
           </div>
-        ) : (
-          <p className="py-2 text-sm leading-relaxed text-muted-foreground">
-            <T k="barber.noTimes" />
-          </p>
         )}
       </CardContent>
     </Card>

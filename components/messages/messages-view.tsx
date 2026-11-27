@@ -159,7 +159,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               type="button"
               onClick={() => {
                 setSelected(item.id);
-                setConversation(item.conversation);
+                setConversation(item.conversation ?? item.id);
                 setDraft("");
                 setSendError(null);
               }}
@@ -171,7 +171,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-sm font-medium">{item.name}</span>
                 <span className="shrink-0 text-[0.7rem] text-muted-foreground tabular-nums">
-                  {detail(item.at)}
+                  {detail(item.at ?? item.lastAt ?? "")}
                 </span>
               </span>
               <span className="line-clamp-1 text-xs text-muted-foreground">

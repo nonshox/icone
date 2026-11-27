@@ -1,7 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
-
 import {
   Table,
   TableBody,
@@ -11,10 +9,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAdminDashboard } from "@/lib/api/admin-queries";
-import { STATUSES, STATUS_LABEL, type Status } from "@/lib/domain/types";
-import { formatPrice } from "@/lib/domain/time";
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 
 import {
+  Bars,
   Empty,
   FormError,
   Section,
@@ -22,10 +21,41 @@ import {
   message,
 } from "./admin-ui";
 
-function growthNote(value: number): string {
-  if (value > 0) return `+${value}% vs 30 days`;
-  if (value < 0) return `${value}% vs 30 days`;
-  return "Flat vs 30 days";
+type HistogramPoint = { label: string; value: number };
+type Activity = {
+  id: string;
+  kind: string;
+  title: string;
+  detail: string;
+  at: string;
+};
+
+/** The dashboard endpoint returns counts plus small histograms and audit rows. */
+type DashboardSnapshot = {
+  users?: number;
+  barbers?: number;
+  businesses?: number;
+  branches?: number;
+  applications?: number;
+  pendingApplications?: number;
+  bookings?: number;
+  todayBookings?: number;
+  reviews?: number;
+  flaggedReviews?: number;
+  openReports?: number;
+  openTickets?: number;
+  pendingInvites?: number;
+  bookingsInRange?: number;
+  cancellationRate?: number;
+  retention?: number;
+  byStatus?: HistogramPoint[];
+  byDay?: HistogramPoint[];
+  byService?: HistogramPoint[];
+  recent?: Activity[];
+};
+
+function count(value: number | undefined): string {
+  return String(value ?? 0);
 }
 
 function ActivityMark({ kind }: { kind: string }) {
@@ -39,7 +69,7 @@ function ActivityMark({ kind }: { kind: string }) {
 
 export function DashboardView() {
   const query = useAdminDashboard();
-  const stats = query.data;
+  const t = useT();
 
   if (query.isPending) {
     return (
@@ -51,92 +81,85 @@ export function DashboardView() {
     );
   }
 
-  if (query.isError || !stats) {
+  if (query.isError || !query.data) {
     return (
-      <Section title="Dashboard">
-        <FormError text={message(query.error, "Could not load the dashboard.")} />
+      <Section title={<T k="nav.admin" />}>
+        <FormError text={message(query.error, t("admin.loadError"))} />
       </Section>
     );
   }
 
-  const statusRows: Array<{ status: Status; count: number }> = STATUSES.map(
-    (status) => ({ status, count: stats.byStatus[status] ?? 0 }),
-  );
+  const stats = query.data as unknown as DashboardSnapshot;
+  const statusRows = stats.byStatus ?? [];
+  const recent = stats.recent ?? [];
+  const services = stats.byService ?? [];
+  const days = stats.byDay ?? [];
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label={<T k="admin.usersTotal" />} value={count(stats.users)} />
+        <StatCard label={<T k="admin.barbersTotal" />} value={count(stats.barbers)} />
+        <StatCard label={<T k="admin.businessesTotal" />} value={count(stats.businesses)} />
+        <StatCard label={<T k="admin.branchesTotal" />} value={count(stats.branches)} />
+        <StatCard label={<T k="admin.todayVisits" />} value={count(stats.todayBookings)} />
+        <StatCard label={<T k="admin.bookingsTotal" />} value={count(stats.bookings)} />
         <StatCard
-          label="Users"
-          value={String(stats.totals.users)}
-          note={growthNote(stats.growth.users)}
+          label={<T k="admin.bookingsInRange" />}
+          value={count(stats.bookingsInRange)}
         />
         <StatCard
-          label="Customers"
-          value={String(stats.totals.customers)}
-          note={`${stats.totals.staff} staff accounts`}
+          label={<T k="admin.pendingApps" />}
+          value={count(stats.pendingApplications)}
+        />
+        <StatCard label={<T k="admin.reviewsTotal" />} value={count(stats.reviews)} />
+        <StatCard label={<T k="admin.flagged" />} value={count(stats.flaggedReviews)} />
+        <StatCard label={<T k="admin.openReports" />} value={count(stats.openReports)} />
+        <StatCard label={<T k="admin.openTickets" />} value={count(stats.openTickets)} />
+        <StatCard label={<T k="admin.invites" />} value={count(stats.pendingInvites)} />
+        <StatCard
+          label={<T k="admin.cancellationRate" />}
+          value={`${stats.cancellationRate ?? 0}%`}
         />
         <StatCard
-          label="Barbers"
-          value={String(stats.totals.barbers)}
-          note={`${stats.totals.chairs} chairs · ${stats.totals.activeBusinesses} active`}
-        />
-        <StatCard
-          label="Appointments"
-          value={String(stats.totals.bookings)}
-          note={growthNote(stats.growth.bookings)}
-        />
-        <StatCard
-          label="Revenue"
-          value={formatPrice(stats.totals.revenue)}
-          note={growthNote(stats.growth.revenue)}
-        />
-        <StatCard
-          label="Booked value"
-          value={formatPrice(stats.totals.bookedValue)}
-          note="Active bookings"
-        />
-        <StatCard
-          label="Cancellation rate"
-          value={`${stats.cancellationRate}%`}
-          note="Of all appointments"
-        />
-        <StatCard
-          label="Reviews"
-          value={String(stats.totals.reviews)}
-          note={`${stats.featured} featured chairs`}
+          label={<T k="admin.retention" />}
+          value={`${stats.retention ?? 0}%`}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Appointments by status">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Count</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {statusRows.map((row) => (
-                <TableRow key={row.status}>
-                  <TableCell>{STATUS_LABEL[row.status]}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {row.count}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <Section title={<T k="admin.byStatus" />}>
+          {statusRows.length === 0 ? (
+            <Empty><T k="common.noData" /></Empty>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead><T k="common.status" /></TableHead>
+                    <TableHead className="text-right"><T k="admin.count" /></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {statusRows.map((row) => (
+                    <TableRow key={row.label}>
+                      <TableCell>{row.label}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.value}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Section>
 
-        <Section title="Recent activity">
-          {stats.recent.length === 0 ? (
-            <Empty>No activity recorded yet.</Empty>
+        <Section title={<T k="admin.recentActivity" />}>
+          {recent.length === 0 ? (
+            <Empty><T k="admin.noActivity" /></Empty>
           ) : (
             <ul className="divide-y">
-              {stats.recent.map((item) => (
-                <li key={`${item.kind}-${item.id}`} className="flex gap-3 py-2">
+              {recent.map((item) => (
+                <li key={item.id} className="flex gap-3 py-2">
                   <ActivityMark kind={item.kind} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{item.title}</p>
@@ -152,53 +175,21 @@ export function DashboardView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <RankedList
-          title="Popular services"
-          rows={stats.popularServices.map((item) => ({
-            name: item.name,
-            count: item.count,
-            extra: formatPrice(item.value),
-          }))}
-        />
-        <RankedList
-          title="Popular locations"
-          rows={stats.cities.map((item) => ({
-            name: item.name,
-            count: item.count,
-            extra: "bookings",
-          }))}
-        />
+        <Section title={<T k="admin.popularServices" />}>
+          {services.length === 0 ? (
+            <Empty><T k="common.noData" /></Empty>
+          ) : (
+            <Bars points={services} />
+          )}
+        </Section>
+        <Section title={<T k="admin.bookingsByDay" />}>
+          {days.length === 0 ? (
+            <Empty><T k="common.noData" /></Empty>
+          ) : (
+            <Bars points={days} />
+          )}
+        </Section>
       </div>
     </div>
-  );
-}
-
-function RankedList({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: Array<{ name: string; count: number; extra: string | ReactNode }>;
-}) {
-  return (
-    <Section title={title}>
-      {rows.length === 0 ? (
-        <Empty>Nothing to rank yet.</Empty>
-      ) : (
-        <ul className="space-y-2">
-          {rows.map((row) => (
-            <li
-              key={row.name}
-              className="flex items-center justify-between gap-4 text-sm"
-            >
-              <span className="truncate font-medium">{row.name}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {row.count} · {row.extra}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
   );
 }

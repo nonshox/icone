@@ -16,8 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import {
-  PAYMENT_METHODS,
   useAdminBarbers,
   useAdminCategories,
   useCreateCategory,
@@ -31,6 +32,7 @@ import {
 import { Empty, FormError, LoadingRows, Section, message } from "./admin-ui";
 
 export function SettingsView() {
+  const t = useT();
   const categories = useAdminCategories();
   const barbers = useAdminBarbers();
   const create = useCreateCategory();
@@ -46,31 +48,32 @@ export function SettingsView() {
 
   const error =
     errorText ??
-    (categories.error ? message(categories.error, "Could not load categories.") : null) ??
-    (barbers.error ? message(barbers.error, "Could not load chairs.") : null);
+    (categories.error ? message(categories.error, t("admin.loadError")) : null) ??
+    (barbers.error ? message(barbers.error, t("admin.loadError")) : null);
 
   function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) {
-      setErrorText("Give the category a name.");
+      setErrorText(t("admin.nameError"));
       return;
     }
     setErrorText(null);
     create.mutate(name, {
       onSuccess: () => {
         setName("");
-        toast.success("Category added");
+        toast.success(t("admin.created"));
       },
       onError: (cause) => {
-        setErrorText(message(cause, "Could not add the category."));
-        toast.error("Could not add the category");
+        const text = message(cause, t("admin.saveError"));
+        setErrorText(text);
+        toast.error(text);
       },
     });
   }
 
   function save(category: Category) {
     if (!editName.trim()) {
-      setErrorText("Give the category a name.");
+      setErrorText(t("admin.nameError"));
       return;
     }
     setErrorText(null);
@@ -79,11 +82,12 @@ export function SettingsView() {
       {
         onSuccess: () => {
           setEditingId(null);
-          toast.success("Category renamed");
+          toast.success(t("admin.saved"));
         },
         onError: (cause) => {
-          setErrorText(message(cause, "Could not rename the category."));
-          toast.error("Could not rename the category");
+          const text = message(cause, t("admin.saveError"));
+          setErrorText(text);
+          toast.error(text);
         },
       },
     );
@@ -91,23 +95,19 @@ export function SettingsView() {
 
   return (
     <div className="space-y-6">
-      <Section
-        title="Service categories"
-        description="Inactive categories are hidden."
-      >
+      <Section title={<T k="admin.categories" />} description={<T k="admin.categoriesDesc" />}>
         <form onSubmit={add} className="mb-4 flex flex-wrap items-end gap-3">
           <div className="min-w-48 flex-1 space-y-1.5">
-            <Label htmlFor="category-name">New category</Label>
+            <Label htmlFor="category-name"><T k="admin.newCategory" /></Label>
             <Input
               id="category-name"
               value={name}
               maxLength={32}
-              placeholder="Kids"
               onChange={(event) => setName(event.target.value)}
             />
           </div>
           <Button type="submit" disabled={create.isPending}>
-            Add category
+            <T k="admin.addCategory" />
           </Button>
         </form>
 
@@ -116,15 +116,15 @@ export function SettingsView() {
         {categories.isPending ? (
           <LoadingRows />
         ) : (categories.data ?? []).length === 0 ? (
-          <Empty>No categories yet.</Empty>
+          <Empty><T k="admin.noCategories" /></Empty>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead><T k="common.name" /></TableHead>
+                  <TableHead><T k="common.status" /></TableHead>
+                  <TableHead className="text-right"><T k="admin.actions" /></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -143,7 +143,7 @@ export function SettingsView() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={category.active ? "secondary" : "outline"}>
-                        {category.active ? "Active" : "Hidden"}
+                        {category.active ? t("admin.active") : t("admin.hidden")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -156,7 +156,7 @@ export function SettingsView() {
                             disabled={rename.isPending}
                             onClick={() => save(category)}
                           >
-                            Save
+                            <T k="common.save" />
                           </Button>
                         ) : (
                           <Button
@@ -168,7 +168,7 @@ export function SettingsView() {
                               setEditName(category.name);
                             }}
                           >
-                            Rename
+                            <T k="admin.rename" />
                           </Button>
                         )}
                         <Button
@@ -180,15 +180,14 @@ export function SettingsView() {
                             toggleActive.mutate(
                               { id: category.id, active: !category.active },
                               {
+                                onSuccess: () => toast.success(t("admin.saved")),
                                 onError: (cause) =>
-                                  toast.error("Could not update the category", {
-                                    description: message(cause, "Try again."),
-                                  }),
+                                  toast.error(message(cause, t("admin.saveError"))),
                               },
                             )
                           }
                         >
-                          {category.active ? "Hide" : "Show"}
+                          {category.active ? <T k="admin.hide" /> : <T k="admin.show" />}
                         </Button>
                         <Button
                           type="button"
@@ -196,16 +195,15 @@ export function SettingsView() {
                           variant="destructive"
                           disabled={remove.isPending}
                           onClick={() => {
-                            if (!window.confirm(`Remove ${category.name}?`)) return;
+                            if (!window.confirm(t("admin.confirmRemoveCategory").replace("{name}", category.name))) return;
                             remove.mutate(category.id, {
+                              onSuccess: () => toast.success(t("admin.removed")),
                               onError: (cause) =>
-                                toast.error("Could not remove the category", {
-                                  description: message(cause, "Try again."),
-                                }),
+                                toast.error(message(cause, t("admin.saveError"))),
                             });
                           }}
                         >
-                            Remove
+                          <T k="common.remove" />
                         </Button>
                       </div>
                     </TableCell>
@@ -218,21 +216,15 @@ export function SettingsView() {
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section
-          title="Featured listings"
-          description="Promoted on the directory."
-        >
+        <Section title={<T k="admin.featuredListings" />} description={<T k="admin.featuredDesc" />}>
           {barbers.isPending ? (
             <LoadingRows />
           ) : (barbers.data ?? []).length === 0 ? (
-            <Empty>No chairs yet.</Empty>
+            <Empty><T k="admin.noBarbers" /></Empty>
           ) : (
             <ul className="divide-y">
               {(barbers.data ?? []).map((barber) => (
-                <li
-                  key={barber.id}
-                  className="flex items-center justify-between gap-3 py-2"
-                >
+                <li key={barber.id} className="flex items-center justify-between gap-3 py-2">
                   <span className="truncate text-sm">{barber.name}</span>
                   <Button
                     type="button"
@@ -243,21 +235,14 @@ export function SettingsView() {
                       feature.mutate(
                         { id: barber.id, featured: !barber.featured },
                         {
-                          onSuccess: () =>
-                            toast.success(
-                              barber.featured
-                                ? "Removed from featured"
-                                : "Added to featured",
-                            ),
+                          onSuccess: () => toast.success(t("admin.saved")),
                           onError: (cause) =>
-                            toast.error("Could not update featured status", {
-                              description: message(cause, "Try again."),
-                            }),
+                            toast.error(message(cause, t("admin.saveError"))),
                         },
                       )
                     }
                   >
-                    {barber.featured ? "Featured" : "Feature"}
+                    {barber.featured ? t("admin.featured") : t("admin.feature")}
                   </Button>
                 </li>
               ))}
@@ -265,52 +250,33 @@ export function SettingsView() {
           )}
         </Section>
 
-        <Section
-          title="Payment methods"
-          description="Ways to settle a visit."
-        >
-          <ul className="space-y-2">
-            {PAYMENT_METHODS.map((method) => (
-              <li key={method.id} className="text-sm">
-                <span className="font-medium">{method.label}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {method.note}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <Section title={<T k="admin.bookingPolicies" />}>
+          {barbers.isPending ? (
+            <LoadingRows />
+          ) : (barbers.data ?? []).length === 0 ? (
+            <Empty><T k="admin.noBarbers" /></Empty>
+          ) : (
+            <ul className="divide-y">
+              {(barbers.data ?? []).map((barber) => (
+                <li key={barber.id} className="py-2 text-sm">
+                  <span className="font-medium">{barber.name}</span>
+                  <p className="text-xs text-muted-foreground">
+                    {barber.policy || t("admin.noPolicy")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </Section>
       </div>
 
-      <Section
-        title="Booking policies"
-        description="Per-chair cancellation policy."
-      >
-        {barbers.isPending ? (
-          <LoadingRows />
-        ) : (barbers.data ?? []).length === 0 ? (
-          <Empty>No chairs yet.</Empty>
-        ) : (
-          <ul className="divide-y">
-            {(barbers.data ?? []).map((barber) => (
-              <li key={barber.id} className="py-2 text-sm">
-                <span className="font-medium">{barber.name}</span>
-                <p className="text-xs text-muted-foreground">
-                  {barber.policy || "No policy set."}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Announcements">
+      <Section title={<T k="admin.notice" />}>
         <p className="text-sm text-muted-foreground">
           <Link
             href="/admin/moderation"
             className="text-primary underline underline-offset-2"
           >
-            Open the announcement composer →
+            <T k="admin.noticeComposerLink" />
           </Link>
         </p>
       </Section>

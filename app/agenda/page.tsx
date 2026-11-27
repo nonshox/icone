@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { AgendaView } from "@/components/agenda/agenda-view";
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
-import { currentMember, isStaff } from "@/lib/domain/member";
+import { getActor } from "@/lib/domain/access";
 
 export const metadata: Metadata = {
   title: "Agenda",
@@ -12,17 +13,17 @@ export const metadata: Metadata = {
 };
 
 async function AgendaGate() {
-  const member = await currentMember();
+  const actor = await getActor();
 
-  if (!member) {
+  if (!actor) {
     redirect(`/sign-in?next=${encodeURIComponent("/agenda")}`);
   }
 
-  if (!isStaff(member.profile.role)) {
+  if (actor.profile.role === "client") {
     redirect("/account");
   }
 
-  return <AgendaView role={member.profile.role} />;
+  return <AgendaView role={actor.profile.role} />;
 }
 
 function AgendaSkeleton() {
@@ -39,9 +40,13 @@ export default function AgendaPage() {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
 
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Agenda</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Staff only.</p>
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          <T k="nav.agenda" />
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <T k="work.agenda.hint" />
+        </p>
 
         <div className="mt-6">
           <Suspense fallback={<AgendaSkeleton />}>
@@ -49,7 +54,6 @@ export default function AgendaPage() {
           </Suspense>
         </div>
       </main>
-
     </div>
   );
 }

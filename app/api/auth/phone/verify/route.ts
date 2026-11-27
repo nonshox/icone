@@ -10,7 +10,7 @@ import {
   sessionCookieOptions,
 } from "@/lib/auth/cookies";
 import { readOtpCookie, verifyPhoneLogin } from "@/lib/auth/phone";
-import { ensureProfile, updateProfile } from "@/lib/domain/data";
+import { ensureProfile, updateProfile } from "@/lib/domain/account";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 

@@ -2,24 +2,28 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { Message, Participant, Thread } from "@/lib/domain/messages";
-import type {
-  Payment,
-  PaymentMethod,
-  PaymentStatus,
-} from "@/lib/domain/payments";
+import type { Conversation, Message } from "@/lib/domain/messages";
 
 import { api } from "./client";
-import { keys } from "./queries";
 
 export const messageKeys = {
   threads: ["messages"] as const,
   thread: (withId: string) => ["messages", withId] as const,
-  payment: (bookingId: string) => ["payment", bookingId] as const,
+};
+
+/** The route returns both canonical and legacy-friendly keys. */
+export type Thread = Conversation & {
+  conversation?: string;
+  name?: string;
+  withName?: string;
+  at?: string;
+  lastAt?: string;
+  preview?: string;
+  last?: string;
 };
 
 export type ThreadData = {
-  participant: Participant;
+  participant: Thread;
   messages: Message[];
 };
 
@@ -39,9 +43,7 @@ export function useThread(withId: string | null, conversation?: string | null) {
       const params = new URLSearchParams();
       if (withId) params.set("with", withId);
       if (conversation) params.set("conversation", conversation);
-      return api<{ participant: Participant; messages: Message[] }>(
-        `/api/messages?${params.toString()}`,
-      );
+      return api<ThreadData>(`/api/messages?${params.toString()}`);
     },
     enabled: Boolean(withId || conversation),
     refetchInterval: 15_000,
@@ -62,40 +64,6 @@ export function useSendMessage() {
       void queryClient.invalidateQueries({
         queryKey: messageKeys.thread(input.to),
       });
-    },
-  });
-}
-
-export function usePayment(bookingId: string) {
-  return useQuery({
-    queryKey: messageKeys.payment(bookingId),
-    queryFn: () =>
-      api<{ payment: Payment | null }>(
-        `/api/payments?booking=${encodeURIComponent(bookingId)}`,
-      ).then((r) => r.payment),
-    enabled: Boolean(bookingId),
-  });
-}
-
-export function useUpdatePayment() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (input: {
-      booking: string;
-      status: PaymentStatus;
-      method?: PaymentMethod;
-    }) =>
-      api<{ payment: Payment }>("/api/payments", {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }).then((r) => r.payment),
-    onSuccess: (_payment, input) => {
-      void queryClient.invalidateQueries({
-        queryKey: messageKeys.payment(input.booking),
-      });
-      void queryClient.invalidateQueries({ queryKey: keys.bookings });
-      void queryClient.invalidateQueries({ queryKey: ["agenda"] });
     },
   });
 }

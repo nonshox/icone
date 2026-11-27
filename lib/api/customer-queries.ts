@@ -4,14 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import type {
-  CustomerActivity,
-  CustomerStats,
-  Favorite,
+  BookingRow,
+  Locale,
   Notification,
-  NotifyPrefs,
-  SettingsData,
-} from "@/lib/domain/customer";
-import type { BookingRow, Status } from "@/lib/domain/types";
+  NotificationPrefs,
+  Profile,
+  Status,
+} from "@/lib/domain/types";
 import { STATUS_LABEL } from "@/lib/domain/types";
 
 import { api } from "./client";
@@ -23,9 +22,40 @@ export const customerKeys = {
   settings: ["settings"] as const,
 };
 
+export type Favorite = {
+  id: string;
+  barber: string;
+  user: string;
+  created: string;
+  name?: string;
+  photo?: string;
+};
+
 export type NotificationInbox = {
   notifications: Notification[];
   unread: number;
+};
+
+export type SettingsData = {
+  profile: Profile;
+  prefs: NotificationPrefs;
+};
+
+export type CustomerStats = {
+  upcoming: number;
+  completed: number;
+  cancelled: number;
+  favorites: number;
+  reviews: number;
+  unread: number;
+};
+
+export type CustomerActivity = {
+  id: string;
+  kind: "booking" | "review" | "notification";
+  title: string;
+  detail: string;
+  created: string;
 };
 
 type ToggleResult = { saved: boolean; favorite: Favorite | null };
@@ -103,7 +133,8 @@ export type SettingsInput = {
   name?: string;
   phone?: string;
   avatar?: string;
-  prefs?: Partial<NotifyPrefs>;
+  locale?: Locale;
+  prefs?: Partial<NotificationPrefs>;
 };
 
 export function useUpdateSettings() {
@@ -121,8 +152,8 @@ export function useUpdateSettings() {
   });
 }
 
-const UPCOMING: Status[] = ["pending", "accepted", "booked"];
-const PAST: Status[] = ["cancel", "noshow", "rejected"];
+const UPCOMING: Status[] = ["pending", "confirmed"];
+const PAST: Status[] = ["cancelled", "noshow", "rejected"];
 
 /**
  * Derive the dashboard numbers from data TanStack already owns. `today` comes

@@ -6,7 +6,6 @@ import {
   Loader2,
   MessageCircle,
   Star,
-  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -34,43 +33,18 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useBooking,
-  useCancelBooking,
-  useReviewBooking,
-} from "@/lib/api/booking-queries";
-import { ApiError } from "@/lib/api/client";
-import { usePayment } from "@/lib/api/message-queries";
-import { useProfile } from "@/lib/api/queries";
-import type {
-  PaymentMethod,
-  PaymentStatus,
-} from "@/lib/domain/payments";
+import { useBookings, useCreateReview, useProfile, useSetStatus } from "@/lib/api/queries";
+import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import type { BookingRow, Status } from "@/lib/domain/types";
+import { CANCELLABLE, type BookingRow, type Status } from "@/lib/domain/types";
 
-const badgeVariant: Record<
-  Status,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
+const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "outline",
-  accepted: "secondary",
-  booked: "default",
-  done: "secondary",
-  cancel: "outline",
-  noshow: "destructive",
+  confirmed: "default",
   rejected: "destructive",
-};
-
-const paymentVariant: Record<
-  PaymentStatus,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  pending: "outline",
-  paid: "secondary",
-  partial: "outline",
-  refunded: "destructive",
-  unpaid: "destructive",
+  cancelled: "outline",
+  done: "secondary",
+  noshow: "destructive",
 };
 
 function message(error: unknown, fallback: string): string {
@@ -89,34 +63,35 @@ function DetailSkeleton() {
 
 export function BookingDetail({ id }: { id: string }) {
   const t = useT();
-  const paymentLabel = (status: PaymentStatus) => t(`payment.${status}`);
-  const methodLabel = (method: PaymentMethod) => t(`payment.${method}`);
-  const booking = useBooking(id);
-  const cancel = useCancelBooking();
-  const review = useReviewBooking();
+  const todayDate = useShopDate();
+  const bookings = useBookings();
+  const setStatus = useSetStatus();
+  const review = useCreateReview();
   const profile = useProfile();
-  const payment = usePayment(booking.data?.id ?? "");
   const [rate, setRate] = useState("5");
   const [note, setNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const row = booking.data;
+  const row = bookings.data?.find((booking) => booking.id === id);
 
   function cancelVisit(visit: BookingRow) {
     if (!window.confirm(t("visits.cancelAsk"))) return;
 
     setActionError(null);
-    cancel.mutate(visit.id, {
-      onSuccess: () =>
-        toast.success(t("visits.cancelled"), {
-          description: `${formatDate(visit.date)} ${label(visit.start)}`,
-        }),
-      onError: (error) => {
-        const text = message(error, t("auth.tryAgain"));
-        setActionError(text);
-        toast.error(t("visits.cancelFailed"), { description: text });
+    setStatus.mutate(
+      { id: visit.id, status: "cancelled" },
+      {
+        onSuccess: () =>
+          toast.success(t("visits.cancelled"), {
+            description: `${formatDate(visit.date)} ${label(visit.start)}`,
+          }),
+        onError: (error) => {
+          const text = message(error, t("auth.tryAgain"));
+          setActionError(text);
+          toast.error(t("visits.cancelFailed"), { description: text });
+        },
       },
-    });
+    );
   }
 
   function submitReview(visit: BookingRow) {
@@ -134,12 +109,52 @@ export function BookingDetail({ id }: { id: string }) {
     );
   }
 
+  if (bookings.isPending || !todayDate) return <DetailSkeleton />;
+
+  if (bookings.isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("visits.loadFailed")}</CardTitle>
+          <CardDescription><T k="visits.tryShort" /></CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p role="alert" aria-live="polite" className="text-sm text-destructive">
+            {message(bookings.error, t("visits.loadError"))}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!row) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("visits.notFound")}</CardTitle>
+          <CardDescription><T k="visits.tryShort" /></CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/bookings"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <T k="nav.myVisits" />
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const canCancel = CANCELLABLE.includes(row.status) && row.date >= todayDate;
+  const canReview = (row.status === "done" || row.status === "noshow") && !row.reviewed;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        {profile.data?.role === "client" && booking.data ? (
+        {profile.data?.role === "client" ? (
           <Link
-            href={`/messages?barber=${booking.data.barber}`}
+            href={`/messages?barber=${row.barber}`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             <MessageCircle aria-hidden />
@@ -147,7 +162,7 @@ export function BookingDetail({ id }: { id: string }) {
           </Link>
         ) : null}
         <Link
-          href={`/book?barber=${booking.data?.barber ?? ""}&service=${booking.data?.service ?? ""}`}
+          href={`/book?barber=${row.barber}&service=${row.service}`}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           <T k="visits.bookAgain" />
@@ -164,258 +179,150 @@ export function BookingDetail({ id }: { id: string }) {
         </p>
       ) : null}
 
-      {booking.isPending ? <DetailSkeleton /> : null}
-
-      {booking.isError ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {booking.error instanceof ApiError && booking.error.status === 404
-                ? t("visits.notFound")
-                : t("visits.loadFailed")}
-            </CardTitle>
-            <CardDescription><T k="visits.tryShort" /></CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p
-              role="alert"
-              aria-live="polite"
-              className="text-sm text-destructive"
-            >
-              {message(booking.error, t("visits.tryShort"))}
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {row ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-xl">{row.serviceName}</CardTitle>
-                <CardDescription>· {row.barberName}</CardDescription>
-              </div>
-              <Badge variant={badgeVariant[row.status]}>
-                <T k={`status.${row.status}`} />
-              </Badge>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-xl">{row.serviceName}</CardTitle>
+              <CardDescription>· {row.barberName}</CardDescription>
             </div>
-          </CardHeader>
+            <Badge variant={badgeVariant[row.status]}>
+              <T k={`status.${row.status}`} />
+            </Badge>
+          </div>
+        </CardHeader>
 
-          <CardContent className="space-y-5">
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  <T k="visits.when" />
-                </dt>
-                <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
-                  <CalendarDays
-                    className="size-4 text-brand-strong"
-                    aria-hidden
-                  />
-                  <span className="tabular-nums">
-                    {formatDate(row.date)} · {label(row.start)}–{label(row.end)}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  <T k="visits.duration" />
-                </dt>
-                <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
-                  <Clock className="size-4 text-brand-strong" aria-hidden />
-                  {row.serviceTime} <T k="common.minutes" />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  <T k="visits.price" />
-                </dt>
-                <dd className="mt-1 text-sm font-medium tabular-nums">
-                  {formatPrice(row.price)}
-                </dd>
-              </div>
-            </dl>
-
-            {row.note ? (
-              <>
-                <Separator />
-                <div>
-                  <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    <T k="visits.yourNote" />
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    “{row.note}”
-                  </p>
-                </div>
-              </>
-            ) : null}
-
-            {["pending", "accepted", "booked"].includes(row.status) ? (
-              <>
-                <Separator />
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    variant="outline"
-                    disabled={cancel.isPending}
-                    onClick={() => cancelVisit(row)}
-                  >
-                    {cancel.isPending ? (
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                    ) : null}
-                    <T k="visits.cancel" />
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    <T k="visits.cancelHint" />
-                  </p>
-                </div>
-              </>
-            ) : null}
-
-            {row.status === "done" ? (
-              row.reviewed ? (
-                <>
-                  <Separator />
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Star
-                      className="size-4 text-brand-strong"
-                      aria-hidden
-                    />
-                    <T k="visits.reviewedThis" />
-                  </p>
-                </>
-              ) : (
-                <div className="space-y-4">
-                  <Separator />
-                  <div>
-                    <h2 className="flex items-center gap-2 text-base font-medium">
-                      <Star
-                        className="size-4 text-brand-strong"
-                        aria-hidden
-                      />
-                      <T k="visits.reviewTitle" />
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {t("visits.reviewQuestion")}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Label htmlFor={`rate-${row.id}`}><T k="visits.rating" /></Label>
-                    <Select
-                      value={rate}
-                      onValueChange={(value) => setRate(String(value))}
-                    >
-                      <SelectTrigger id={`rate-${row.id}`} className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[5, 4, 3, 2, 1].map((value) => (
-                          <SelectItem key={value} value={String(value)}>
-                            {value} {t(value === 1 ? "visits.star" : "visits.stars")}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`note-${row.id}`}><T k="visits.note" /></Label>
-                    <Textarea
-                      id={`note-${row.id}`}
-                      value={note}
-                      maxLength={400}
-                      placeholder={t("visits.reviewPlaceholder")}
-                      onChange={(event) => setNote(event.target.value)}
-                    />
-                  </div>
-
-                  <Button
-                    disabled={review.isPending}
-                    onClick={() => submitReview(row)}
-                  >
-                    {review.isPending ? (
-                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                    ) : null}
-                    <T k="visits.postReview" />
-                  </Button>
-                </div>
-              )
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {row && profile.data?.role === "client" ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Wallet className="size-4 text-brand-strong" aria-hidden />
-                  <T k="visits.payment" />
-                </CardTitle>
-                <CardDescription>
-                  {payment.data ? t("visits.paymentAtShop") : t("visits.noPayment")}
-                </CardDescription>
-              </div>
-              {payment.data ? (
-                <Badge variant={paymentVariant[payment.data.status]}>
-                  {paymentLabel(payment.data.status)}
-                </Badge>
-              ) : null}
+        <CardContent className="space-y-5">
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                <T k="visits.when" />
+              </dt>
+              <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
+                <CalendarDays className="size-4 text-brand-strong" aria-hidden />
+                <span className="tabular-nums">
+                  {formatDate(row.date)} · {label(row.start)}–{label(row.end)}
+                </span>
+              </dd>
             </div>
-          </CardHeader>
+            <div>
+              <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                <T k="visits.duration" />
+              </dt>
+              <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
+                <Clock className="size-4 text-brand-strong" aria-hidden />
+                {row.serviceTime} {t("common.minutes")}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                <T k="visits.price" />
+              </dt>
+              <dd className="mt-1 text-sm font-medium tabular-nums">
+                {formatPrice(row.price)}
+              </dd>
+            </div>
+          </dl>
 
-          <CardContent>
-            {payment.isPending ? (
-              <div className="space-y-2" aria-hidden>
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-4 w-28" />
+          {row.note ? (
+            <>
+              <Separator />
+              <div>
+                <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
+                  <T k="visits.yourNote" />
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">“{row.note}”</p>
               </div>
-            ) : null}
+            </>
+          ) : null}
 
-            {payment.isError ? (
-              <p
-                role="alert"
-                aria-live="polite"
-                className="text-sm text-destructive"
+          {canCancel ? (
+            <>
+              <Separator />
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  disabled={setStatus.isPending}
+                  onClick={() => cancelVisit(row)}
+                >
+                  {setStatus.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : null}
+                  <T k="visits.cancel" />
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  <T k="visits.cancelHint" />
+                </p>
+              </div>
+            </>
+          ) : null}
+
+          {canReview ? (
+            <div className="space-y-4">
+              <Separator />
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-medium">
+                  <Star className="size-4 text-brand-strong" aria-hidden />
+                  <T k="visits.reviewTitle" />
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("visits.reviewQuestion")}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Label htmlFor={`rate-${row.id}`}><T k="visits.rating" /></Label>
+                <Select
+                  value={rate}
+                  onValueChange={(value) => setRate(String(value))}
+                >
+                  <SelectTrigger id={`rate-${row.id}`} className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[5, 4, 3, 2, 1].map((value) => (
+                      <SelectItem key={value} value={String(value)}>
+                        {value} {t(value === 1 ? "visits.star" : "visits.stars")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`note-${row.id}`}><T k="visits.note" /></Label>
+                <Textarea
+                  id={`note-${row.id}`}
+                  value={note}
+                  maxLength={400}
+                  placeholder={t("visits.reviewPlaceholder")}
+                  onChange={(event) => setNote(event.target.value)}
+                />
+              </div>
+
+              <Button
+                disabled={review.isPending}
+                onClick={() => submitReview(row)}
               >
-                {message(payment.error, t("visits.paymentLoadError"))}
-              </p>
-            ) : null}
+                {review.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : null}
+                <T k="visits.postReview" />
+              </Button>
+            </div>
+          ) : null}
 
-            {payment.data ? (
-              <dl className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    <T k="visits.amount" />
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium tabular-nums">
-                    {formatPrice(payment.data.amount)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    <T k="visits.method" />
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium">
-                    {methodLabel(payment.data.method)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    <T k="visits.status" />
-                  </dt>
-                  <dd className="mt-1 text-sm font-medium">
-                    {paymentLabel(payment.data.status)}
-                  </dd>
-                </div>
-              </dl>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
+          {row.reviewed ? (
+            <>
+              <Separator />
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Star className="size-4 text-brand-strong" aria-hidden />
+                <T k="visits.reviewedThis" />
+              </p>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
 }
