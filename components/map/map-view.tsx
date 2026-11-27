@@ -2,16 +2,19 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { T } from "@/components/i18n/t";
 import { api } from "@/lib/api/client";
 import { imageUrl } from "@/lib/client/files";
 import type { SearchResult } from "@/lib/domain/discovery";
 import { formatPrice, label as timeLabel } from "@/lib/domain/time";
+import { useT } from "@/lib/i18n/use-t";
 
 import { MapCanvas, type MapPoint } from "./map-canvas";
 
 export function MapView({ initialQ = "" }: { initialQ?: string }) {
+  const t = useT();
   const [filters, setFilters] = useState({
     q: initialQ,
     type: "all",
@@ -22,6 +25,7 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
     openNow: false,
   });
   const [selected, setSelected] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
   const [bounds, setBounds] = useState<{
     north: number;
     south: number;
@@ -29,6 +33,26 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
     west: number;
   } | null>(null);
   const [searchArea, setSearchArea] = useState(false);
+
+  // A stable callback that ignores identical bounds prevents the map from
+  // re-rendering in a loop when it publishes its viewport.
+  const onMove = useCallback(
+    (next: { north: number; south: number; east: number; west: number }) => {
+      setBounds((current) => {
+        if (
+          current &&
+          Math.abs(current.north - next.north) < 1e-6 &&
+          Math.abs(current.south - next.south) < 1e-6 &&
+          Math.abs(current.east - next.east) < 1e-6 &&
+          Math.abs(current.west - next.west) < 1e-6
+        ) {
+          return current;
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -88,7 +112,8 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
           onChange={(event) =>
             setFilters({ ...filters, q: event.target.value })
           }
-          placeholder="Barber, shop or service"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.placeholder")}
           className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
         />
         <select
@@ -171,9 +196,9 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
         <MapCanvas
           center={center}
           points={points}
-          selected={selected}
+          selected={hovered ?? selected}
           onSelect={setSelected}
-          onMove={setBounds}
+          onMove={onMove}
         />
 
         <div className="space-y-3">
@@ -194,16 +219,21 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
           ) : null}
           {!isLoading && results.length === 0 ? (
             <div className="rounded-2xl border border-border p-4 text-sm text-muted-foreground">
-              No professionals match these filters.
+              <T k="search.empty" />
             </div>
           ) : null}
           {results.map((row) => (
             <Link
               key={`${row.kind}-${row.id}`}
               href={row.kind === "shop" ? `/shop/${row.slug || row.id}` : `/barbers/${row.slug || row.id}`}
-              onMouseEnter={() => setSelected(row.id)}
+              onMouseEnter={() => setHovered(row.id)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setHovered(row.id)}
+              onBlur={() => setHovered(null)}
               className={`block rounded-2xl border p-3 transition-colors hover:bg-brand/5 ${
-                selected === row.id ? "border-brand bg-brand/5" : "border-border bg-card"
+                hovered === row.id || selected === row.id
+                  ? "border-brand bg-brand/5"
+                  : "border-border bg-card"
               }`}
             >
               <div className="flex items-center gap-3">

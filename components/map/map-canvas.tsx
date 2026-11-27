@@ -113,7 +113,12 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
     [onMove, size.width, size.height, zoom],
   );
 
+  // Publish only once on mount and after an explicit user action. Publishing
+  // on every render made the parent's bounds update retrigger this render.
+  const published = useRef(false);
   useEffect(() => {
+    if (published.current) return;
+    published.current = true;
     publish(origin);
   }, [publish, origin]);
 
