@@ -5,7 +5,12 @@ import { z } from "zod";
 
 import { TABLES } from "@/lib/appwrite/db";
 import { createNotification } from "@/lib/domain/customer";
-import { getBooking, getMany, setBookingStatus } from "@/lib/domain/data";
+import {
+  getBooking,
+  getMany,
+  getReviewByBooking,
+  setBookingStatus,
+} from "@/lib/domain/data";
 import { currentMember, isStaff } from "@/lib/domain/member";
 import { formatDate, isPast, label as labelTime } from "@/lib/domain/time";
 import { STATUS_LABEL } from "@/lib/domain/types";
@@ -42,8 +47,14 @@ export async function GET(_request: NextRequest, context: Context) {
       return apiError("This booking is not yours.", 403, "forbidden");
     }
 
-    const [row] = await enrich([booking], { withUser: staff });
-    return NextResponse.json({ ok: true as const, booking: row });
+    const [rows, review] = await Promise.all([
+      enrich([booking], { withUser: staff }),
+      getReviewByBooking(booking.id),
+    ]);
+    return NextResponse.json({
+      ok: true as const,
+      booking: { ...rows[0], reviewed: Boolean(review) },
+    });
   } catch (error) {
     console.error("[api] booking read failed", error);
     return apiError("Could not load the booking.", 502, "booking_failed");

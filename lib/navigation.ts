@@ -26,24 +26,6 @@ export const navSections: readonly NavSection[] = [
     links: [
       { href: "/barbers", label: "nav.barbers" },
       { href: "/services", label: "nav.services" },
-      { href: "/book", label: "nav.book" },
-    ],
-  },
-  {
-    title: "nav.account",
-    links: [
-      { href: "/account", label: "nav.account" },
-      { href: "/bookings", label: "nav.myVisits" },
-      { href: "/favorites", label: "nav.saved" },
-      { href: "/notifications", label: "nav.inbox" },
-    ],
-  },
-  {
-    title: "nav.forBarbers",
-    links: [
-      { href: "/become-barber", label: "nav.becomeBarber" },
-      { href: "/barber", label: "nav.business" },
-      { href: "/agenda", label: "nav.agenda" },
     ],
   },
   {

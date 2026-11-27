@@ -1,6 +1,4 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -8,6 +6,7 @@ import { AuthOptions } from "@/components/auth/auth-options";
 import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
 import { getCurrentUser } from "@/lib/auth/session";
+import { safeNextPath } from "@/lib/next-path";
 import { publicConfig } from "@/lib/public-config";
 
 const botLink = `https://t.me/${publicConfig.telegramBotUsername}?start=web`;
@@ -18,9 +17,15 @@ export const metadata: Metadata = {
     "Sign in to icone with Telegram. No password, no email, no SMS.",
 };
 
-async function RedirectIfSignedIn() {
-  const user = await getCurrentUser();
-  if (user) redirect("/start");
+async function RedirectIfSignedIn({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  const [{ next }, user] = await Promise.all([searchParams, getCurrentUser()]);
+  if (user) {
+    redirect(safeNextPath(Array.isArray(next) ? next[0] : next));
+  }
   return null;
 }
 
@@ -34,11 +39,15 @@ function FormSkeleton() {
   );
 }
 
-export default function SignInPage() {
+export default function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
   return (
     <div className="relative min-h-dvh">
       <Suspense fallback={null}>
-        <RedirectIfSignedIn />
+        <RedirectIfSignedIn searchParams={searchParams} />
       </Suspense>
 
       <div className="mx-auto grid min-h-dvh w-full max-w-7xl lg:grid-cols-[1.02fr_0.98fr]">
@@ -59,22 +68,23 @@ export default function SignInPage() {
 
           <div className="relative max-w-md">
             <p className="font-display text-5xl leading-[1.05] text-balance xl:text-6xl">
-              Good hair days,
+              <T k="auth.brandLine1" />
               <br />
-              <span className="text-gradient-brand italic">booked ahead.</span>
+              <span className="text-gradient-brand italic">
+                <T k="auth.brandLine2" />
+              </span>
             </p>
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              icone is a barbershop for people who would rather not wait. Sign
-              in once, and your next chair is always a tap away.
+              <T k="auth.brandBody" />
             </p>
 
           </div>
 
           <div className="relative flex items-center justify-between text-xs text-muted-foreground">
-            <span>Tashkent · est. 2026</span>
+            <span><T k="auth.est" /></span>
             <span className="inline-flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-brand" aria-hidden />
-              Crafted in Uzbekistan
+              <T k="auth.crafted" />
             </span>
           </div>
         </aside>
@@ -83,19 +93,12 @@ export default function SignInPage() {
         <section className="flex flex-col px-6 py-8 sm:px-10">
           <div className="flex items-center justify-between">
             <Logo className="lg:hidden" />
-            <Link
-              href="/"
-              className="ml-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden />
-              Back home
-            </Link>
           </div>
 
           <div className="flex flex-1 items-center justify-center py-10">
             <div className="w-full max-w-[26rem]">
               <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-                Members
+                <T k="auth.members" />
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
                 <T k="auth.welcome" />
@@ -111,14 +114,13 @@ export default function SignInPage() {
               </div>
 
               <p className="mt-8 text-center text-[0.7rem] leading-relaxed text-muted-foreground">
-                By continuing you agree to receive booking-related messages
-                only. No newsletters, ever.
+                <T k="auth.legal" />
               </p>
             </div>
           </div>
 
           <p className="text-center text-[0.7rem] text-muted-foreground">
-            Need a hand?{" "}
+            <T k="auth.needHelp" />{" "}
             <a
               href={botLink}
               target="_blank"

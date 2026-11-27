@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { currentMember } from "@/lib/domain/member";
 
@@ -92,7 +91,6 @@ export function BarberShell({
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

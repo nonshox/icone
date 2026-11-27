@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { CustomerView } from "@/components/customer/customer-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { customerOverview } from "@/lib/domain/customer";
@@ -56,7 +55,6 @@ export default function CustomerPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

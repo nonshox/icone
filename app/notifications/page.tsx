@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { NotificationsView } from "@/components/customer/notifications-view";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +45,6 @@ export default function NotificationsPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

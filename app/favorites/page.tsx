@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { FavoritesView } from "@/components/customer/favorites-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { currentMember } from "@/lib/domain/member";
@@ -45,7 +44,6 @@ export default function FavoritesPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

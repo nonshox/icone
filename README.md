@@ -3,14 +3,14 @@
 Barber booking for Tashkent. Passwordless sign-in, live availability, staff
 agenda, Appwrite backend. Production: <https://icone-uz.vercel.app>.
 
-Auth and booking are live; Telegram reminders are not built yet. See
-[`docs/PROJECT.md`](./docs/PROJECT.md) for the roadmap.
+Auth, booking and daily Telegram reminders are live. See
+[`docs/PROJECT.md`](./docs/PROJECT.md) for the project map and what ships next.
 
 ## Stack
 
 Next.js 16 (App Router, Cache Components) · React 19 · Tailwind v4 · shadcn
-(`base-nova`) · TanStack Query · Zustand · Appwrite Cloud · Telegram Login
-Widget · Vercel Analytics.
+(`base-nova`) · TanStack Query · Zustand · Appwrite Cloud · Telegram bot ·
+Vercel Analytics.
 
 ## Getting started
 
@@ -58,7 +58,8 @@ Manual phone entry remains as a fallback.
 
 When any page is opened from Telegram, the app signs in automatically from
 Telegram's signed `initData` and stays on the same page. No email, no SMS, no
-Login Widget, and no separate sign-in screen inside the app.
+Login Widget, and no separate sign-in screen inside the app. A protected deep
+link keeps its `?next=` through sign-in and returns to the exact booking link.
 
 ## Routes
 

@@ -60,6 +60,10 @@ export default function HomePage() {
               <T k="landing.explore" />
             </Link>
           </div>
+
+          <p className="mt-5 text-xs text-muted-foreground">
+            <T k="landing.telegramOnly" />
+          </p>
         </section>
 
         <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
@@ -70,12 +74,9 @@ export default function HomePage() {
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em]">
               <T k="landing.howTitle" />
             </h2>
-            <ol className="mt-6 divide-y divide-border">
+            <ol className="mt-6 grid gap-6 sm:grid-cols-3">
               {steps.map((step) => (
-                <li
-                  key={step.number}
-                  className="flex items-start gap-4 py-5 first:pt-0 last:pb-0"
-                >
+                <li key={step.number} className="flex items-start gap-4">
                   <span className="font-display text-3xl leading-none text-brand-strong/80 italic">
                     {step.number}
                   </span>
@@ -85,6 +86,27 @@ export default function HomePage() {
                   </div>
                 </li>
               ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+          <div>
+            <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
+              <T k="landing.faqEyebrow" />
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em]">
+              <T k="landing.faqTitle" />
+            </h2>
+            <ol className="mt-6 space-y-4">
+              <li>
+                <h3 className="font-medium"><T k="landing.faq1" /></h3>
+                <p className="mt-1 text-sm text-muted-foreground"><T k="landing.faq1a" /></p>
+              </li>
+              <li>
+                <h3 className="font-medium"><T k="landing.faq2" /></h3>
+                <p className="mt-1 text-sm text-muted-foreground"><T k="landing.faq2a" /></p>
+              </li>
             </ol>
           </div>
         </section>

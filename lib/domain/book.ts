@@ -9,6 +9,7 @@ import {
   listUserBookings,
 } from "./data";
 import { LEAD_MINUTES, SLOT_STEP, isBookableDate, isFree } from "./availability";
+import { priceOf } from "./pricing";
 import { shopClock } from "./time";
 import type { Booking } from "./types";
 
@@ -59,6 +60,10 @@ export async function book(input: {
     return fail(404, "no_service", "That service is no longer offered.");
   }
 
+  if (service.barber && service.barber !== input.barber) {
+    return fail(400, "wrong_chair", "That service belongs to another chair.");
+  }
+
   const clock = shopClock();
   if (input.start % SLOT_STEP !== 0) {
     return fail(400, "bad_time", "Pick one of the offered times.");
@@ -105,7 +110,7 @@ export async function book(input: {
     date: input.date,
     start: input.start,
     end,
-    price: service.price,
+    price: priceOf(service),
     note: input.note,
     status: barber.confirm ? "pending" : "booked",
   });

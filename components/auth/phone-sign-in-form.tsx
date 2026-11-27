@@ -1,7 +1,7 @@
 "use client";
 
 import { ExternalLink, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n/use-t";
+import { safeNextPath } from "@/lib/next-path";
 
 /** Phone is shared with one tap in Telegram. The code is typed where you are. */
 export function PhoneSignInForm() {
@@ -20,6 +21,8 @@ export function PhoneSignInForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const params = useSearchParams();
+  const next = safeNextPath(params.get("next"));
   const t = useT();
 
   async function request(body: { phone?: string }) {
@@ -60,7 +63,7 @@ export function PhoneSignInForm() {
         error?: { message?: string };
       } | null;
       if (!response.ok) throw new Error(data?.error?.message ?? t("auth.tryAgain"));
-      router.push("/start");
+      router.push(next);
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t("auth.tryAgain"));

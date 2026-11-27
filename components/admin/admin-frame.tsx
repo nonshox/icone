@@ -1,6 +1,5 @@
 import { Suspense, type ReactNode } from "react";
 
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 
 import { AdminGate } from "./admin-gate";
@@ -48,7 +47,6 @@ export function AdminFrame({
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

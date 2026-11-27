@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { BookingDetail } from "@/components/bookings/booking-detail";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/lib/auth/session";
@@ -50,7 +49,6 @@ export default function BookingPage({
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

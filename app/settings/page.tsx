@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { SettingsView } from "@/components/customer/settings-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSettings } from "@/lib/domain/customer";
@@ -50,7 +49,6 @@ export default function SettingsPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

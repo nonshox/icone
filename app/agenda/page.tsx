@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { AgendaView } from "@/components/agenda/agenda-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { currentMember, isStaff } from "@/lib/domain/member";
 
@@ -51,7 +50,6 @@ export default function AgendaPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

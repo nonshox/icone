@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   CalendarDays,
   Clock,
   Loader2,
@@ -14,6 +13,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -62,20 +62,6 @@ const badgeVariant: Record<
   rejected: "destructive",
 };
 
-const paymentLabel: Record<PaymentStatus, string> = {
-  pending: "Pending at shop",
-  paid: "Paid",
-  partial: "Partly paid",
-  refunded: "Refunded",
-  unpaid: "Unpaid",
-};
-
-const methodLabel: Record<PaymentMethod, string> = {
-  shop: "At the shop",
-  card: "Card",
-  transfer: "Transfer",
-};
-
 const paymentVariant: Record<
   PaymentStatus,
   "default" | "secondary" | "outline" | "destructive"
@@ -102,6 +88,9 @@ function DetailSkeleton() {
 }
 
 export function BookingDetail({ id }: { id: string }) {
+  const t = useT();
+  const paymentLabel = (status: PaymentStatus) => t(`payment.${status}`);
+  const methodLabel = (method: PaymentMethod) => t(`payment.${method}`);
   const booking = useBooking(id);
   const cancel = useCancelBooking();
   const review = useReviewBooking();
@@ -114,18 +103,18 @@ export function BookingDetail({ id }: { id: string }) {
   const row = booking.data;
 
   function cancelVisit(visit: BookingRow) {
-    if (!window.confirm("Cancel this booking?")) return;
+    if (!window.confirm(t("visits.cancelAsk"))) return;
 
     setActionError(null);
     cancel.mutate(visit.id, {
       onSuccess: () =>
-        toast.success("Booking cancelled", {
-          description: `${formatDate(visit.date)} at ${label(visit.start)}.`,
+        toast.success(t("visits.cancelled"), {
+          description: `${formatDate(visit.date)} ${label(visit.start)}`,
         }),
       onError: (error) => {
-        const text = message(error, "Please try again.");
+        const text = message(error, t("auth.tryAgain"));
         setActionError(text);
-        toast.error("Could not cancel", { description: text });
+        toast.error(t("visits.cancelFailed"), { description: text });
       },
     });
   }
@@ -135,12 +124,11 @@ export function BookingDetail({ id }: { id: string }) {
     review.mutate(
       { booking: visit.id, rate: Number(rate), note: note.trim() },
       {
-        onSuccess: () =>
-          toast.success("Thanks for the review"),
+        onSuccess: () => toast.success(t("visits.reviewThanks")),
         onError: (error) => {
-          const text = message(error, "Please try again.");
+          const text = message(error, t("visits.tryShort"));
           setActionError(text);
-          toast.error("Could not save the review", { description: text });
+          toast.error(t("visits.reviewFailed"), { description: text });
         },
       },
     );
@@ -148,31 +136,22 @@ export function BookingDetail({ id }: { id: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link
-          href="/bookings"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" aria-hidden />
-          My visits
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          {profile.data?.role === "client" && booking.data ? (
-            <Link
-              href={`/messages?barber=${booking.data.barber}`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              <MessageCircle aria-hidden />
-              Message barber
-            </Link>
-          ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {profile.data?.role === "client" && booking.data ? (
           <Link
-            href={`/book?barber=${booking.data?.barber ?? ""}&service=${booking.data?.service ?? ""}`}
+            href={`/messages?barber=${booking.data.barber}`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            Book again
+            <MessageCircle aria-hidden />
+            <T k="visits.message" />
           </Link>
-        </div>
+        ) : null}
+        <Link
+          href={`/book?barber=${booking.data?.barber ?? ""}&service=${booking.data?.service ?? ""}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          <T k="visits.bookAgain" />
+        </Link>
       </div>
 
       {actionError ? (
@@ -192,10 +171,10 @@ export function BookingDetail({ id }: { id: string }) {
           <CardHeader>
             <CardTitle>
               {booking.error instanceof ApiError && booking.error.status === 404
-                ? "Visit not found"
-                : "Could not load this visit"}
+                ? t("visits.notFound")
+                : t("visits.loadFailed")}
             </CardTitle>
-            <CardDescription>Try again shortly.</CardDescription>
+            <CardDescription><T k="visits.tryShort" /></CardDescription>
           </CardHeader>
           <CardContent>
             <p
@@ -203,7 +182,7 @@ export function BookingDetail({ id }: { id: string }) {
               aria-live="polite"
               className="text-sm text-destructive"
             >
-              {message(booking.error, "Please try again.")}
+              {message(booking.error, t("visits.tryShort"))}
             </p>
           </CardContent>
         </Card>
@@ -215,7 +194,7 @@ export function BookingDetail({ id }: { id: string }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <CardTitle className="text-xl">{row.serviceName}</CardTitle>
-                <CardDescription>with {row.barberName}</CardDescription>
+                <CardDescription>· {row.barberName}</CardDescription>
               </div>
               <Badge variant={badgeVariant[row.status]}>
                 <T k={`status.${row.status}`} />
@@ -227,7 +206,7 @@ export function BookingDetail({ id }: { id: string }) {
             <dl className="grid gap-4 sm:grid-cols-2">
               <div>
                 <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  When
+                  <T k="visits.when" />
                 </dt>
                 <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
                   <CalendarDays
@@ -241,16 +220,16 @@ export function BookingDetail({ id }: { id: string }) {
               </div>
               <div>
                 <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  Duration
+                  <T k="visits.duration" />
                 </dt>
                 <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
                   <Clock className="size-4 text-brand-strong" aria-hidden />
-                  {row.serviceTime} min
+                  {row.serviceTime} <T k="common.minutes" />
                 </dd>
               </div>
               <div>
                 <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                  Price
+                  <T k="visits.price" />
                 </dt>
                 <dd className="mt-1 text-sm font-medium tabular-nums">
                   {formatPrice(row.price)}
@@ -263,7 +242,7 @@ export function BookingDetail({ id }: { id: string }) {
                 <Separator />
                 <div>
                   <p className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    Your note
+                    <T k="visits.yourNote" />
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     “{row.note}”
@@ -272,7 +251,7 @@ export function BookingDetail({ id }: { id: string }) {
               </>
             ) : null}
 
-            {row.status === "booked" ? (
+            {["pending", "accepted", "booked"].includes(row.status) ? (
               <>
                 <Separator />
                 <div className="flex flex-wrap items-center gap-3">
@@ -284,10 +263,10 @@ export function BookingDetail({ id }: { id: string }) {
                     {cancel.isPending ? (
                       <Loader2 className="size-3.5 animate-spin" aria-hidden />
                     ) : null}
-                    Cancel booking
+                    <T k="visits.cancel" />
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Cancel before the visit starts.
+                    <T k="visits.cancelHint" />
                   </p>
                 </div>
               </>
@@ -302,7 +281,7 @@ export function BookingDetail({ id }: { id: string }) {
                       className="size-4 text-brand-strong"
                       aria-hidden
                     />
-                    You reviewed this visit.
+                    <T k="visits.reviewedThis" />
                   </p>
                 </>
               ) : (
@@ -314,15 +293,15 @@ export function BookingDetail({ id }: { id: string }) {
                         className="size-4 text-brand-strong"
                         aria-hidden
                       />
-                      Review your visit
+                      <T k="visits.reviewTitle" />
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      How was {row.serviceName} with {row.barberName}?
+                      {t("visits.reviewQuestion")}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <Label htmlFor={`rate-${row.id}`}>Rating</Label>
+                    <Label htmlFor={`rate-${row.id}`}><T k="visits.rating" /></Label>
                     <Select
                       value={rate}
                       onValueChange={(value) => setRate(String(value))}
@@ -333,7 +312,7 @@ export function BookingDetail({ id }: { id: string }) {
                       <SelectContent>
                         {[5, 4, 3, 2, 1].map((value) => (
                           <SelectItem key={value} value={String(value)}>
-                            {value} {value === 1 ? "star" : "stars"}
+                            {value} {t(value === 1 ? "visits.star" : "visits.stars")}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -341,12 +320,12 @@ export function BookingDetail({ id }: { id: string }) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor={`note-${row.id}`}>Note</Label>
+                    <Label htmlFor={`note-${row.id}`}><T k="visits.note" /></Label>
                     <Textarea
                       id={`note-${row.id}`}
                       value={note}
                       maxLength={400}
-                      placeholder="How was the cut?"
+                      placeholder={t("visits.reviewPlaceholder")}
                       onChange={(event) => setNote(event.target.value)}
                     />
                   </div>
@@ -358,7 +337,7 @@ export function BookingDetail({ id }: { id: string }) {
                     {review.isPending ? (
                       <Loader2 className="size-3.5 animate-spin" aria-hidden />
                     ) : null}
-                    Post review
+                    <T k="visits.postReview" />
                   </Button>
                 </div>
               )
@@ -374,15 +353,15 @@ export function BookingDetail({ id }: { id: string }) {
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Wallet className="size-4 text-brand-strong" aria-hidden />
-                  Payment
+                  <T k="visits.payment" />
                 </CardTitle>
                 <CardDescription>
-                  {payment.data ? "Settle this at the shop." : "No payment recorded."}
+                  {payment.data ? t("visits.paymentAtShop") : t("visits.noPayment")}
                 </CardDescription>
               </div>
               {payment.data ? (
                 <Badge variant={paymentVariant[payment.data.status]}>
-                  {paymentLabel[payment.data.status]}
+                  {paymentLabel(payment.data.status)}
                 </Badge>
               ) : null}
             </div>
@@ -402,7 +381,7 @@ export function BookingDetail({ id }: { id: string }) {
                 aria-live="polite"
                 className="text-sm text-destructive"
               >
-                {message(payment.error, "Could not load the payment.")}
+                {message(payment.error, t("visits.paymentLoadError"))}
               </p>
             ) : null}
 
@@ -410,7 +389,7 @@ export function BookingDetail({ id }: { id: string }) {
               <dl className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    Amount
+                    <T k="visits.amount" />
                   </dt>
                   <dd className="mt-1 text-sm font-medium tabular-nums">
                     {formatPrice(payment.data.amount)}
@@ -418,18 +397,18 @@ export function BookingDetail({ id }: { id: string }) {
                 </div>
                 <div>
                   <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    Method
+                    <T k="visits.method" />
                   </dt>
                   <dd className="mt-1 text-sm font-medium">
-                    {methodLabel[payment.data.method]}
+                    {methodLabel(payment.data.method)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs tracking-[0.18em] text-muted-foreground uppercase">
-                    Status
+                    <T k="visits.status" />
                   </dt>
                   <dd className="mt-1 text-sm font-medium">
-                    {paymentLabel[payment.data.status]}
+                    {paymentLabel(payment.data.status)}
                   </dd>
                 </div>
               </dl>

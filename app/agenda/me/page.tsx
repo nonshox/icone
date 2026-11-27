@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { StaffView } from "@/components/staff/staff-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { currentMember } from "@/lib/domain/member";
 
@@ -55,7 +54,6 @@ export default function MyChairPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

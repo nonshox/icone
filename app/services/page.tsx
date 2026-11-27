@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,7 +115,6 @@ export default function ServicesPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

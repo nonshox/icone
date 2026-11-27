@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
 
@@ -14,6 +16,26 @@ export function SiteFooter() {
             <T k="footer.tag" />
           </p>
         </div>
+        <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+          <Link href="/legal/terms">
+            <T k="footer.terms" />
+          </Link>
+          <Link href="/legal/privacy">
+            <T k="footer.privacy" />
+          </Link>
+          <Link href="/help">
+            <T k="nav.help" />
+          </Link>
+          <Link href="/book">
+            <T k="nav.book" />
+          </Link>
+          <Link href="/barbers">
+            <T k="nav.barbers" />
+          </Link>
+          <Link href="/services">
+            <T k="nav.services" />
+          </Link>
+        </nav>
         <p className="text-xs">© {CURRENT_YEAR} icone</p>
       </div>
     </footer>

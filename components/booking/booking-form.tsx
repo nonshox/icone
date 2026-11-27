@@ -9,7 +9,7 @@ import {
   Scissors,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
@@ -41,6 +41,7 @@ import {
   useServices,
 } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
+import { priceOf } from "@/lib/domain/pricing";
 import {
   addDays,
   formatDate,
@@ -66,22 +67,44 @@ export function BookingForm() {
   const setStart = useBookingDraft((state) => state.setStart);
   const setNote = useBookingDraft((state) => state.setNote);
 
-  const [weekOffset, setWeekOffset] = useState(0);
   const shopDate = useShopDate();
-  const days = useMemo(() => {
-    if (!shopDate) return [];
-    const from = addDays(shopDate, weekOffset * 7);
-    const to = addDays(from, 7);
-    return nextDates(60).filter((day) => day >= from && day < to);
-  }, [shopDate, weekOffset]);
   const maxDate = useMemo(
     () => (shopDate ? addDays(shopDate, 60) : ""),
     [shopDate],
   );
-  const date = storedDate || days[0] || "";
+  const date = storedDate || shopDate || "";
+
+  const weekStart = useMemo(() => {
+    if (!shopDate || !date) return "";
+    const offset = Math.floor(
+      (Date.parse(date) - Date.parse(shopDate)) / 86_400_000,
+    );
+    return addDays(shopDate, Math.max(0, Math.floor(offset / 7)) * 7);
+  }, [shopDate, date]);
+
+  const days = useMemo(() => {
+    if (!weekStart) return [];
+    const to = addDays(weekStart, 7);
+    return nextDates(60).filter((day) => day >= weekStart && day < to);
+  }, [weekStart]);
+
+  const canPrev = Boolean(shopDate && date && addDays(date, -7) >= shopDate);
+  const canNext = Boolean(maxDate && date && addDays(date, 7) <= maxDate);
 
   const services = useServices();
   const barbers = useBarbers();
+  const visibleServices = useMemo(() => {
+    const all = services.data ?? [];
+    if (!barberId) return all;
+    return all.filter((item) => !item.barber || item.barber === barberId);
+  }, [services.data, barberId]);
+
+  useEffect(() => {
+    if (!serviceId || !barberId) return;
+    const chosen = services.data?.find((item) => item.id === serviceId);
+    if (chosen?.barber && chosen.barber !== barberId) setService("");
+  }, [serviceId, barberId, services.data, setService]);
+
   const availability = useAvailability({
     barber: barberId,
     date,
@@ -105,16 +128,16 @@ export function BookingForm() {
         note: note.trim(),
       });
 
-      toast.success("Chair booked", {
-        description: `${booking.serviceName} with ${booking.barberName} · ${formatDate(booking.date)} at ${label(booking.start)}.`,
+      toast.success(t("booking.booked"), {
+        description: `${booking.serviceName} · ${booking.barberName} · ${formatDate(booking.date)} ${label(booking.start)}`,
       });
 
       useBookingDraft.getState().reset();
       router.push("/bookings");
     } catch (error) {
-      toast.error("Could not book", {
+      toast.error(t("booking.failed"), {
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : t("auth.tryAgain"),
       });
     }
   }
@@ -123,7 +146,7 @@ export function BookingForm() {
     <Card>
       <CardHeader>
         <CardTitle><T k="booking.details" /></CardTitle>
-        <CardDescription>Times are Tashkent time.</CardDescription>
+        <CardDescription><T k="booking.timezone" /></CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -138,9 +161,10 @@ export function BookingForm() {
                 <SelectValue placeholder={t("booking.service")} />
               </SelectTrigger>
               <SelectContent>
-                {(services.data ?? []).map((item) => (
+                {visibleServices.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
-                    {item.name} · {item.time} min · {formatPrice(item.price)}
+                    {item.name} · {item.time} <T k="common.minutes" /> ·{" "}
+                    {formatPrice(priceOf(item))}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -148,7 +172,7 @@ export function BookingForm() {
             {services.isPending ? <Skeleton className="h-4 w-40" /> : null}
             {services.isError ? (
               <p className="text-xs text-destructive">
-                Could not load the menu.
+                <T k="booking.loadError" />
               </p>
             ) : null}
           </div>
@@ -173,7 +197,7 @@ export function BookingForm() {
             {barbers.isPending ? <Skeleton className="h-4 w-40" /> : null}
             {barbers.isError ? (
               <p className="text-xs text-destructive">
-                Could not load the barbers.
+                <T k="booking.barberLoadError" />
               </p>
             ) : null}
           </div>
@@ -187,9 +211,9 @@ export function BookingForm() {
                 type="button"
                 size="icon-sm"
                 variant="outline"
-                aria-label="Previous week"
-                disabled={weekOffset === 0}
-                onClick={() => setWeekOffset((value) => Math.max(0, value - 1))}
+                aria-label={t("booking.prevWeek")}
+                disabled={!canPrev}
+                onClick={() => { if (date) setDate(addDays(date, -7)); }}
               >
                 <ChevronLeft className="size-3.5" aria-hidden />
               </Button>
@@ -200,9 +224,9 @@ export function BookingForm() {
                 type="button"
                 size="icon-sm"
                 variant="outline"
-                aria-label="Next week"
-                disabled={weekOffset >= 8}
-                onClick={() => setWeekOffset((value) => Math.min(8, value + 1))}
+                aria-label={t("booking.nextWeek")}
+                disabled={!canNext}
+                onClick={() => { if (date) setDate(addDays(date, 7)); }}
               >
                 <ChevronRight className="size-3.5" aria-hidden />
               </Button>
@@ -226,14 +250,9 @@ export function BookingForm() {
             value={date}
             min={shopDate}
             max={maxDate}
-            onChange={(event) => {
-              const value = event.target.value;
-              setDate(value);
-              const index = nextDates(60).indexOf(value);
-              if (index >= 0) setWeekOffset(Math.floor(index / 7));
-            }}
+            onChange={(event) => setDate(event.target.value)}
             className="h-9 w-44"
-            aria-label="Or pick another date"
+            aria-label={t("booking.orPickDate")}
           />
         </div>
 
@@ -244,7 +263,7 @@ export function BookingForm() {
 
           {!serviceId || !barberId ? (
             <p className="text-sm text-muted-foreground">
-              Choose a service and a barber to see open times.
+              <T k="booking.pickServiceBarber" />
             </p>
           ) : availability.isPending ? (
             <div className="flex flex-wrap gap-2">
@@ -256,7 +275,7 @@ export function BookingForm() {
             <p className="text-sm text-destructive">
               {availability.error instanceof Error
                 ? availability.error.message
-                : "Could not load times."}
+                : t("booking.timeLoadError")}
             </p>
           ) : availability.data && availability.data.length > 0 ? (
             <div className="flex flex-wrap gap-2">
@@ -275,18 +294,18 @@ export function BookingForm() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No open times for this day. Try another date or barber.
+              <T k="booking.noTimes" />
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="note">Note (optional)</Label>
+          <Label htmlFor="note"><T k="booking.noteOptional" /></Label>
           <Textarea
             id="note"
             value={note}
             maxLength={200}
-            placeholder="Anything the barber should know?"
+            placeholder={t("booking.notePlaceholder")}
             onChange={(event) => setNote(event.target.value)}
           />
         </div>
@@ -295,10 +314,10 @@ export function BookingForm() {
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Scissors className="size-4" aria-hidden />
-              {service ? service.name : "No service yet"}
+              {service ? service.name : t("booking.noService")}
             </span>
             <span className="font-medium tabular-nums">
-              {service ? formatPrice(service.price) : "—"}
+              {service ? formatPrice(priceOf(service)) : "—"}
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

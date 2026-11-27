@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { BarberDirectory } from "@/components/barbers/barber-directory";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -72,7 +71,6 @@ export default function BarbersPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

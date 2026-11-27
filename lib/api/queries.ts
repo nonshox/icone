@@ -20,6 +20,7 @@ export const keys = {
   availability: (barber: string, date: string, service: string) =>
     ["availability", barber, date, service] as const,
   bookings: ["bookings"] as const,
+  booking: (id: string) => ["booking", id] as const,
   agenda: (date: string, barber: string) => ["agenda", date, barber] as const,
   reviews: (barber: string) => ["reviews", barber] as const,
   me: ["me"] as const,
@@ -154,6 +155,7 @@ export function useUpdateProfile() {
   });
 }
 
+/** The only review mutation. Both visit views share it. */
 export function useCreateReview() {
   const queryClient = useQueryClient();
 
@@ -163,10 +165,23 @@ export function useCreateReview() {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
+    onSuccess: (_result, input) => {
+      // Mark both caches before refetching so the review form does not flash
+      // back on a stale list read.
+      queryClient.setQueryData<BookingRow[]>(keys.bookings, (list) =>
+        list?.map((row) =>
+          row.id === input.booking ? { ...row, reviewed: true } : row,
+        ),
+      );
+      queryClient.setQueryData<BookingRow>(keys.booking(input.booking), (row) =>
+        row ? { ...row, reviewed: true } : row,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: keys.booking(input.booking),
+      });
+      void queryClient.invalidateQueries({ queryKey: keys.bookings });
       void queryClient.invalidateQueries({ queryKey: ["reviews"] });
       void queryClient.invalidateQueries({ queryKey: keys.barbers });
-      void queryClient.invalidateQueries({ queryKey: keys.bookings });
     },
   });
 }

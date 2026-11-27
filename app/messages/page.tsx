@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { MessagesView } from "@/components/messages/messages-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/lib/auth/session";
@@ -64,7 +63,6 @@ export default function MessagesPage({ searchParams }: Search) {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

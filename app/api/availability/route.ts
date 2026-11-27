@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getService } from "@/lib/domain/data";
+import { getBarber, getService } from "@/lib/domain/data";
 import { getSlots } from "@/lib/domain/availability";
 import { isDate } from "@/lib/domain/time";
 import { apiError } from "@/lib/http";
@@ -21,9 +21,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const item = await getService(service);
-    if (!item) {
+    const [chair, item] = await Promise.all([
+      getBarber(barber),
+      getService(service),
+    ]);
+
+    if (!chair?.active) {
+      return apiError("That barber is not taking bookings.", 404, "no_barber");
+    }
+    if (!item || !item.active) {
       return apiError("Pick a service first.", 400, "no_service");
+    }
+    if (item.barber && item.barber !== barber) {
+      return apiError("That service belongs to another chair.", 400, "wrong_chair");
     }
 
     const slots = await getSlots({ barber, date, time: item.time });

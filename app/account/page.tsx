@@ -4,7 +4,6 @@ import { Suspense } from "react";
 
 import { T } from "@/components/i18n/t";
 import { AccountView } from "@/components/account/account-view";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { currentMember } from "@/lib/domain/member";
 
@@ -51,7 +50,6 @@ export default function AccountPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

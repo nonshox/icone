@@ -3,7 +3,6 @@ import { Suspense } from "react";
 
 import { BecomeBarberForm } from "@/components/applications/become-barber-form";
 import { T } from "@/components/i18n/t";
-import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/lib/auth/session";
@@ -37,7 +36,6 @@ export default function BecomeBarberPage() {
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }

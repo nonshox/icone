@@ -263,6 +263,12 @@ export function SettingsView({
               <Link href="/help" className="block text-sm font-medium hover:underline">
                 Help →
               </Link>
+              <Link
+                href="/become-barber"
+                className="block text-sm font-medium hover:underline"
+              >
+                Become a barber →
+              </Link>
             </CardContent>
           </Card>
         </div>

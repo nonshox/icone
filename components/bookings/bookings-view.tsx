@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -47,21 +48,22 @@ const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destru
 
 function BookingCard({ booking }: { booking: BookingRow }) {
   const setStatus = useSetStatus();
+  const t = useT();
 
   function cancel() {
-    if (!window.confirm("Cancel this booking?")) return;
+    if (!window.confirm(t("visits.cancelAsk"))) return;
 
     setStatus.mutate(
       { id: booking.id, status: "cancel" },
       {
         onSuccess: () =>
-          toast.success("Booking cancelled", {
-            description: `${formatDate(booking.date)} at ${label(booking.start)}.`,
+          toast.success(t("visits.cancelled"), {
+            description: `${formatDate(booking.date)} ${label(booking.start)}`,
           }),
         onError: (error) =>
-          toast.error("Could not cancel", {
+          toast.error(t("visits.cancelFailed"), {
             description:
-              error instanceof Error ? error.message : "Please try again.",
+              error instanceof Error ? error.message : t("auth.tryAgain"),
           }),
       },
     );
@@ -78,7 +80,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {booking.barberName} · {formatDate(booking.date)} at{" "}
+            {booking.barberName} · {formatDate(booking.date)} ·{" "}
             {label(booking.start)} · {booking.serviceTime} min
           </p>
           <p className="text-sm font-medium tabular-nums">
@@ -89,7 +91,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
           ) : null}
         </div>
 
-        {booking.status === "booked" ? (
+        {["pending", "accepted", "booked"].includes(booking.status) ? (
           <Button
             variant="outline"
             size="sm"
@@ -99,7 +101,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
             {setStatus.isPending ? (
               <Loader2 className="size-3.5 animate-spin" aria-hidden />
             ) : null}
-            Cancel
+            <T k="visits.cancel" />
           </Button>
         ) : null}
       </CardContent>
@@ -109,6 +111,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
 
 function ReviewForm({ booking }: { booking: BookingRow }) {
   const create = useCreateReview();
+  const t = useT();
   const [rate, setRate] = useState("5");
   const [note, setNote] = useState("");
 
@@ -116,12 +119,11 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
     create.mutate(
       { booking: booking.id, rate: Number(rate), note: note.trim() },
       {
-        onSuccess: () =>
-          toast.success("Thanks for the review"),
+        onSuccess: () => toast.success(t("visits.reviewThanks")),
         onError: (error) =>
-          toast.error("Could not save the review", {
+          toast.error(t("visits.reviewFailed"), {
             description:
-              error instanceof Error ? error.message : "Please try again.",
+              error instanceof Error ? error.message : t("visits.tryShort"),
           }),
       },
     );
@@ -132,16 +134,16 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Star className="size-4" aria-hidden />
-          Review your visit
+          <T k="visits.reviewTitle" />
         </CardTitle>
         <CardDescription>
-          {booking.serviceName} with {booking.barberName} ·{" "}
+          {booking.serviceName} · {booking.barberName} ·{" "}
           {formatDate(booking.date)}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-3">
-          <Label htmlFor={`rate-${booking.id}`}>Rating</Label>
+          <Label htmlFor={`rate-${booking.id}`}><T k="visits.rating" /></Label>
           <Select value={rate} onValueChange={(value) => setRate(String(value))}>
             <SelectTrigger id={`rate-${booking.id}`} className="w-28">
               <SelectValue />
@@ -149,7 +151,7 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
             <SelectContent>
               {[5, 4, 3, 2, 1].map((value) => (
                 <SelectItem key={value} value={String(value)}>
-                  {value} {value === 1 ? "star" : "stars"}
+                  {value} {t(value === 1 ? "visits.star" : "visits.stars")}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -159,7 +161,7 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
         <Textarea
           value={note}
           maxLength={400}
-          placeholder="How was the cut?"
+          placeholder={t("visits.reviewPlaceholder")}
           onChange={(event) => setNote(event.target.value)}
         />
 
@@ -171,7 +173,7 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
           {create.isPending ? (
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
           ) : null}
-          Post review
+          <T k="visits.postReview" />
         </Button>
       </CardContent>
     </Card>
@@ -179,18 +181,19 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
 }
 
 function EmptyState() {
+  const t = useT();
   return (
     <Card>
       <CardContent className="flex flex-col items-start gap-3 py-6">
         <span className="grid size-10 place-items-center rounded-full bg-muted">
           <CalendarDays className="size-5" aria-hidden />
         </span>
-        <p className="font-medium">No visits yet</p>
+        <p className="font-medium"><T k="visits.empty" /></p>
         <Link
           href="/book"
           className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
         >
-          Book a chair
+          {t("booking.title")}
         </Link>
       </CardContent>
     </Card>
@@ -198,6 +201,7 @@ function EmptyState() {
 }
 
 export function BookingsView() {
+  const t = useT();
   const bookings = useBookings();
   const todayDate = useShopDate();
   const [reviewFor, setReviewFor] = useState<string | null>(null);
@@ -217,7 +221,7 @@ export function BookingsView() {
         <CardContent className="py-6 text-sm text-destructive">
           {bookings.error instanceof Error
             ? bookings.error.message
-            : "Could not load your bookings."}
+            : t("visits.loadError")}
         </CardContent>
       </Card>
     );
@@ -248,25 +252,25 @@ export function BookingsView() {
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-lg font-medium">Upcoming</h2>
+            <h2 className="text-lg font-medium"><T k="visits.upcoming" /></h2>
             <p className="text-sm text-muted-foreground">
               {upcoming.length === 0
-                ? "Nothing booked."
-                : `${upcoming.length} upcoming.`}
+                ? t("visits.nothingBooked")
+                : `${upcoming.length} ${t("visits.upcomingShort")}`}
             </p>
           </div>
           <Link
             href="/book"
             className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
           >
-            Book
+            <T k="nav.book" />
           </Link>
         </div>
 
         {upcoming.length === 0 ? (
           <Card size="sm">
             <CardContent className="py-5 text-sm text-muted-foreground">
-              Book a service to see it here.
+              {t("visits.bookService")}
             </CardContent>
           </Card>
         ) : (
@@ -280,18 +284,17 @@ export function BookingsView() {
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-medium">History</h2>
+          <h2 className="text-lg font-medium"><T k="visits.history" /></h2>
           <p className="text-sm text-muted-foreground">
-            {all.length - upcoming.length} past visit
-            {all.length - upcoming.length === 1 ? "" : "s"} · {reviewed}{" "}
-            reviewed
+            {all.length - upcoming.length} {t("visits.pastVisits")} · {reviewed}{" "}
+            {t("visits.reviewed")}
           </p>
         </div>
 
         {history.length === 0 ? (
           <Card size="sm">
             <CardContent className="py-5 text-sm text-muted-foreground">
-              No past visits.
+              {t("visits.noPast")}
             </CardContent>
           </Card>
         ) : (
@@ -309,7 +312,7 @@ export function BookingsView() {
                       onClick={() => setReviewFor(booking.id)}
                     >
                       <Star className="size-3.5" aria-hidden />
-                      Leave a review
+                      <T k="visits.review" />
                     </Button>
                   )
                 ) : null}

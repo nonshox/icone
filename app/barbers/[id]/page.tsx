@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 
 import { FavoriteButton } from "@/components/barbers/favorite-button";
-import { SiteFooter } from "@/components/layout/site-footer";
+import { NextSlots } from "@/components/barbers/next-slots";
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -30,7 +31,6 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TABLES } from "@/lib/appwrite/db";
-import { getSlots } from "@/lib/domain/availability";
 import { isFavorite, listPortfolio, listPromotions } from "@/lib/domain/customer";
 import {
   getBarber,
@@ -40,24 +40,14 @@ import {
   listServices,
 } from "@/lib/domain/data";
 import { currentMember } from "@/lib/domain/member";
-import { formatDate, formatPrice, label, nextDates } from "@/lib/domain/time";
-import type { Review, Service, Slot } from "@/lib/domain/types";
+import { priceOf } from "@/lib/domain/pricing";
+import { formatDate, formatPrice, label } from "@/lib/domain/time";
+import type { Review } from "@/lib/domain/types";
 import type { PortfolioItem, Promotion } from "@/lib/domain/customer";
 import { cn } from "@/lib/utils";
 
 type ReviewRow = Review & { userName: string };
 type WindowRow = { day: number; start: number; end: number };
-type SlotPreview = { date: string; slots: Slot[]; service: Service };
-
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-] as const;
 
 export async function generateMetadata({
   params,
@@ -99,7 +89,7 @@ function splitList(value: string): string[] {
 function Stars({ rate }: { rate: number }) {
   const rounded = Math.round(rate);
   return (
-    <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${rate} out of 5`}>
+    <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${rate} / 5`}>
       {Array.from({ length: 5 }).map((_, index) => (
         <Star
           key={index}
@@ -119,8 +109,8 @@ function Section({
   description,
   children,
 }: {
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -136,14 +126,6 @@ function Section({
 
 function Empty({ children }: { children: ReactNode }) {
   return <p className="py-2 text-sm leading-relaxed text-muted-foreground">{children}</p>;
-}
-
-async function nearbySlots(id: string, service: Service): Promise<SlotPreview | null> {
-  for (const date of nextDates(3)) {
-    const slots = await getSlots({ barber: id, date, time: service.time });
-    if (slots.length > 0) return { date, slots, service };
-  }
-  return null;
 }
 
 async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -174,14 +156,13 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
   const names = new Map(users.map((row) => [row.$id, String(row.name)]));
   const reviewRows: ReviewRow[] = reviews.map((review) => ({
     ...review,
-    userName: names.get(review.user) ?? "Member",
+    userName: names.get(review.user) ?? "",
   }));
 
   const menu = allServices.filter(
     (service) => !service.barber || service.barber === id,
   );
-  const previewService = menu.find((service) => service.featured) ?? menu[0];
-  const preview = previewService ? await nearbySlots(id, previewService) : null;
+  const previewService = menu.find((service) => service.featured) ?? menu[0] ?? null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
@@ -205,10 +186,10 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                     <h2 className="text-2xl font-semibold tracking-[-0.04em]">
                       {barber.name}
                     </h2>
-                    {barber.featured ? <Badge variant="secondary">Featured</Badge> : null}
+                    {barber.featured ? <Badge variant="secondary"><T k="barber.featured" /></Badge> : null}
                   </div>
                   <p className="text-sm text-brand-strong">
-                    {barber.title || "Barber"}
+                    {barber.title || <T k="booking.barber" />}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     {barber.rating > 0 ? (
@@ -223,7 +204,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                     {barber.years > 0 ? (
                       <span className="flex items-center gap-1.5">
                         <Award className="size-3.5" aria-hidden />
-                        {barber.years} years
+                        {barber.years} <T k="barber.years" />
                       </span>
                     ) : null}
                   </div>
@@ -240,7 +221,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                   )}
                 >
                   <CalendarDays className="size-3.5" aria-hidden />
-                  Book this chair
+                  <T k="barber.bookChair" />
                 </Link>
               </div>
             </div>
@@ -248,14 +229,14 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
             {(barber.shop || barber.address || barber.city) && (
               <p className="mt-5 flex items-start gap-2 text-sm text-muted-foreground">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-brand-strong" aria-hidden />
-                {[barber.shop, barber.address, barber.city || "Tashkent"]
+                {[barber.shop, barber.address, barber.city]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
             )}
 
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              {barber.bio || "Precision cuts, calm chair."}
+              {barber.bio || <T k="barber.bioFallback" />}
             </p>
 
             {splitList(barber.skills).length > 0 ? (
@@ -271,9 +252,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           </CardContent>
         </Card>
 
-        <Section title="Services" description="Prices in UZS.">
+        <Section title={<T k="barber.services" />} description={<T k="barber.pricesUzs" />}>
           {menu.length === 0 ? (
-            <Empty>The menu is being updated.</Empty>
+            <Empty><T k="barber.menuUpdating" /></Empty>
           ) : (
             <ul className="divide-y divide-border/60">
               {menu.map((service) => (
@@ -284,25 +265,26 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{service.name}</p>
-                      {service.featured ? <Badge variant="secondary">Popular</Badge> : null}
+                      {service.featured ? <Badge variant="secondary"><T k="barber.popular" /></Badge> : null}
                       {service.discount > 0 ? (
-                        <Badge variant="outline">{service.discount}% off</Badge>
+                        <Badge variant="outline">{service.discount}% <T k="barber.off" /></Badge>
                       ) : null}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {service.category || "Hair"} · {service.time} min
+                      {service.category || <T k="barber.hair" />} · {service.time}{" "}
+                      <T k="common.minutes" />
                     </p>
                     {service.note ? (
                       <p className="text-sm text-muted-foreground">{service.note}</p>
                     ) : null}
                   </div>
                   <div className="flex shrink-0 items-center gap-4">
-                    <p className="font-medium tabular-nums">{formatPrice(service.price)}</p>
+                    <p className="font-medium tabular-nums">{formatPrice(priceOf(service))}</p>
                     <Link
-                      href={`/book?barber=${barber.id}&service=${service.id}`}
+                      href={`/book?barber=${encodeURIComponent(barber.id)}&service=${encodeURIComponent(service.id)}`}
                       className="text-xs font-medium text-brand-strong hover:underline"
                     >
-                      Book →
+                      <T k="barber.bookLink" />
                     </Link>
                   </div>
                 </li>
@@ -311,9 +293,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section title="Recent work" description="From this chair.">
+        <Section title={<T k="barber.recentWork" />} description={<T k="barber.fromChair" />}>
           {portfolio.length === 0 ? (
-            <Empty>No photos yet.</Empty>
+            <Empty><T k="barber.noPhotos" /></Empty>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
               {portfolio.map((item: PortfolioItem) => (
@@ -332,15 +314,17 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section title="Reviews" description="From members who visited.">
+        <Section title={<T k="barber.reviews" />} description={<T k="barber.fromMembers" />}>
           {reviewRows.length === 0 ? (
-            <Empty>No reviews yet.</Empty>
+            <Empty><T k="barber.noReviews" /></Empty>
           ) : (
             <ul className="divide-y divide-border/60">
               {reviewRows.map((review) => (
                 <li key={review.id} className="space-y-1 py-4 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-medium">{review.userName}</span>
+                    <span className="text-sm font-medium">
+                      {review.userName || <T k="common.member" />}
+                    </span>
                     <Stars rate={review.rate} />
                   </div>
                   {review.note ? (
@@ -359,9 +343,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       <div className="space-y-4">
-        <Section title="Opening hours" description="Tashkent time.">
+        <Section title={<T k="barber.hours" />} description={<T k="barber.tashkentTime" />}>
           {hours.length === 0 ? (
-            <Empty>Hours are being updated.</Empty>
+            <Empty><T k="barber.hoursUpdating" /></Empty>
           ) : (
             <ul className="divide-y divide-border/60">
               {hours
@@ -372,7 +356,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                     key={row.day}
                     className="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0"
                   >
-                    <span className="text-muted-foreground">{DAYS[row.day] ?? "Day"}</span>
+                    <span className="text-muted-foreground"><T k={`day.${row.day}`} /></span>
                     <span className="font-medium tabular-nums">
                       {label(row.start)}–{label(row.end)}
                     </span>
@@ -382,42 +366,11 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section
-          title="Next open times"
-          description={preview ? `${formatDate(preview.date)} · ${preview.service.name}` : undefined}
-        >
-          {preview ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {preview.slots.slice(0, 10).map((slot) => (
-                  <Link
-                    key={slot.start}
-                    href={`/book?barber=${barber.id}&service=${preview.service.id}`}
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "sm" }),
-                      "h-8 rounded-lg px-2.5 tabular-nums",
-                    )}
-                  >
-                    {slot.label}
-                  </Link>
-                ))}
-              </div>
-              <Link
-                href={`/book?barber=${barber.id}`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-brand-strong hover:underline"
-              >
-                See all times
-                <ExternalLink className="size-3.5" aria-hidden />
-              </Link>
-            </div>
-          ) : (
-            <Empty>No free times in the next few days.</Empty>
-          )}
-        </Section>
+        <NextSlots barber={barber.id} service={previewService} />
 
-        <Section title="Offers" description="Current promotions.">
+        <Section title={<T k="barber.offers" />} description={<T k="barber.currentPromotions" />}>
           {promotions.length === 0 ? (
-            <Empty>No offers running right now.</Empty>
+            <Empty><T k="barber.noOffers" /></Empty>
           ) : (
             <ul className="space-y-3">
               {promotions.map((offer: Promotion) => (
@@ -429,8 +382,9 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                     </p>
                     <Badge variant="secondary">
                       {offer.kind === "percent"
-                        ? `${offer.amount}% off`
-                        : `${formatPrice(offer.amount)} off`}
+                        ? `${offer.amount}%`
+                        : formatPrice(offer.amount)}{" "}
+                      <T k="barber.off" />
                     </Badge>
                   </div>
                   {offer.note ? (
@@ -438,7 +392,8 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                   ) : null}
                   {(offer.start || offer.end) && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {offer.start || "Now"} – {offer.end || "Until withdrawn"}
+                      {offer.start || <T k="barber.now" />} –{" "}
+                      {offer.end || <T k="barber.untilWithdrawn" />}
                     </p>
                   )}
                 </li>
@@ -447,12 +402,12 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Section>
 
-        <Section title="Good to know" description="Details for this chair.">
+        <Section title={<T k="barber.goodToKnow" />} description={<T k="barber.chairDetails" />}>
           {splitList(barber.facilities).length === 0 &&
           !barber.policy &&
           !barber.phone &&
           !barber.social ? (
-            <Empty>No extra details yet.</Empty>
+            <Empty><T k="barber.noDetails" /></Empty>
           ) : (
             <div className="space-y-4">
               {splitList(barber.facilities).length > 0 ? (
@@ -489,7 +444,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                     className="flex items-center gap-2 text-sm font-medium hover:underline"
                   >
                     <ExternalLink className="size-4 text-brand-strong" aria-hidden />
-                    Social profile
+                    <T k="barber.social" />
                   </a>
                 ) : (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -500,9 +455,11 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
               ) : null}
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock3 className="size-3.5" aria-hidden />
-                {barber.confirm
-                  ? "This chair confirms each booking before it is final."
-                  : "Your booking is confirmed as soon as you reserve it."}
+                {barber.confirm ? (
+                  <T k="barber.confirmYes" />
+                ) : (
+                  <T k="barber.confirmNo" />
+                )}
               </p>
             </div>
           )}
@@ -551,7 +508,6 @@ export default function BarberPage({
         </div>
       </main>
 
-      <SiteFooter />
     </div>
   );
 }
