@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CircleHelp,
   Compass,
+  Heart,
   House,
   Languages,
   Moon,
@@ -26,11 +27,13 @@ import { navSections } from "@/lib/navigation";
 import { useLocaleStore, type Locale } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
 
+// Five recognisable destinations. Help and the full link list live in More,
+// so the bar stays clean instead of stacking tiny labels under every icon.
 const tabs = [
   { href: "/", key: "nav.home", Icon: House },
-  { href: "/book", key: "nav.book", Icon: CalendarDays },
   { href: "/barbers", key: "nav.barbers", Icon: Compass },
-  { href: "/help", key: "nav.help", Icon: CircleHelp },
+  { href: "/book", key: "nav.book", Icon: CalendarDays },
+  { href: "/favorites", key: "nav.saved", Icon: Heart },
   { href: "/account", key: "nav.account", Icon: UserRound },
 ] as const;
 
@@ -182,50 +185,51 @@ function MobileNavInner() {
         className="fixed inset-x-0 bottom-0 z-50 md:hidden"
       >
         <div className="border-t border-border/70 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
-          <div className="mx-auto grid max-w-6xl grid-cols-6 gap-1 px-3 pt-1.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
+          <div className="mx-auto grid max-w-md grid-cols-6 gap-0.5 px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
             {tabs.map(({ href, key, Icon }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link
                   key={href}
                   href={href}
+                  aria-label={t(key)}
+                  title={t(key)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 rounded-xl px-2 py-2",
-                    active && "bg-foreground/[0.06]",
+                    "flex h-12 flex-col items-center justify-center gap-1 rounded-xl transition-colors",
+                    active ? "text-brand-strong" : "text-muted-foreground",
                   )}
                 >
-                  <Icon
-                    className={`size-5 ${active ? "text-brand-strong" : "text-muted-foreground"}`}
+                  <span
                     aria-hidden
+                    className={cn(
+                      "h-0.5 w-5 rounded-full transition-colors",
+                      active ? "bg-brand" : "bg-transparent",
+                    )}
                   />
-                  {active ? (
-                    <span className="text-[10px] font-medium text-foreground">
-                      {t(key)}
-                    </span>
-                  ) : null}
+                  <Icon className="size-5" aria-hidden />
                 </Link>
               );
             })}
             <button
               type="button"
               aria-label={t("nav.more")}
+              title={t("nav.more")}
               aria-expanded={moreOpen}
               onClick={() => setMoreOpen(!moreOpen)}
               className={cn(
-                "flex flex-col items-center gap-0.5 rounded-xl px-2 py-2",
-                moreOpen && "bg-foreground/[0.06]",
+                "flex h-12 flex-col items-center justify-center gap-1 rounded-xl transition-colors",
+                moreOpen ? "text-brand-strong" : "text-muted-foreground",
               )}
             >
-              <MoreHorizontal
-                className={`size-5 ${moreOpen ? "text-brand-strong" : "text-muted-foreground"}`}
+              <span
                 aria-hidden
+                className={cn(
+                  "h-0.5 w-5 rounded-full transition-colors",
+                  moreOpen ? "bg-brand" : "bg-transparent",
+                )}
               />
-              {moreOpen ? (
-                <span className="text-[10px] font-medium text-foreground">
-                  {t("nav.more")}
-                </span>
-              ) : null}
+              <MoreHorizontal className="size-5" aria-hidden />
             </button>
           </div>
         </div>
