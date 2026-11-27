@@ -50,8 +50,6 @@ export async function GET(_request: NextRequest, context: Context) {
       detail: {
         booking: { ...booking, userName: booking.customerName },
         review,
-        // Payments are no longer part of the product; there is nothing to show.
-        payments: [],
         history,
       },
     });

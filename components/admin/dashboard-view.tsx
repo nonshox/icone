@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   Table,
   TableBody,
@@ -114,8 +116,20 @@ export function DashboardView() {
         />
         <StatCard label={<T k="admin.reviewsTotal" />} value={count(stats.reviews)} />
         <StatCard label={<T k="admin.flagged" />} value={count(stats.flaggedReviews)} />
-        <StatCard label={<T k="admin.openReports" />} value={count(stats.openReports)} />
-        <StatCard label={<T k="admin.openTickets" />} value={count(stats.openTickets)} />
+        <Link href="/admin/moderation#reports" className="block rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
+          <StatCard
+            label={<T k="admin.openReports" />}
+            value={count(stats.openReports)}
+            note={<T k="admin.viewQueue" />}
+          />
+        </Link>
+        <Link href="/admin/moderation#tickets" className="block rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
+          <StatCard
+            label={<T k="admin.openTickets" />}
+            value={count(stats.openTickets)}
+            note={<T k="admin.viewQueue" />}
+          />
+        </Link>
         <StatCard label={<T k="admin.invites" />} value={count(stats.pendingInvites)} />
         <StatCard
           label={<T k="admin.cancellationRate" />}

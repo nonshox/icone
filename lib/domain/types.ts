@@ -432,7 +432,7 @@ export type Waitlist = {
 export type Report = {
   id: string;
   reporter: string;
-  kind: "user" | "review" | "booking" | "business";
+  kind: "user" | "barber" | "review" | "booking" | "business" | "other";
   target: string;
   note: string;
   detail: string;

@@ -1,10 +1,35 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
-import { api } from "@/lib/api/client";
+import { Empty, FormError, LoadingRows, message } from "@/components/barber/barber-ui";
+import { T } from "@/components/i18n/t";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  useAcceptInvite,
+  useDeclineInvite,
+  useMyInvitations,
+  type Invite,
+} from "@/lib/api/team-queries";
+import { useT } from "@/lib/i18n/use-t";
 
 function prettyPhone(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -14,117 +39,155 @@ function prettyPhone(value: string): string {
     : value;
 }
 
-type Invite = {
-  id: string;
-  business: string;
-  role: string;
-  to: string;
-  phone: string;
-  name: string;
-  token: string;
-  by: string;
-  branch: string;
-  state: string;
-  expires: string;
-};
+function shortId(id: string): string {
+  return id ? id.slice(0, 8) : "—";
+}
 
 export function Invitations() {
+  const t = useT();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
-  const client = useQueryClient();
-  const [message, setMessage] = useState("");
+  const invites = useMyInvitations();
+  const accept = useAcceptInvite();
+  const decline = useDeclineInvite();
+  const [notice, setNotice] = useState("");
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["invites"],
-    queryFn: () => api<{ invites: Invite[] }>("/api/invites"),
-  });
+  const pending = (invites.data ?? []).filter((row) => row.state === "pending");
 
-  const accept = useMutation({
-    mutationFn: async (value: string) => {
-      const result = await api<{ ok: true }>("/api/invites", {
-        method: "POST",
-        body: JSON.stringify({ token: value }),
-      });
-      return result.ok;
-    },
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["invites"] });
-      void client.invalidateQueries({ queryKey: ["me"] });
-      setMessage("You joined the team.");
-    },
-    onError: (failure: Error) => setMessage(failure.message),
-  });
+  function acceptInvite(row: Invite) {
+    accept.mutate(row.token, {
+      onSuccess: () => {
+        setNotice(t("invites.joined"));
+        toast.success(t("invites.joined"));
+      },
+      onError: (error) => {
+        const text = message(error, t("invites.failed"));
+        setNotice(text);
+        toast.error(text);
+      },
+    });
+  }
 
-  const decline = useMutation({
-    mutationFn: (id: string) =>
-      api<{ ok: true }>(`/api/invites?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["invites"] });
-    },
-  });
+  function declineInvite(row: Invite) {
+    decline.mutate(row.id, {
+      onSuccess: () => toast.success(t("work.toast.removed")),
+      onError: (error) => toast.error(message(error, t("invites.failed"))),
+    });
+  }
 
   useEffect(() => {
-    if (token && !accept.isPending && !message) {
-      accept.mutate(token);
+    if (token && !accept.isPending && !notice) {
+      accept.mutate(token, {
+        onSuccess: () => {
+          setNotice(t("invites.joined"));
+          toast.success(t("invites.joined"));
+        },
+        onError: (error) => {
+          const text = message(error, t("invites.failed"));
+          setNotice(text);
+          toast.error(text);
+        },
+      });
     }
-    // A deep link should be accepted once per page load.
+    // A deep link is accepted once per page load, even before the list resolves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const invites = (data?.invites ?? []).filter(
-    (row) => row.state === "pending",
-  );
-
   return (
     <div className="space-y-3">
-      {message ? (
-        <div className="rounded-xl border border-brand bg-brand/10 p-3 text-sm">{message}</div>
-      ) : null}
-      {error ? (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm">
-          {error.message}
-        </div>
-      ) : null}
-      {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-muted" aria-hidden />
-      ) : null}
-      {!isLoading && invites.length === 0 ? (
-        <div className="rounded-xl border border-border p-4 text-sm text-muted-foreground">
-          You have no pending invitations.
-        </div>
-      ) : null}
-      {invites.map((invite) => (
-        <div
-          key={invite.id}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
-        >
-          <div>
-            <p className="font-medium">Role: {invite.role}</p>
-            <p className="text-sm text-muted-foreground">
-              {invite.name || prettyPhone(invite.phone)} · expires {invite.expires}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>
+            <T k="invites.title" />
+          </CardTitle>
+          <CardDescription>
+            <T k="invites.subtitle" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {notice ? (
+            <p role="status" className="mb-4 rounded-xl border border-brand bg-brand/10 p-3 text-sm">
+              {notice}
             </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => accept.mutate(invite.token)}
-              disabled={accept.isPending}
-              className="rounded-xl bg-brand px-3 py-2 text-sm text-brand-foreground disabled:opacity-50"
-            >
-              Accept
-            </button>
-            <button
-              type="button"
-              onClick={() => decline.mutate(invite.id)}
-              className="rounded-xl border border-border px-3 py-2 text-sm"
-            >
-              Decline
-            </button>
-          </div>
-        </div>
-      ))}
+          ) : null}
+          {invites.isPending ? (
+            <LoadingRows />
+          ) : invites.isError ? (
+            <div className="space-y-3">
+              <FormError text={message(invites.error, t("invites.loadError"))} />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void invites.refetch()}
+              >
+                <T k="common.tryAgain" />
+              </Button>
+            </div>
+          ) : pending.length === 0 ? (
+            <Empty>{t("invites.empty")}</Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <T k="common.name" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="work.team.role" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="work.team.state" />
+                  </TableHead>
+                  <TableHead>
+                    <T k="invites.expires" />
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <T k="work.agenda.actions" />
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pending.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">
+                      {row.name || prettyPhone(row.phone) || shortId(row.to)}
+                    </TableCell>
+                    <TableCell>{row.role}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        <T k="status.pending" />
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{row.expires}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={accept.isPending}
+                          onClick={() => acceptInvite(row)}
+                        >
+                          <T k="invites.accept" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={decline.isPending}
+                          onClick={() => declineInvite(row)}
+                        >
+                          <T k="invites.decline" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

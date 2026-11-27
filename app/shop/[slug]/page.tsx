@@ -3,22 +3,38 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
+import { ShareProfile } from "@/components/share/share-profile";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { imageUrl } from "@/lib/client/files";
 import { businessBySlug, isPublic, listBranches } from "@/lib/domain/business";
 import { shopServices } from "@/lib/domain/discovery";
 import { listBusinessBarbers } from "@/lib/domain/professional";
 import { firstAvailable } from "@/lib/domain/availability";
 import { formatDate, formatPrice, label as timeLabel } from "@/lib/domain/time";
 
-export const metadata: Metadata = {
-  title: "Barbershop — icone",
-  robots: { index: false, follow: false },
-};
-
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const business = await businessBySlug(slug).catch(() => null);
+  if (!business) return { title: "Barbershop — icone" };
+  return {
+    title: `${business.name} · icone`,
+    description:
+      business.about ||
+      `${business.name} in ${business.city} — services, team and booking on icone.`,
+    robots: { index: true, follow: true },
+    openGraph: {
+      title: `${business.name} · icone`,
+      description: business.about || `Book a barbershop in ${business.city}.`,
+      images: imageUrl(business.logo) ? [imageUrl(business.logo)] : undefined,
+    },
+  };
+}
 
 async function ShopPanel({ slug }: { slug: string }) {
   const business =
@@ -45,14 +61,18 @@ async function ShopPanel({ slug }: { slug: string }) {
       <Card className="glass overflow-hidden">
         {business.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={business.cover} alt="" className="h-48 w-full object-cover" />
+          <img
+            src={imageUrl(business.cover)}
+            alt=""
+            className="h-48 w-full object-cover"
+          />
         ) : null}
         <CardContent className="space-y-3 p-6">
           <div className="flex flex-wrap items-center gap-3">
             {business.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={business.logo}
+                src={imageUrl(business.logo)}
                 alt=""
                 className="size-16 rounded-2xl border border-border object-cover"
               />
@@ -65,7 +85,10 @@ async function ShopPanel({ slug }: { slug: string }) {
                 {business.address ? ` · ${business.address}` : ""}
               </p>
             </div>
-            {business.verified ? <Badge>Verified</Badge> : null}
+            {business.verified ? <Badge><T k="shop.verified" /></Badge> : null}
+            <div className="ml-auto shrink-0">
+              <ShareProfile path={`/shop/${slug}`} title={business.name} />
+            </div>
           </div>
           {business.about ? <p className="text-sm">{business.about}</p> : null}
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
@@ -74,17 +97,17 @@ async function ShopPanel({ slug }: { slug: string }) {
           </div>
           {first ? (
             <div className="rounded-xl border border-brand bg-brand/10 p-3 text-sm">
-              First available: {formatDate(first.date)} at {timeLabel(first.start)}
+              <T k="shop.firstAvailable" /> {formatDate(first.date)} {timeLabel(first.start)}
               {first.barber ? " · " : ""}
               {active.find((row) => row.id === first.barber)?.name ?? ""}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No open times in the next two weeks.
+              <T k="shop.noTimes" />
             </p>
           )}
           {business.policy ? (
-            <p className="text-xs text-muted-foreground">Policy: {business.policy}</p>
+            <p className="text-xs text-muted-foreground"><T k="shop.policy" /> {business.policy}</p>
           ) : null}
         </CardContent>
       </Card>
@@ -92,11 +115,11 @@ async function ShopPanel({ slug }: { slug: string }) {
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Services</CardTitle>
+            <CardTitle><T k="nav.services" /></CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {services.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No services listed yet.</p>
+              <p className="text-sm text-muted-foreground"><T k="shop.noServices" /></p>
             ) : null}
             {services.map((service) => (
               <div
@@ -114,7 +137,7 @@ async function ShopPanel({ slug }: { slug: string }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Team and branches</CardTitle>
+            <CardTitle><T k="shop.team" /></CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {branches.map((branch) => (
@@ -135,7 +158,7 @@ async function ShopPanel({ slug }: { slug: string }) {
               </Link>
             ))}
             {active.length === 0 && branches.length === 0 ? (
-              <p className="text-muted-foreground">No public team yet.</p>
+              <p className="text-muted-foreground"><T k="shop.noTeam" /></p>
             ) : null}
           </CardContent>
         </Card>
@@ -150,7 +173,7 @@ export default async function ShopPage({ params }: Props) {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Barbershop</h1>
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="shop.title" /></h1>
         <div className="mt-6">
           <Suspense
             fallback={

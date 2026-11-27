@@ -601,9 +601,15 @@ export type ExportRow = Record<string, string | number>;
  * business id it has already authorized — and nothing financial is included,
  * because the platform never handles money.
  */
-export async function exportBookings(businessId: string, range: { from: string; to: string }): Promise<string> {
+export async function exportBookings(
+  businessId: string,
+  range: { from: string; to: string },
+  barberId = "",
+): Promise<string> {
   const rows = await list(TABLES.bookings, [
-    Query.equal("business", businessId),
+    ...(barberId
+      ? [Query.equal("barber", barberId)]
+      : [Query.equal("business", businessId)]),
     Query.greaterThanEqual("date", range.from),
     Query.lessThanEqual("date", range.to),
     Query.orderAsc("date"),

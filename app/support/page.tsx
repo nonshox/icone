@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { SiteHeader } from "@/components/layout/site-header";
+import { SupportTicketForm } from "@/components/support/support-ticket-form";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { publicConfig } from "@/lib/public-config";
@@ -30,7 +31,7 @@ const channels = [
 const fixes = [
   {
     title: "The sign-in code never arrived",
-    body: "Check spam, then request a new code. Codes expire after ten minutes.",
+    body: "Check spam, then request a new code. Codes expire after five minutes.",
   },
   {
     title: "A slot vanished at checkout",
@@ -64,6 +65,10 @@ export default function SupportPage() {
             Tell us what happened.
           </h1>
         </div>
+
+        <section id="contact-support" className="mt-8">
+          <SupportTicketForm />
+        </section>
 
         <section className="mt-10 grid gap-4 sm:grid-cols-2">
           {channels.map((channel) => (

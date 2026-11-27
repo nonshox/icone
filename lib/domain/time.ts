@@ -35,7 +35,10 @@ export function today(): string {
 }
 
 export function isDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  // Date.parse normalizes impossible dates such as 2026-02-30, so round-trip.
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 export function addDays(date: string, days: number): string {

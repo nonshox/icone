@@ -24,6 +24,7 @@ import {
 } from "@/lib/api/customer-queries";
 import { useBarbers, useBookings, useProfile } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
+import { imageUrl } from "@/lib/client/files";
 import { useT } from "@/lib/i18n/use-t";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,8 @@ function DashboardSkeleton() {
   );
 }
 
-function photoStyle(url: string) {
+function photoStyle(value: string) {
+  const url = imageUrl(value);
   if (!/^https?:\/\//.test(url)) return undefined;
   return { backgroundImage: `url("${url.replace(/"/g, "%22")}")` };
 }
@@ -136,7 +138,8 @@ export function CustomerView() {
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {derived.nextBooking.barberName} · {formatDate(derived.nextBooking.date)} ·{" "}
-                    {derived.nextBooking.serviceTime} {t("common.minutes")}
+                    {derived.nextBooking.end - derived.nextBooking.start}{" "}
+                    {t("common.minutes")}
                   </p>
                   <p className="text-sm font-medium tabular-nums">
                     {formatPrice(derived.nextBooking.price)}

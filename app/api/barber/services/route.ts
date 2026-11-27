@@ -61,9 +61,27 @@ function managed(actor: Actor, workspace: Workspace): Workspace {
  * GET /api/barber/services — the menu this account manages. A barber edits
  * their own rows; an owner or manager edits the shared shop catalogue.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const guarded = await requireWorkspace("service.read");
   if (!guarded.ok) return guarded.response;
+
+  // Walk-in screens need the services a *specific* employee can perform, not
+  // the ones the signed-in account happens to manage.
+  const requested = request.nextUrl.searchParams.get("barber");
+  if (requested) {
+    const { getBarber } = await import("@/lib/domain/professional");
+    const { inBusiness, onBarber } = await import("@/lib/domain/access");
+    const barber = await getBarber(requested);
+    if (!barber) return apiError("Professional not found.", 404, "no_barber");
+    if (
+      guarded.actor.profile.role !== "admin" &&
+      !onBarber(guarded.actor, requested) &&
+      !(barber.business && inBusiness(guarded.actor, barber.business))
+    ) {
+      return apiError("You cannot see this calendar.", 403, "forbidden");
+    }
+    return apiOk({ services: await servicesFor(requested) });
+  }
 
   const target = managed(guarded.actor, guarded.workspace);
   try {

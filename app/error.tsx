@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { T } from "@/components/i18n/t";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -24,18 +25,18 @@ export default function ErrorPage({
     >
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Something went wrong</CardTitle>
+          <CardTitle><T k="error.title" /></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            The page could not load. Try again — your session is still safe.
+            <T k="error.body" />
           </p>
           <div className="flex gap-2">
             <Button type="button" onClick={reset}>
-              Try again
+              <T k="common.tryAgain" />
             </Button>
             <Link href="/" className={buttonVariants({ variant: "outline" })}>
-              Go home
+              <T k="error.home" />
             </Link>
           </div>
         </CardContent>

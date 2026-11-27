@@ -6,9 +6,11 @@ import { z } from "zod";
 import { requireUser } from "@/lib/api/guard";
 import {
   applicationFor,
+  decideApplication,
   saveDraft,
   submitApplication,
 } from "@/lib/domain/application";
+import { getSettings } from "@/lib/domain/admin";
 import type { Application } from "@/lib/domain/types";
 import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
@@ -93,9 +95,27 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const settings = await getSettings();
+    if (!settings.applicationsOpen) {
+      return apiError(
+        "Applications are temporarily closed. Try again later.",
+        403,
+        "applications_closed",
+      );
+    }
+
     const userId = guarded.actor.userId;
     await saveDraft(userId, parsed.data);
-    const application = await submitApplication(userId);
+    let application = await submitApplication(userId);
+    if (settings.autoVerify) {
+      const decision = await decideApplication({
+        id: application.id,
+        decision: "approve",
+        by: userId,
+        note: "Automatic verification is enabled.",
+      });
+      if (decision.ok) application = decision.application;
+    }
     return apiOk({ application: visibleApplication(application) });
   } catch (error) {
     console.error("[applications] submit failed — check the applications collection in db:setup", error);

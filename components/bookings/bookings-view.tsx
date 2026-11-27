@@ -35,6 +35,9 @@ import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
 import { CANCELLABLE, type BookingRow, type Status } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
+import { RebookButton } from "./rebook-button";
+import { RescheduleControl } from "./reschedule-control";
+import { useServiceNames } from "./use-service-names";
 
 const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "outline",
@@ -48,7 +51,13 @@ const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destru
 function BookingCard({ booking, today }: { booking: BookingRow; today: string }) {
   const setStatus = useSetStatus();
   const t = useT();
+  const serviceNames = useServiceNames();
   const canCancel = CANCELLABLE.includes(booking.status) && booking.date >= today;
+  const canRebook =
+    booking.status === "done" ||
+    booking.status === "noshow" ||
+    booking.status === "cancelled" ||
+    booking.status === "rejected";
 
   function cancel() {
     if (!window.confirm(t("visits.cancelAsk"))) return;
@@ -71,41 +80,46 @@ function BookingCard({ booking, today }: { booking: BookingRow; today: string })
 
   return (
     <Card size="sm">
-      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/bookings/${booking.id}`} className="font-medium hover:underline">
-              {booking.serviceName}
-            </Link>
-            <Badge variant={badgeVariant[booking.status]}>
-              <T k={`status.${booking.status}`} />
-            </Badge>
+      <CardContent className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href={`/bookings/${booking.id}`} className="font-medium hover:underline">
+                {serviceNames(booking)}
+              </Link>
+              <Badge variant={badgeVariant[booking.status]}>
+                <T k={`status.${booking.status}`} />
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {booking.barberName} · {formatDate(booking.date)} ·{" "}
+              {label(booking.start)} · {booking.end - booking.start} {t("common.minutes")}
+            </p>
+            <p className="text-sm font-medium tabular-nums">
+              {formatPrice(booking.price)}
+            </p>
+            {booking.note ? (
+              <p className="text-xs text-muted-foreground">“{booking.note}”</p>
+            ) : null}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {booking.barberName} · {formatDate(booking.date)} ·{" "}
-            {label(booking.start)} · {booking.serviceTime} {t("common.minutes")}
-          </p>
-          <p className="text-sm font-medium tabular-nums">
-            {formatPrice(booking.price)}
-          </p>
-          {booking.note ? (
-            <p className="text-xs text-muted-foreground">“{booking.note}”</p>
+
+          {canCancel ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={setStatus.isPending}
+              onClick={cancel}
+            >
+              {setStatus.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : null}
+              <T k="visits.cancel" />
+            </Button>
           ) : null}
         </div>
 
-        {canCancel ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={setStatus.isPending}
-            onClick={cancel}
-          >
-            {setStatus.isPending ? (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden />
-            ) : null}
-            <T k="visits.cancel" />
-          </Button>
-        ) : null}
+        {canCancel ? <RescheduleControl booking={booking} /> : null}
+        {canRebook ? <RebookButton booking={booking} /> : null}
       </CardContent>
     </Card>
   );
@@ -163,6 +177,7 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
         <Textarea
           value={note}
           maxLength={400}
+          aria-label={t("visits.reviewPlaceholder")}
           placeholder={t("visits.reviewPlaceholder")}
           onChange={(event) => setNote(event.target.value)}
         />

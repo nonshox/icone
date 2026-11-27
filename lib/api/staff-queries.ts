@@ -36,6 +36,7 @@ function refresh(client: QueryClient) {
   void client.invalidateQueries({ queryKey: staffKeys.days });
   void client.invalidateQueries({ queryKey: ["agenda"] });
   void client.invalidateQueries({ queryKey: ["availability"] });
+  void client.invalidateQueries({ queryKey: ["availability-quote"] });
   void client.invalidateQueries({ queryKey: keys.barbers });
 }
 
@@ -97,6 +98,16 @@ export function useDeleteMyDay() {
         method: "DELETE",
         body: JSON.stringify({ date }),
       }),
+    onSuccess: () => refresh(client),
+  });
+}
+
+/** Copy the current weekly template onto next week. The owner is server-side. */
+export function useCloneWeek() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>("/api/staff/clone", { method: "POST" }),
     onSuccess: () => refresh(client),
   });
 }

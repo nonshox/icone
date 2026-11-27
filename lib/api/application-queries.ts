@@ -35,7 +35,11 @@ export function useMyApplication() {
     // Approval happens in the admin's browser, so this cache cannot be
     // invalidated from there. Poll only while the outcome is still unknown.
     refetchInterval: (query) =>
-      query.state.data?.state === "pending" ? 15_000 : false,
+      ["pending", "draft", "submitted", "review", "info"].includes(
+        query.state.data?.appState ?? query.state.data?.state ?? "",
+      )
+        ? 15_000
+        : false,
     refetchOnWindowFocus: true,
   });
 }

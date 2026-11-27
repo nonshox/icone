@@ -21,6 +21,8 @@ import {
   useThreads,
 } from "@/lib/api/message-queries";
 import { useProfile } from "@/lib/api/queries";
+import { T } from "@/components/i18n/t";
+import { useT } from "@/lib/i18n/use-t";
 import type { Message } from "@/lib/domain/messages";
 import { cn } from "@/lib/utils";
 
@@ -48,8 +50,9 @@ function clock(iso: string): string {
   }).format(date);
 }
 
-function message(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
+function message(_error: unknown, fallback: string): string {
+  // Server errors are English; the localized fallback is the user-facing copy.
+  return fallback;
 }
 
 function Bubble({ item, own }: { item: Message; own: boolean }) {
@@ -73,6 +76,7 @@ function Bubble({ item, own }: { item: Message; own: boolean }) {
 }
 
 export function MessagesView({ initialWith }: { initialWith: string | null }) {
+  const t = useT();
   const [selected, setSelected] = useState<string | null>(initialWith);
   const [conversation, setConversation] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -101,9 +105,9 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
       {
         onSuccess: () => setDraft(""),
         onError: (error) => {
-          const textError = message(error, "Please try again.");
+          const textError = message(error, t("auth.tryAgain"));
           setSendError(textError);
-          toast.error("Could not send", { description: textError });
+          toast.error(t("msg.sendFailed"), { description: textError });
         },
       },
     );
@@ -120,9 +124,9 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
         <CardHeader className="border-b pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageCircle className="size-4 text-brand-strong" aria-hidden />
-            Conversations
+            <T k="msg.title" />
           </CardTitle>
-          <CardDescription>Your barber threads.</CardDescription>
+          <CardDescription><T k="msg.subtitle" /></CardDescription>
         </CardHeader>
 
         <CardContent className="flex-1 space-y-1.5 p-2">
@@ -140,15 +144,15 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               aria-live="polite"
               className="m-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
             >
-              {message(threads.error, "Could not load conversations.")}
+              {message(threads.error, t("msg.loadError"))}
             </p>
           ) : null}
 
           {threads.data?.length === 0 ? (
             <div className="px-3 py-8 text-center">
-              <p className="text-sm font-medium">No conversations yet</p>
+              <p className="text-sm font-medium"><T k="msg.empty" /></p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Book a chair, then message your barber from the visit details.
+                <T k="msg.emptyHint" />
               </p>
             </div>
           ) : null}
@@ -196,7 +200,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
                   variant="ghost"
                   size="icon-sm"
                   className="md:hidden"
-                  aria-label="Back to conversations"
+                  aria-label={t("msg.back")}
                   onClick={() => {
                     setSelected(null);
                     setSendError(null);
@@ -206,12 +210,12 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
                 </Button>
                 <div>
                   <CardTitle className="text-base">
-                    {thread.data?.participant.name ?? "Message"}
+                    {thread.data?.participant.name ?? t("msg.title")}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     {thread.isPending
-                      ? "Loading…"
-                      : `${messages.length} ${messages.length === 1 ? "message" : "messages"}`}
+                      ? t("common.loading")
+                      : t("msg.count").replace("{n}", String(messages.length))}
                   </CardDescription>
                 </div>
               </div>
@@ -232,15 +236,15 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
                   aria-live="polite"
                   className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 >
-                  {message(thread.error, "Could not open this conversation.")}
+                  {message(thread.error, t("msg.openError"))}
                 </p>
               ) : null}
 
               {thread.isSuccess && messages.length === 0 ? (
                 <div className="py-10 text-center">
-                  <p className="text-sm font-medium">Say hello</p>
+                  <p className="text-sm font-medium"><T k="msg.sayHello" /></p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    No messages here yet. Start the conversation.
+                    <T k="msg.sayHelloHint" />
                   </p>
                 </div>
               ) : null}
@@ -259,7 +263,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               <div className="border-t p-3">
                 {profile.data?.role === "admin" ? (
                   <p className="text-xs text-muted-foreground">
-                    Admins can read conversations but cannot send messages.
+                    <T k="msg.adminReadOnly" />
                   </p>
                 ) : (
                   <>
@@ -276,14 +280,14 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
                       <Input
                         value={draft}
                         maxLength={1000}
-                        placeholder="Write a message…"
-                        aria-label="Message"
+                        placeholder={t("msg.placeholder")}
+                        aria-label={t("msg.messageLabel")}
                         onChange={(event) => setDraft(event.target.value)}
                       />
                       <Button
                         type="submit"
                         size="icon"
-                        aria-label="Send message"
+                        aria-label={t("msg.send")}
                         disabled={!draft.trim() || send.isPending}
                       >
                         {send.isPending ? (
@@ -304,12 +308,12 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               className="size-7 text-brand-strong"
               aria-hidden
             />
-            <p className="text-sm font-medium">Pick a conversation</p>
+            <p className="text-sm font-medium"><T k="msg.pick" /></p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Messages from your bookings show up here.
+              <T k="msg.pickHint" />
             </p>
             <Badge variant="outline" className="mt-2">
-              Private
+              <T k="msg.private" />
             </Badge>
           </CardContent>
         )}

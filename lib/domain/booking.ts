@@ -4,7 +4,7 @@ import { Query } from "node-appwrite";
 
 import { TABLES } from "@/lib/appwrite/db";
 
-import { count, create, first, list, num, remove, str, update, type Row } from "./crud";
+import { count, create, first, list, num, str, update, type Row } from "./crud";
 import {
   HORIZON_DAYS,
   LEAD_MINUTES,
@@ -99,7 +99,9 @@ export function normalizeStatus(value: string): Status {
     case "pending":
       return "pending";
     default:
-      return "confirmed";
+      // A corrupt or unknown value must never silently hold a slot open.
+      console.error("[booking] unknown status", value);
+      return "cancelled";
   }
 }
 
@@ -267,8 +269,28 @@ export async function book(input: BookInput): Promise<BookResult> {
   );
 
   if (competing.length > 0 && !winnerOf(competing, booking)) {
-    await removeBooking(booking.id);
+    await cancelBooking(booking.id, input.createdby ?? input.user, "lost_race", booking.status);
     return fail(409, "slot_taken", "That slot just went. Pick another time.");
+  }
+
+  // Two requests from the same customer at different barbers can both pass
+  // the pre-flight check. Resolve that after insert as well: the later row
+  // loses and is cancelled rather than holding two overlapping visits.
+  if (input.user) {
+    const mine = await list(TABLES.bookings, [
+      Query.equal("user", input.user),
+      Query.equal("date", input.date),
+      Query.equal("status", ["pending", "confirmed", "done"]),
+      Query.limit(100),
+    ]);
+    const rivals = mine
+      .filter((row) => row.$id !== booking.id)
+      .map(toBooking)
+      .filter((row) => start < row.end && row.start < end);
+    if (rivals.length > 0 && !winnerOf([...rivals, booking], booking)) {
+      await cancelBooking(booking.id, input.createdby ?? input.user, "duplicate", booking.status);
+      return fail(409, "already_booked", "You already have an appointment at that time.");
+    }
   }
 
   await logStatus(booking.id, "", status, input.createdby ?? input.user, "created");
@@ -276,8 +298,15 @@ export async function book(input: BookInput): Promise<BookResult> {
   return { ok: true, booking };
 }
 
-async function removeBooking(id: string): Promise<void> {
-  await remove(TABLES.bookings, id);
+/** Cancel instead of delete: the attempt stays in the audit trail. */
+async function cancelBooking(
+  id: string,
+  by: string,
+  reason: string,
+  from: Status = "pending",
+): Promise<void> {
+  await update(TABLES.bookings, id, { status: "cancelled" });
+  await logStatus(id, from, "cancelled", by, "conflict", reason);
 }
 
 /** Append one row to an appointment's status history. Best effort. */

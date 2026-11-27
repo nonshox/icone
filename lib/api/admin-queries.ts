@@ -35,7 +35,11 @@ export type AdminUser = {
 };
 export type Announcement = { title: string; body: string; created?: string };
 export type Audience = "all" | "clients" | "barbers" | "businesses";
-export type BookingDetail = BookingRow & { log?: Array<Record<string, unknown>> };
+export type BookingDetail = {
+  booking: BookingRow;
+  review: Record<string, unknown> | null;
+  history: Array<Record<string, unknown>>;
+};
 export type Category = { id: string; name: string; active: boolean };
 export type DashboardData = Record<string, number | string>;
 export type DayOverride = DayRow;
@@ -50,6 +54,9 @@ export type NewService = {
   note: string;
   price: number;
   time: number;
+  /** One of barber or business is required by the admin route. */
+  barber?: string;
+  business?: string;
 };
 export type NewHour = { barber: string; day: number; start: number; end: number };
 export type NewDay = {
@@ -99,13 +106,6 @@ export type AppointmentFilter = {
   date?: string;
   barber?: string;
 };
-
-/** UI labels for the payment methods supported at the shop. */
-export const PAYMENT_METHODS = [
-  { id: "cash", label: "Cash at the shop", note: "Settle after the visit." },
-  { id: "card", label: "Card at the shop", note: "Pay by card on arrival." },
-  { id: "transfer", label: "Bank transfer", note: "Pay in advance by transfer." },
-] as const;
 
 /* ------------------------------------------------------------------ reads */
 

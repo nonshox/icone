@@ -4,7 +4,9 @@ import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { ImageUpload } from "@/components/upload/image-upload";
 import { T } from "@/components/i18n/t";
+import { imageUrl } from "@/lib/client/files";
 import { useT } from "@/lib/i18n/use-t";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +119,15 @@ export function BarberPortfolio() {
         <CardContent>
           <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
+              <ImageUpload
+                id="portfolio-image"
+                folder="portfolio"
+                label={<T k="admin.image" />}
+                value={form.url}
+                onChange={(id) => set("url", id)}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="portfolio-url">
                 <T k="work.portfolio.url" />
               </Label>
@@ -222,7 +233,9 @@ export function BarberPortfolio() {
                     role="img"
                     aria-label={item.note || t("work.portfolio.untitled")}
                     className="h-36 w-full rounded-lg bg-cover bg-center bg-muted"
-                    style={{ backgroundImage: `url("${item.url}")` }}
+                    style={{
+                      backgroundImage: `url("${imageUrl(item.url).replace(/"/g, "%22")}")`,
+                    }}
                   />
                   <div className="mt-3 flex items-start justify-between gap-2">
                     <div className="min-w-0">

@@ -98,7 +98,13 @@ export async function count(table: string, queries: string[]): Promise<number> {
 export async function getMany(table: string, ids: string[]): Promise<Row[]> {
   const unique = [...new Set(ids.filter(Boolean))];
   if (unique.length === 0) return [];
-  return list(table, [Query.equal("$id", unique), Query.limit(100)]);
+  const out: Row[] = [];
+  // Chunk so a busy day's bookings never silently lose their names.
+  for (let offset = 0; offset < unique.length; offset += 50) {
+    const batch = unique.slice(offset, offset + 50);
+    out.push(...(await list(table, [Query.equal("$id", batch), Query.limit(50)])));
+  }
+  return out;
 }
 
 export async function create(

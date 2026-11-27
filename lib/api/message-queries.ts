@@ -59,8 +59,11 @@ export function useSendMessage() {
         method: "POST",
         body: JSON.stringify(input),
       }).then((r) => r.message),
-    onSuccess: (_message, input) => {
+    onSuccess: (message, input) => {
       void queryClient.invalidateQueries({ queryKey: messageKeys.threads });
+      void queryClient.invalidateQueries({
+        queryKey: messageKeys.thread(message.conversation || input.to),
+      });
       void queryClient.invalidateQueries({
         queryKey: messageKeys.thread(input.to),
       });

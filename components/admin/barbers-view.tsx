@@ -10,6 +10,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { T } from "@/components/i18n/t";
+import { imageUrl } from "@/lib/client/files";
 import { useT } from "@/lib/i18n/use-t";
 import {
   useAdminBarbers,
@@ -29,6 +37,11 @@ import {
   useUpdateBarber,
   type AdminBarber,
 } from "@/lib/api/admin-queries";
+import {
+  useAdminProfessionals,
+  useUpdateProfessional,
+  type ProfessionalUpdate,
+} from "@/lib/api/platform-queries";
 
 import { Empty, FormError, LoadingRows, Section, message } from "./admin-ui";
 
@@ -66,6 +79,159 @@ function draftFor(barber: AdminBarber): Draft {
     policy: barber.policy,
     confirm: barber.confirm,
   };
+}
+
+type ProState = "draft" | "active" | "suspended";
+
+function ProfessionalVerification() {
+  const t = useT();
+  const [verified, setVerified] = useState<"all" | "true" | "false">("all");
+  const [query, setQuery] = useState("");
+  const professionals = useAdminProfessionals(
+    verified === "all" ? undefined : verified === "true",
+    query,
+  );
+  const update = useUpdateProfessional();
+
+  // The endpoint applies one filter at a time, so combine both here as well.
+  const rows = (professionals.data ?? []).filter((row) => {
+    const matchesVerified =
+      verified === "all" || row.verified === (verified === "true");
+    const matchesQuery =
+      !query.trim() || row.name.toLowerCase().includes(query.trim().toLowerCase());
+    return matchesVerified && matchesQuery;
+  });
+
+  function patch(id: string, input: ProfessionalUpdate) {
+    update.mutate(input, {
+      onSuccess: () => toast.success(t("padmin.verify.updated")),
+      onError: (cause) => toast.error(message(cause, t("admin.saveError"))),
+    });
+  }
+
+  return (
+    <Section title={<T k="padmin.verify.title" />} description={<T k="padmin.verify.desc" />}>
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="verify-filter"><T k="common.status" /></Label>
+          <Select
+            value={verified}
+            onValueChange={(value) => setVerified(value as "all" | "true" | "false")}
+          >
+            <SelectTrigger id="verify-filter" className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all"><T k="padmin.verify.all" /></SelectItem>
+              <SelectItem value="true"><T k="padmin.verify.verified" /></SelectItem>
+              <SelectItem value="false"><T k="padmin.verify.unverified" /></SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="verify-search"><T k="padmin.verify.search" /></Label>
+          <Input
+            id="verify-search"
+            value={query}
+            maxLength={64}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+      </div>
+
+      {professionals.error ? (
+        <FormError text={message(professionals.error, t("admin.loadError"))} />
+      ) : null}
+
+      {professionals.isPending ? (
+        <LoadingRows />
+      ) : rows.length === 0 ? (
+        <Empty><T k="padmin.verify.empty" /></Empty>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead><T k="common.name" /></TableHead>
+                <TableHead><T k="admin.city" /></TableHead>
+                <TableHead><T k="admin.rating" /></TableHead>
+                <TableHead><T k="common.status" /></TableHead>
+                <TableHead className="text-right"><T k="admin.actions" /></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <p className="font-medium">{row.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {row.city || "—"}{row.district ? ` · ${row.district}` : ""}
+                    </p>
+                  </TableCell>
+                  <TableCell>{row.city || "—"}</TableCell>
+                  <TableCell className="tabular-nums">{row.rating}/5</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant={row.verified ? "secondary" : "outline"}>
+                        {t(row.verified ? "admin.verified" : "padmin.verify.unverified")}
+                      </Badge>
+                      <Badge variant={row.state === "active" ? "default" : "outline"}>
+                        {t(`padmin.verify.${row.state}`)}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        disabled={update.isPending}
+                        onClick={() => {
+                          if (
+                            row.verified &&
+                            !window.confirm(t("padmin.verify.confirmUnverify"))
+                          ) return;
+                          patch(row.id, { id: row.id, kind: "barber", verified: !row.verified });
+                        }}
+                      >
+                        {row.verified
+                          ? t("padmin.verify.unverify")
+                          : t("padmin.verify.verify")}
+                      </Button>
+                      <Select
+                        value={row.state}
+                        onValueChange={(value) => {
+                          const state = value as ProState;
+                          if (
+                            state === "suspended" &&
+                            !window.confirm(t("padmin.verify.confirmSuspend"))
+                          ) return;
+                          patch(row.id, { id: row.id, kind: "barber", state });
+                        }}
+                      >
+                        <SelectTrigger
+                          aria-label={t("padmin.verify.state")}
+                          className="h-6 w-28 text-xs"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft"><T k="padmin.verify.draft" /></SelectItem>
+                          <SelectItem value="active"><T k="padmin.verify.active" /></SelectItem>
+                          <SelectItem value="suspended"><T k="padmin.verify.suspended" /></SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </Section>
+  );
 }
 
 export function BarbersView() {
@@ -376,6 +542,8 @@ export function BarbersView() {
         )}
       </Section>
 
+      <ProfessionalVerification />
+
       <Section title={<T k="admin.portfolio" />} description={<T k="admin.portfolioDesc" />}>
         {portfolio.isPending ? (
           <LoadingRows />
@@ -398,7 +566,7 @@ export function BarbersView() {
                     <TableCell>{names.get(item.barber) ?? item.barber}</TableCell>
                     <TableCell className="max-w-72 truncate">
                       <a
-                        href={item.url}
+                        href={imageUrl(item.url)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-primary underline underline-offset-2"
@@ -439,8 +607,10 @@ export function BarbersView() {
 function Field({ label, wide, children }: { label: ReactNode; wide?: boolean; children: ReactNode }) {
   return (
     <div className={`space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
-      <Label>{label}</Label>
-      {children}
+      <Label>
+        {label}
+        {children}
+      </Label>
     </div>
   );
 }

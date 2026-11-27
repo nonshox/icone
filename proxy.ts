@@ -47,6 +47,8 @@ export const config = {
     "/settings",
     "/messages",
     "/messages/:path*",
+    "/invites",
+    "/waits",
     "/become-barber",
   ],
 };

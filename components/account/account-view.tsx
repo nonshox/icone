@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+
+import { useT } from "@/lib/i18n/use-t";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
@@ -57,6 +59,7 @@ export function AccountView({
   user: SessionUser;
   profile: Profile;
 }) {
+  const t = useT();
   const update = useUpdateProfile();
   const bookings = useBookings();
   const [name, setName] = useState(profile.name);
@@ -67,7 +70,7 @@ export function AccountView({
   const upcoming = todayDate
     ? all.filter(
         (booking) =>
-          ["pending", "accepted", "booked"].includes(booking.status) &&
+          ["pending", "confirmed"].includes(booking.status) &&
           booking.date >= todayDate,
       )
     : [];
@@ -83,12 +86,12 @@ export function AccountView({
         onSuccess: (saved) => {
           setName(saved.name);
           setPhone(saved.phone);
-          toast.success("Profile saved");
+          toast.success(t("common.saved"));
         },
         onError: (error) =>
-          toast.error("Could not save", {
+          toast.error(t("settings.failed"), {
             description:
-              error instanceof Error ? error.message : "Please try again.",
+              error instanceof Error ? error.message : t("auth.tryAgain"),
           }),
       },
     );
@@ -129,7 +132,7 @@ export function AccountView({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone"><T k="account.phone" /></Label>
                 <Input
                   id="phone"
                   value={phone}
@@ -157,7 +160,7 @@ export function AccountView({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="size-4" aria-hidden />
-              Sign-in
+              <T k="account.signInMethod" />
             </CardTitle>
             <CardDescription>
               {user.provider === "telegram"

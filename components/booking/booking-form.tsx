@@ -2,6 +2,7 @@
 
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -35,13 +36,13 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  useAvailability,
+  useAvailabilityQuote,
   useBarbers,
   useCreateBooking,
   useServices,
 } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
-import { priceOf } from "@/lib/domain/pricing";
+import { priceOf, visitPrice } from "@/lib/domain/pricing";
 import {
   addDays,
   formatDate,
@@ -50,18 +51,28 @@ import {
   label,
   nextDates,
 } from "@/lib/domain/time";
-import { useBookingDraft } from "@/lib/store/booking";
+import type { Barber, Service } from "@/lib/domain/types";
+import { useBookingDraft } from "@/lib/store/booking-draft";
+import { cn } from "@/lib/utils";
+
+/** Services a given barber can actually perform. */
+function compatible(service: Service, barber: Barber | undefined): boolean {
+  if (!barber) return true;
+  if (barber.business) return service.business === barber.business;
+  return service.barber === barber.id;
+}
 
 export function BookingForm() {
   const router = useRouter();
   const t = useT();
 
-  const serviceId = useBookingDraft((state) => state.service);
+  const servicesInDraft = useBookingDraft((state) => state.services);
   const barberId = useBookingDraft((state) => state.barber);
   const storedDate = useBookingDraft((state) => state.date);
   const start = useBookingDraft((state) => state.start);
   const note = useBookingDraft((state) => state.note);
-  const setService = useBookingDraft((state) => state.setService);
+  const setServices = useBookingDraft((state) => state.setServices);
+  const toggleService = useBookingDraft((state) => state.toggleService);
   const setBarber = useBookingDraft((state) => state.setBarber);
   const setDate = useBookingDraft((state) => state.setDate);
   const setStart = useBookingDraft((state) => state.setStart);
@@ -93,43 +104,76 @@ export function BookingForm() {
 
   const services = useServices();
   const barbers = useBarbers();
-  const visibleServices = useMemo(() => {
-    const all = services.data ?? [];
-    if (!barberId) return all;
-    return all.filter((item) => !item.barber || item.barber === barberId);
-  }, [services.data, barberId]);
+  const barber = barbers.data?.find((item) => item.id === barberId);
+  const visibleServices = useMemo(
+    () => (services.data ?? []).filter((item) => compatible(item, barber)),
+    [services.data, barber],
+  );
 
+  // A deep link or a rebook can seed a service that is no longer offered by
+  // the chosen barber. Drop it once both catalogues are available.
   useEffect(() => {
-    if (!serviceId || !barberId) return;
-    const chosen = services.data?.find((item) => item.id === serviceId);
-    if (chosen?.barber && chosen.barber !== barberId) setService("");
-  }, [serviceId, barberId, services.data, setService]);
+    if (!barberId || !barber || !services.data) return;
+    const allowed = new Set(
+      (services.data ?? [])
+        .filter((item) => compatible(item, barber))
+        .map((item) => item.id),
+    );
+    const kept = servicesInDraft.filter((id) => allowed.has(id));
+    if (kept.length !== servicesInDraft.length) setServices(kept);
+  }, [barberId, barber, services.data, servicesInDraft, setServices]);
 
-  const availability = useAvailability({
+  function chooseBarber(value: string | null) {
+    const id = String(value ?? "");
+    setBarber(id);
+    if (!services.data) return;
+    const next = barbers.data?.find((item) => item.id === id);
+    const allowed = new Set(
+      services.data.filter((item) => compatible(item, next)).map((item) => item.id),
+    );
+    setServices(servicesInDraft.filter((item) => allowed.has(item)));
+  }
+
+  // One availability call covers the whole visit: the server resolves every
+  // service for this barber and returns slots for the combined duration.
+  const quote = useAvailabilityQuote({
     barber: barberId,
     date,
-    service: serviceId,
+    services: servicesInDraft,
   });
   const create = useCreateBooking();
 
-  const service = services.data?.find((item) => item.id === serviceId);
-  const barber = barbers.data?.find((item) => item.id === barberId);
-  const ready = Boolean(service && barber && date && start !== null);
+  const resolved = quote.data?.services ?? [];
+  const selectedNames = servicesInDraft.map(
+    (id) =>
+      resolved.find((item) => item.id === id)?.name ??
+      services.data?.find((item) => item.id === id)?.name ??
+      id,
+  );
+  const totalPrice =
+    quote.data?.price ??
+    visitPrice(
+      servicesInDraft
+        .map((id) => services.data?.find((item) => item.id === id))
+        .filter((item): item is Service => !!item),
+    );
+  const ready =
+    servicesInDraft.length > 0 && Boolean(barber && date && start !== null);
 
   async function submit() {
-    if (!service || !barber || start === null || !date) return;
+    if (!barber || !date || start === null || servicesInDraft.length === 0) return;
 
     try {
       const booking = await create.mutateAsync({
         barber: barber.id,
-        service: service.id,
+        services: servicesInDraft,
         date,
         start,
         note: note.trim(),
       });
 
       toast.success(t("booking.booked"), {
-        description: `${booking.serviceName} · ${booking.barberName} · ${formatDate(booking.date)} ${label(booking.start)}`,
+        description: `${selectedNames.join(" + ")} · ${booking.barberName} · ${formatDate(booking.date)} ${label(booking.start)}`,
       });
 
       useBookingDraft.getState().reset();
@@ -150,57 +194,122 @@ export function BookingForm() {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="service"><T k="booking.service" /></Label>
-            <Select
-              value={serviceId || null}
-              onValueChange={(value) => setService(String(value ?? ""))}
-            >
-              <SelectTrigger id="service" className="h-9 w-full">
-                <SelectValue placeholder={t("booking.service")} />
-              </SelectTrigger>
-              <SelectContent>
-                {visibleServices.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} · {item.time} <T k="common.minutes" /> ·{" "}
-                    {formatPrice(priceOf(item))}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {services.isPending ? <Skeleton className="h-4 w-40" /> : null}
-            {services.isError ? (
-              <p className="text-xs text-destructive">
-                <T k="booking.loadError" />
-              </p>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="barber"><T k="booking.barber" /></Label>
-            <Select
-              value={barberId || null}
-              onValueChange={(value) => setBarber(String(value ?? ""))}
-            >
-              <SelectTrigger id="barber" className="h-9 w-full">
-                <SelectValue placeholder={t("booking.barber")} />
-              </SelectTrigger>
-              <SelectContent>
-                {(barbers.data ?? []).map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} · {item.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {barbers.isPending ? <Skeleton className="h-4 w-40" /> : null}
-            {barbers.isError ? (
+        <div className="space-y-2">
+          <Label htmlFor="barber"><T k="booking.barber" /></Label>
+          <Select
+            value={barberId || null}
+            onValueChange={(value) => {
+              if (value) chooseBarber(value);
+            }}
+          >
+            <SelectTrigger id="barber" className="h-9 w-full">
+              <SelectValue placeholder={t("booking.barber")} />
+            </SelectTrigger>
+            <SelectContent>
+              {(barbers.data ?? []).map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.name} · {item.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {barbers.isPending ? <Skeleton className="h-4 w-40" /> : null}
+          {barbers.isError ? (
+            <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs text-destructive">
                 <T k="booking.barberLoadError" />
               </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void barbers.refetch()}
+              >
+                <T k="common.tryAgain" />
+              </Button>
+            </div>
+          ) : null}
+          {barbers.isSuccess && (barbers.data ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              <T k="booking.noBarbers" />
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label><T k="booking.services" /></Label>
+            {servicesInDraft.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setServices([])}
+              >
+                <T k="booking.clearServices" />
+              </Button>
             ) : null}
           </div>
+
+          {services.isPending ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : services.isError ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-destructive">
+                <T k="booking.loadError" />
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void services.refetch()}
+              >
+                <T k="common.tryAgain" />
+              </Button>
+            </div>
+          ) : visibleServices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              <T k="booking.noServicesAvailable" />
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {visibleServices.map((item) => {
+                const selected = servicesInDraft.includes(item.id);
+                const offer = resolved.find((entry) => entry.id === item.id);
+                return (
+                  <Button
+                    key={item.id}
+                    type="button"
+                    variant={selected ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={selected}
+                    className="h-auto min-h-10 w-full justify-start gap-2 py-2"
+                    onClick={() => toggleService(item.id)}
+                  >
+                    <span
+                      className={cn(
+                        "grid size-4 shrink-0 place-items-center rounded border",
+                        selected ? "border-primary bg-primary/20" : "border-muted-foreground/40",
+                      )}
+                    >
+                      {selected ? <Check className="size-3" aria-hidden /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-left">{item.name}</span>
+                    <span className="shrink-0 text-xs tabular-nums">
+                      {formatPrice(priceOf(offer ?? item))}
+                    </span>
+                    <span className="shrink-0 text-xs opacity-70 tabular-nums">
+                      {offer?.time ?? item.time} {t("common.minutes")}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -217,7 +326,7 @@ export function BookingForm() {
               >
                 <ChevronLeft className="size-3.5" aria-hidden />
               </Button>
-              <span className="min-w-32 text-center text-xs font-medium text-muted-foreground">
+              <span className="min-w-28 text-center text-xs font-medium text-muted-foreground">
                 {days.length > 0 ? formatMonth(days[0]) : "—"}
               </span>
               <Button
@@ -261,25 +370,35 @@ export function BookingForm() {
         <div className="space-y-2">
           <Label><T k="booking.time" /></Label>
 
-          {!serviceId || !barberId ? (
+          {servicesInDraft.length === 0 || !barberId ? (
             <p className="text-sm text-muted-foreground">
               <T k="booking.pickServiceBarber" />
             </p>
-          ) : availability.isPending ? (
+          ) : quote.isPending ? (
             <div className="flex flex-wrap gap-2">
               {Array.from({ length: 8 }).map((_, index) => (
                 <Skeleton key={index} className="h-9 w-16" />
               ))}
             </div>
-          ) : availability.isError ? (
-            <p className="text-sm text-destructive">
-              {availability.error instanceof Error
-                ? availability.error.message
-                : t("booking.timeLoadError")}
-            </p>
-          ) : availability.data && availability.data.length > 0 ? (
+          ) : quote.isError ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-destructive">
+                {quote.error instanceof Error
+                  ? quote.error.message
+                  : t("booking.timeLoadError")}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void quote.refetch()}
+              >
+                <T k="common.tryAgain" />
+              </Button>
+            </div>
+          ) : quote.data && quote.data.slots.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {availability.data.map((slot) => (
+              {quote.data.slots.map((slot) => (
                 <Button
                   key={slot.start}
                   type="button"
@@ -310,20 +429,19 @@ export function BookingForm() {
           />
         </div>
 
-        <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-          <div className="flex items-center justify-between">
+        <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Scissors className="size-4" aria-hidden />
-              {service ? service.name : t("booking.noService")}
+              {selectedNames.length > 0 ? selectedNames.join(" + ") : t("booking.noService")}
             </span>
-            <span className="font-medium tabular-nums">
-              {service ? formatPrice(priceOf(service)) : "—"}
-            </span>
+            <span className="font-medium tabular-nums">{formatPrice(totalPrice)}</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-2">
               <Clock3 className="size-3.5" aria-hidden />
-              {service ? `${service.time} min` : "—"}
+              {t("booking.visitTime")}:{" "}
+              {quote.data ? `${quote.data.time} ${t("common.minutes")}` : "—"}
             </span>
             <span className="flex items-center gap-2">
               <CalendarDays className="size-3.5" aria-hidden />
@@ -331,6 +449,9 @@ export function BookingForm() {
               {start !== null ? ` · ${label(start)}` : ""}
             </span>
           </div>
+          <p className="text-xs text-muted-foreground">
+            {t("booking.totalHint")}
+          </p>
         </div>
 
         <Button

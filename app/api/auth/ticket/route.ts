@@ -18,7 +18,11 @@ export async function GET(request: NextRequest) {
   const fail = () =>
     NextResponse.redirect(new URL("/sign-in?error=link", base), 303);
 
-  const limit = rateLimit("ticket:redeem:ip", 30, 10 * 60_000);
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const limit = rateLimit(`ticket:redeem:${ip}`, 30, 10 * 60_000);
   if (!limit.ok) return fail();
 
   const ticket = request.nextUrl.searchParams.get("ticket");

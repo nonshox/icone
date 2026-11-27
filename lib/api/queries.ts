@@ -17,8 +17,10 @@ import { api } from "./client";
 export const keys = {
   barbers: ["barbers"] as const,
   services: ["services"] as const,
-  availability: (barber: string, date: string, service: string) =>
-    ["availability", barber, date, service] as const,
+  availability: (barber: string, date: string, services: string[]) =>
+    ["availability", barber, date, [...services]] as const,
+  availabilityQuote: (barber: string, date: string, services: string[]) =>
+    ["availability-quote", barber, date, [...services]] as const,
   bookings: ["bookings"] as const,
   booking: (id: string) => ["booking", id] as const,
   agenda: (date: string, barber: string) => ["agenda", date, barber] as const,
@@ -43,20 +45,63 @@ export function useServices() {
   });
 }
 
-export function useAvailability(input: {
+export type AvailabilityInput = {
   barber: string;
   date: string;
-  service: string;
-}) {
-  const ready = Boolean(input.barber && input.date && input.service);
+  /** Every service in the visit. The whole duration is used for the slots. */
+  services?: string[];
+  /** Legacy single-service callers keep working unchanged. */
+  service?: string;
+};
 
+/** The server's answer for a whole visit: real slots plus resolved totals. */
+export type AvailabilityQuote = {
+  slots: Slot[];
+  /** Total minutes the visit occupies, buffer included. */
+  time: number;
+  /** Total price in UZS for this barber's offer. */
+  price: number;
+  services: Array<{ id: string; name: string; price: number; time: number }>;
+};
+
+function availabilityIds(input: AvailabilityInput): string[] {
+  const ids = input.services?.length
+    ? input.services
+    : input.service
+      ? [input.service]
+      : [];
+  return [...new Set(ids.filter(Boolean))];
+}
+
+function availabilityQuery(input: AvailabilityInput, ids: string[]): string {
+  const query = new URLSearchParams({ barber: input.barber, date: input.date });
+  ids.forEach((id) => query.append("services", id));
+  return query.toString();
+}
+
+/** Slots only — the shape older callers expect. */
+export function useAvailability(input: AvailabilityInput) {
+  const ids = availabilityIds(input);
   return useQuery({
-    queryKey: keys.availability(input.barber, input.date, input.service),
+    queryKey: keys.availability(input.barber, input.date, ids),
     queryFn: () =>
-      api<{ slots: Slot[] }>(
-        `/api/availability?barber=${input.barber}&date=${input.date}&service=${input.service}`,
-      ).then((r) => r.slots),
-    enabled: ready,
+      api<{ slots: Slot[] }>(`/api/availability?${availabilityQuery(input, ids)}`).then(
+        (r) => r.slots,
+      ),
+    enabled: Boolean(input.barber && input.date && ids.length > 0),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** Slots plus the server-resolved price and duration of the whole visit. */
+export function useAvailabilityQuote(input: AvailabilityInput) {
+  const ids = availabilityIds(input);
+  return useQuery({
+    queryKey: keys.availabilityQuote(input.barber, input.date, ids),
+    queryFn: () =>
+      api<AvailabilityQuote>(`/api/availability?${availabilityQuery(input, ids)}`),
+    enabled: Boolean(input.barber && input.date && ids.length > 0),
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
@@ -107,7 +152,8 @@ export function useCreateBooking() {
   return useMutation({
     mutationFn: (input: {
       barber: string;
-      service: string;
+      /** Every service in the visit, in performance order. */
+      services: string[];
       date: string;
       start: number;
       note?: string;
@@ -119,6 +165,7 @@ export function useCreateBooking() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.bookings });
       void queryClient.invalidateQueries({ queryKey: ["availability"] });
+      void queryClient.invalidateQueries({ queryKey: ["availability-quote"] });
     },
   });
 }
@@ -136,6 +183,7 @@ export function useSetStatus() {
       void queryClient.invalidateQueries({ queryKey: keys.bookings });
       void queryClient.invalidateQueries({ queryKey: ["agenda"] });
       void queryClient.invalidateQueries({ queryKey: ["availability"] });
+      void queryClient.invalidateQueries({ queryKey: ["availability-quote"] });
     },
   });
 }

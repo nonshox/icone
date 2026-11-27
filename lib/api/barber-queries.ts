@@ -12,7 +12,7 @@ import type {
   Service,
 } from "@/lib/domain/types";
 
-import { api } from "./client";
+import { api, ApiError } from "./client";
 
 export type {
   Barber,
@@ -37,7 +37,15 @@ export type DashboardData = {
 };
 
 export type Customer = Client & { visits: number; last: string; name: string };
-export type CustomerDetail = Customer & { visits: BookingRow[] };
+export type CustomerDetail = Customer & {
+  visits: number;
+  completed: number;
+  last: string;
+  services: string[];
+  note: string;
+  noteId: string;
+  bookings: BookingRow[];
+};
 export type NotificationRow = Notification;
 export type PortfolioInput = {
   url: string;
@@ -54,11 +62,21 @@ export type ServiceInput = {
   buffer?: number;
   category?: string;
   active?: boolean;
+  /** Appwrite file id (or a legacy external URL). */
+  image?: string;
 };
+export type UploadFolder =
+  | "avatar"
+  | "logo"
+  | "cover"
+  | "portfolio"
+  | "service";
+export type UploadedFile = { id: string; url: string };
 export type ServicePatch = Partial<ServiceInput> & { id: string };
 export type PortfolioPatch = Partial<PortfolioInput> & { id: string };
 export type SettingsPatch = {
-  profile?: Partial<Barber>;
+  /** `logo` applies to a business workspace; `photo` to a professional. */
+  profile?: Partial<Barber> & { logo?: string };
   prefs?: Partial<NotificationPrefs>;
 };
 
@@ -268,5 +286,78 @@ export function useUpdateBarberSettings() {
         body: JSON.stringify(input),
       }),
     onSuccess: () => refresh(client, true),
+  });
+}
+
+/* ---------------------------------------------------------------- uploads */
+
+type UploadVariables = {
+  file: File;
+  folder: UploadFolder;
+  onProgress?: (percent: number) => void;
+};
+
+type UploadResponse = {
+  ok?: boolean;
+  id?: string;
+  url?: string;
+  error?: { message?: string; code?: string };
+};
+
+/**
+ * Multipart upload to Appwrite Storage. We use XHR (not the JSON `api` helper)
+ * so the browser keeps the multipart boundary and reports real progress.
+ * Cookies are sent automatically for this same-origin request.
+ */
+function sendImage({
+  file,
+  folder,
+  onProgress,
+}: UploadVariables): Promise<UploadedFile> {
+  return new Promise((resolve, reject) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("folder", folder);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/uploads");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      let data: UploadResponse | null = null;
+      try {
+        data = JSON.parse(xhr.responseText) as UploadResponse;
+      } catch {
+        // Leave the generic message below.
+      }
+      if (
+        xhr.status >= 200 &&
+        xhr.status < 300 &&
+        data?.ok &&
+        typeof data.id === "string"
+      ) {
+        resolve({ id: data.id, url: typeof data.url === "string" ? data.url : "" });
+        return;
+      }
+      reject(
+        new ApiError(
+          data?.error?.message ?? "Upload failed.",
+          data?.error?.code ?? "upload_failed",
+          xhr.status,
+        ),
+      );
+    };
+    xhr.onerror = () =>
+      reject(new ApiError("Upload failed.", "upload_failed", 0));
+    xhr.send(body);
+  });
+}
+
+export function useUploadImage() {
+  return useMutation({
+    mutationFn: (input: UploadVariables) => sendImage(input),
   });
 }

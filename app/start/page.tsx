@@ -1,3 +1,4 @@
+import { T } from "@/components/i18n/t";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -25,7 +26,7 @@ async function RoleHome() {
 export default function StartPage() {
   return (
     <main id="main" className="grid min-h-dvh place-items-center">
-      <p className="text-sm text-muted-foreground">Opening your account…</p>
+      <p className="text-sm text-muted-foreground"><T k="common.loading" /></p>
       <Suspense fallback={null}>
         <RoleHome />
       </Suspense>

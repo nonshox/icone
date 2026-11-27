@@ -22,7 +22,9 @@ const ALLOWED: Record<string, string> = {
   "image/avif": "avif",
 };
 
-export type UploadResult = { ok: true; url: string } | { ok: false; message: string };
+export type UploadResult =
+  | { ok: true; id: string; url: string }
+  | { ok: false; message: string };
 
 function storage(): Storage {
   return new Storage(createAdminClient());
@@ -40,10 +42,13 @@ export function fileUrl(name: string): string {
   const env = process.env;
   const endpoint = env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "";
   const project = env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
+  const publicBucket = env.NEXT_PUBLIC_APPWRITE_BUCKET_ID ?? "";
 
   if (!endpoint || !project) return name;
 
-  return `${endpoint.replace(/\/$/, "")}/storage/buckets/${bucketId()}/files/${encodeURIComponent(name)}/view?project=${project}`;
+  return `${endpoint.replace(/\/$/, "")}/storage/buckets/${encodeURIComponent(
+    publicBucket || bucketId(),
+  )}/files/${encodeURIComponent(name)}/view?project=${project}`;
 }
 
 /** Strip the URL back down to the stored file name, for deletes and reads. */
@@ -85,10 +90,12 @@ export async function uploadImage(
       bucketId: bucketId(),
       fileId: name,
       file,
-      permissions: ["role:all:read"],
+      // New Appwrite permission syntax: action("role"), i.e. public read.
+      permissions: ['read("any")'],
     });
 
-    return { ok: true, url: fileUrl(name) };
+    // The row stores `id`; the URL is only for immediate preview.
+    return { ok: true, id: name, url: fileUrl(name) };
   } catch (error) {
     if (error instanceof AppwriteException) {
       console.error("[upload] failed", error.code, error.message);

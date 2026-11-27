@@ -7,8 +7,9 @@ import {
   Languages,
   Menu,
   Moon,
+  Scale,
+  Send,
   Sun,
-  UserRound,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -24,9 +25,10 @@ import { cn } from "@/lib/utils";
 
 const sectionIcons = {
   "nav.discover": Compass,
-  "nav.account": UserRound,
   "nav.forBarbers": BriefcaseBusiness,
   "nav.help": CircleHelp,
+  "nav.legal": Scale,
+  "nav.telegram": Send,
 } as const;
 
 const languages: Array<{ value: Locale; short: string; label: string }> = [
@@ -84,33 +86,53 @@ export function SiteMenu() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-2xl border border-border/70 bg-popover p-2 text-popover-foreground shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-2 max-h-[min(70dvh,32rem)] w-[min(calc(100vw-2rem),22rem)] overflow-y-auto rounded-2xl border border-border/70 bg-popover p-2 text-popover-foreground shadow-lg">
           {navSections.map((section) => {
             const Icon = sectionIcons[section.title as keyof typeof sectionIcons] ?? Languages;
+            const headingId = `menu-${section.title.replace(/\./g, "-")}`;
             return (
-              <section key={section.title} className="rounded-xl p-2">
-                <h2 className="flex items-center gap-2 px-2 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+              <section key={section.title} aria-labelledby={headingId} className="rounded-xl p-2">
+                <h2
+                  id={headingId}
+                  className="flex items-center gap-2 px-2 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase"
+                >
                   <Icon className="size-3.5 text-brand-strong" aria-hidden />
                   <T k={section.title} />
                 </h2>
                 <ul className="space-y-1">
                   {section.links.map((link) => {
-                    const active =
-                      pathname === link.href || pathname.startsWith(`${link.href}/`);
+                    // Query variants (e.g. ?model=b) are reachable but not
+                    // highlighted, since the pathname alone cannot tell them apart.
+                    const path = link.href.split("?")[0];
+                    const active = !link.external && !link.href.includes("?") && pathname === path;
+                    const className = cn(
+                      "block rounded-lg px-2 py-2 text-sm transition-colors",
+                      active
+                        ? "bg-foreground/[0.06] text-foreground"
+                        : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
+                    );
+
                     return (
                       <li key={link.href}>
-                        <Link
-                          href={link.href}
-                          onClick={() => setOpen(false)}
-                          className={cn(
-                            "block rounded-lg px-2 py-2 text-sm transition-colors",
-                            active
-                              ? "bg-foreground/[0.06] text-foreground"
-                              : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
-                          )}
-                        >
-                          {t(link.label)}
-                        </Link>
+                        {link.external ? (
+                          <a
+                            href={link.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={className}
+                          >
+                            {t(link.label)}
+                          </a>
+                        ) : (
+                          <Link
+                            href={link.href}
+                            onClick={() => setOpen(false)}
+                            aria-current={active ? "page" : undefined}
+                            className={className}
+                          >
+                            {t(link.label)}
+                          </Link>
+                        )}
                       </li>
                     );
                   })}

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ImageUpload } from "@/components/upload/image-upload";
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
@@ -24,14 +25,19 @@ import {
   type Barber,
   type NotificationPrefs,
 } from "@/lib/api/barber-queries";
+import type { Business } from "@/lib/domain/types";
 
 import { Empty, FormError, LoadingRows, message, ToggleRow } from "./barber-ui";
+
+/** The workspace is either an independent professional or a business. */
+type Chair = Barber | Business;
 
 type FormState = {
   name: string;
   title: string;
   bio: string;
   photo: string;
+  logo: string;
   cover: string;
   shop: string;
   address: string;
@@ -47,25 +53,26 @@ type FormState = {
   featured: boolean;
 };
 
-function stateFrom(chair: Barber): FormState {
+function stateFrom(chair: Chair): FormState {
   return {
     name: chair.name,
-    title: chair.title,
-    bio: chair.bio,
-    photo: chair.photo,
+    title: "title" in chair ? chair.title : "",
+    bio: "bio" in chair ? chair.bio : "",
+    photo: "photo" in chair ? chair.photo : "",
+    logo: "logo" in chair ? chair.logo : "",
     cover: chair.cover,
-    shop: chair.shop,
+    shop: "shop" in chair ? chair.shop : "",
     address: chair.address,
     city: chair.city,
-    years: String(chair.years),
-    skills: chair.skills,
+    years: String("years" in chair ? chair.years : 0),
+    skills: "skills" in chair ? chair.skills : "",
     phone: chair.phone,
-    social: chair.social,
+    social: "social" in chair ? chair.social : "",
     facilities: chair.facilities,
     policy: chair.policy,
     active: chair.active,
     confirm: chair.confirm,
-    featured: chair.featured,
+    featured: "featured" in chair ? chair.featured : false,
   };
 }
 
@@ -73,11 +80,12 @@ function SettingsForm({
   chair,
   prefs,
 }: {
-  chair: Barber;
+  chair: Chair;
   prefs: NotificationPrefs;
 }) {
   const save = useUpdateBarberSettings();
   const t = useT();
+  const isBusiness = "logo" in chair;
   const [form, setForm] = useState<FormState>(() => stateFrom(chair));
   const [notificationPrefs, setNotificationPrefs] = useState(prefs);
   const [formError, setFormError] = useState<string | null>(null);
@@ -111,6 +119,7 @@ function SettingsForm({
           title: form.title.trim(),
           bio: form.bio.trim(),
           photo: form.photo.trim(),
+          logo: form.logo.trim(),
           cover: form.cover.trim(),
           shop: form.shop.trim(),
           address: form.address.trim(),
@@ -184,27 +193,31 @@ function SettingsForm({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-photo">
-              <T k="work.settings.photo" />
-            </Label>
-            <Input
-              id="biz-photo"
-              type="url"
-              value={form.photo}
-              maxLength={512}
-              onChange={(event) => set("photo", event.target.value)}
-            />
+            {isBusiness ? (
+              <ImageUpload
+                id="biz-logo"
+                folder="logo"
+                label={<T k="admin.image" />}
+                value={form.logo}
+                onChange={(id) => set("logo", id)}
+              />
+            ) : (
+              <ImageUpload
+                id="biz-photo"
+                folder="avatar"
+                label={<T k="work.settings.photo" />}
+                value={form.photo}
+                onChange={(id) => set("photo", id)}
+              />
+            )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="biz-cover">
-              <T k="work.settings.cover" />
-            </Label>
-            <Input
+            <ImageUpload
               id="biz-cover"
-              type="url"
+              folder="cover"
+              label={<T k="work.settings.cover" />}
               value={form.cover}
-              maxLength={512}
-              onChange={(event) => set("cover", event.target.value)}
+              onChange={(id) => set("cover", id)}
             />
           </div>
           <div className="space-y-1.5">

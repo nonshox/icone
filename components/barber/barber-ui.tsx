@@ -10,8 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Status } from "@/lib/domain/types";
 
 /** Server errors are already human-readable; keep our own fallback short. */
-export function message(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
+export function message(_error: unknown, fallback: string): string {
+  // Server validation copy is English; show the caller's localized fallback.
+  return fallback;
 }
 
 export function FormError({ text }: { text: string | null }) {

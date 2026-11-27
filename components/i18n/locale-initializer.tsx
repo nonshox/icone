@@ -7,10 +7,15 @@ import { readStoredLocale, useLocaleStore } from "@/lib/store/locale";
 /** Applies the saved language after hydration — no SSR mismatch. */
 export function LocaleInitializer() {
   const setLocale = useLocaleStore((state) => state.setLocale);
+  const locale = useLocaleStore((state) => state.locale);
 
   useEffect(() => {
     setLocale(readStoredLocale());
   }, [setLocale]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   return null;
 }

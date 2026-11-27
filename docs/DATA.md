@@ -58,6 +58,17 @@ ads or promotional campaigns.
 - Walk-ins are real booking rows (`source: walkin`) and block the same slots as
   online bookings. Deactivated staff and retired services are not bookable.
 
+## Images
+
+Uploads go to Appwrite Storage through `POST /api/uploads` and
+`lib/domain/upload.ts`. The route accepts `multipart/form-data` with a `file`
+and a `folder` (`avatar`, `logo`, `cover`, `portfolio`, `service`), validates
+type and size on the server, and returns the generated Appwrite **file id**.
+Rows store that id — not a URL — in `photo`, `avatar`, `logo`, `cover`,
+`portfolio.url` or `service.image`. `lib/client/files.ts` resolves an id to a
+public view URL with the public endpoint, project and bucket id; legacy
+absolute URLs still render as before.
+
 ## Setup
 
 Copy `.env.example` to `.env`, then run `cmd /c "npm run db:setup"`. The Appwrite

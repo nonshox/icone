@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/api/guard";
-import { apiError, apiOk, isSameOrigin } from "@/lib/http";
+import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
+import { rateLimit } from "@/lib/rate-limit";
 import { joinWaitlist, myWaits, cancelWait } from "@/lib/domain/waitlist";
 
 const joinSchema = z.object({
@@ -38,6 +39,8 @@ export async function POST(request: NextRequest) {
   }
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
+  const limit = rateLimit(`wait:${guarded.actor.userId}`, 20, 10 * 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
   try {

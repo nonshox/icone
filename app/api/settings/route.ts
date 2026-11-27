@@ -23,7 +23,13 @@ const bodySchema = z.object({
     .string()
     .trim()
     .max(512)
-    .refine((value) => value === "" || /^https?:\/\//.test(value), "Use an image link.")
+    .refine(
+      (value) =>
+        value === "" ||
+        /^https?:\/\//.test(value) ||
+        /^[a-z0-9_-]+\.[a-z0-9]+$/i.test(value),
+      "Use an image link or an uploaded image id.",
+    )
     .optional(),
   prefs: z
     .object({

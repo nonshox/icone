@@ -39,6 +39,15 @@ is subscription-ready but the product works fully without billing.
 - **Reminders:** `/api/cron/reminders`, called daily at 06:00 UTC by
   `.github/workflows/reminders.yml` with `CRON_SECRET`. Idempotent.
 
+## Navigation
+
+`lib/navigation.ts` is the single source of truth for links. `primaryLinks` are
+the desktop bar; `navSections` drive the desktop menu, the mobile "More" sheet
+and the footer, so all three expose the same destinations (discovery,
+professionals, help/waitlist, legal and the Telegram bot). Labels are
+dictionary keys, never hard-coded copy. The mobile bottom bar keeps five
+primary tabs plus "More"; there is no separate mini-app navigation.
+
 ## Source map
 
 | Area | Files |

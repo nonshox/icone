@@ -37,6 +37,9 @@ import { useBookings, useCreateReview, useProfile, useSetStatus } from "@/lib/ap
 import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
 import { CANCELLABLE, type BookingRow, type Status } from "@/lib/domain/types";
+import { RebookButton } from "./rebook-button";
+import { RescheduleControl } from "./reschedule-control";
+import { useServiceNames } from "./use-service-names";
 
 const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
   pending: "outline",
@@ -68,6 +71,7 @@ export function BookingDetail({ id }: { id: string }) {
   const setStatus = useSetStatus();
   const review = useCreateReview();
   const profile = useProfile();
+  const serviceNames = useServiceNames();
   const [rate, setRate] = useState("5");
   const [note, setNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -147,6 +151,11 @@ export function BookingDetail({ id }: { id: string }) {
   }
 
   const canCancel = CANCELLABLE.includes(row.status) && row.date >= todayDate;
+  const canRebook =
+    row.status === "done" ||
+    row.status === "noshow" ||
+    row.status === "cancelled" ||
+    row.status === "rejected";
   const canReview = (row.status === "done" || row.status === "noshow") && !row.reviewed;
 
   return (
@@ -161,12 +170,18 @@ export function BookingDetail({ id }: { id: string }) {
             <T k="visits.message" />
           </Link>
         ) : null}
-        <Link
-          href={`/book?barber=${row.barber}&service=${row.service}`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          <T k="visits.bookAgain" />
-        </Link>
+        {canRebook ? (
+          <RebookButton booking={row} />
+        ) : (
+          <Link
+            href={`/book?barber=${row.barber}&services=${encodeURIComponent(
+              (row.items.length > 0 ? row.items : [row.service]).join(","),
+            )}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <T k="visits.bookAgain" />
+          </Link>
+        )}
       </div>
 
       {actionError ? (
@@ -183,7 +198,7 @@ export function BookingDetail({ id }: { id: string }) {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-xl">{row.serviceName}</CardTitle>
+              <CardTitle className="text-xl">{serviceNames(row)}</CardTitle>
               <CardDescription>· {row.barberName}</CardDescription>
             </div>
             <Badge variant={badgeVariant[row.status]}>
@@ -211,7 +226,7 @@ export function BookingDetail({ id }: { id: string }) {
               </dt>
               <dd className="mt-1 flex items-center gap-2 text-sm font-medium">
                 <Clock className="size-4 text-brand-strong" aria-hidden />
-                {row.serviceTime} {t("common.minutes")}
+                {row.end - row.start} {t("common.minutes")}
               </dd>
             </div>
             <div>
@@ -239,20 +254,23 @@ export function BookingDetail({ id }: { id: string }) {
           {canCancel ? (
             <>
               <Separator />
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="outline"
-                  disabled={setStatus.isPending}
-                  onClick={() => cancelVisit(row)}
-                >
-                  {setStatus.isPending ? (
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  ) : null}
-                  <T k="visits.cancel" />
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  <T k="visits.cancelHint" />
-                </p>
+              <div className="space-y-3">
+                <RescheduleControl booking={row} />
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="outline"
+                    disabled={setStatus.isPending}
+                    onClick={() => cancelVisit(row)}
+                  >
+                    {setStatus.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : null}
+                    <T k="visits.cancel" />
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    <T k="visits.cancelHint" />
+                  </p>
+                </div>
               </div>
             </>
           ) : null}

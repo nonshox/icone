@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { NotificationsView } from "@/components/customer/notifications-view";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 async function NotificationsPanel() {
   const actor = await getActor();
   if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/notifications")}`);
+  if (actor.profile.role !== "client") redirect("/account");
   return <NotificationsView />;
 }
 
@@ -34,7 +36,7 @@ export default function NotificationsPage() {
       <SiteHeader />
 
       <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-6 pt-10 pb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="nav.inbox" /></h1>
 
         <div className="mt-6">
           <Suspense fallback={<NotificationsSkeleton />}>

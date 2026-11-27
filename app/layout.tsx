@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 
+import { T } from "@/components/i18n/t";
 import { Providers } from "@/components/providers";
 import { MobileNav } from "@/components/layout/mobile-nav";
 
@@ -29,37 +30,56 @@ const instrumentSerif = Instrument_Serif({
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
 
+const description =
+  "Book Tashkent's sharpest barbers in seconds. Live availability, real profiles and one-tap Telegram sign-in. No calls, no queues, no passwords.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
     default: "icone — your chair is waiting",
     template: "%s · icone",
   },
-  description:
-    "Book Tashkent's sharpest barbers in seconds. No calls, no queues — one-time sign-in, clean cuts, on your time.",
+  description,
   applicationName: "icone",
+  creator: "icone",
+  publisher: "icone",
+  category: "Booking",
   keywords: [
     "icone",
     "barber",
     "barbershop",
     "Tashkent",
+    "Toshkent",
     "booking",
     "haircut",
     "beard trim",
+    "sartarosh",
   ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     siteName: "icone",
+    locale: "uz_UZ",
     title: "icone — your chair is waiting",
-    description:
-      "Book Tashkent's sharpest barbers in seconds. One-time sign-in. No passwords.",
+    description,
     url: appUrl,
   },
   twitter: {
     card: "summary_large_image",
     title: "icone — your chair is waiting",
-    description:
-      "Book Tashkent's sharpest barbers in seconds. One-time sign-in. No passwords.",
+    description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+    },
   },
   icons: {
     icon: [
@@ -80,7 +100,6 @@ export const metadata: Metadata = {
       type: "image/png",
     },
   },
-  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
@@ -96,7 +115,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="uz"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full`}
@@ -106,7 +125,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
         >
-          Skip to content
+          <T k="nav.skip" />
         </a>
         <Providers>{children}</Providers>
         <MobileNav />

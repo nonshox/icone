@@ -85,15 +85,20 @@ export function BarberDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-brand/10 hover:text-foreground"
-            >
-              <T k={link.key} />
-            </Link>
-          ))}
+          {LINKS.map((link) => {
+            const className =
+              "rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-brand/10 hover:text-foreground";
+            // API downloads need a real navigation, not a client-side route push.
+            return link.href.startsWith("/api/") ? (
+              <a key={link.href} href={link.href} download className={className}>
+                <T k={link.key} />
+              </a>
+            ) : (
+              <Link key={link.href} href={link.href} className={className}>
+                <T k={link.key} />
+              </Link>
+            );
+          })}
         </CardContent>
       </Card>
     </div>

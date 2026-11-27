@@ -4,7 +4,7 @@ import { Query } from "node-appwrite";
 
 import { TABLES } from "@/lib/appwrite/db";
 
-import { list, num, str, type Row } from "./crud";
+import { bool, list, num, str, type Row } from "./crud";
 import { toBooking } from "./booking";
 import { addDays, shopClock } from "./time";
 import type { Booking } from "./types";
@@ -316,7 +316,7 @@ export async function businessDashboard(businessId: string): Promise<TeamDashboa
 
   const staff = staffRows.map((row) => str(row.$id));
   const activeStaff = staffRows.filter(
-    (row) => str(row.state, "active") === "active" && str(row.active, "true") !== "false",
+    (row) => str(row.state, "active") === "active" && bool(row.active, false),
   ).length;
 
   // Who is actually working today, out of everyone on the books.

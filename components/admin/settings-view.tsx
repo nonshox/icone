@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,8 +35,266 @@ import {
   useSetCategoryActive,
   type Category,
 } from "@/lib/api/admin-queries";
+import {
+  useAdminPlaces,
+  useCreatePlace,
+  useTogglePlace,
+  type NewPlace,
+} from "@/lib/api/platform-queries";
 
 import { Empty, FormError, LoadingRows, Section, message } from "./admin-ui";
+
+type PlaceDraft = {
+  name: string;
+  kind: "city" | "district";
+  parent: string;
+  ru: string;
+  en: string;
+  lat: string;
+  lng: string;
+};
+
+const emptyDraft: PlaceDraft = {
+  name: "",
+  kind: "city",
+  parent: "",
+  ru: "",
+  en: "",
+  lat: "",
+  lng: "",
+};
+
+function PlacesManager() {
+  const t = useT();
+  const places = useAdminPlaces();
+  const create = useCreatePlace();
+  const toggle = useTogglePlace();
+
+  const [draft, setDraft] = useState<PlaceDraft>(emptyDraft);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const rows = places.data ?? [];
+  const cities = rows.filter((place) => place.kind === "city");
+  const busy = create.isPending || toggle.isPending;
+
+  function patch<K extends keyof PlaceDraft>(key: K, value: PlaceDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draft.name.trim()) {
+      setFormError(t("padmin.places.nameRequired"));
+      return;
+    }
+
+    const input: NewPlace = {
+      name: draft.name,
+      kind: draft.kind,
+      ru: draft.ru,
+      en: draft.en,
+    };
+    if (draft.kind === "district" && draft.parent) input.parent = draft.parent;
+    if (draft.lat.trim()) input.lat = Number(draft.lat);
+    if (draft.lng.trim()) input.lng = Number(draft.lng);
+
+    if (
+      (input.lat !== undefined && (!Number.isFinite(input.lat) || Math.abs(input.lat) > 90)) ||
+      (input.lng !== undefined && (!Number.isFinite(input.lng) || Math.abs(input.lng) > 180))
+    ) {
+      setFormError(t("padmin.places.invalidCoords"));
+      return;
+    }
+
+    setFormError(null);
+    create.mutate(input, {
+      onSuccess: () => {
+        setDraft(emptyDraft);
+        toast.success(t("padmin.places.created"));
+      },
+      onError: (cause) => {
+        const text = message(cause, t("admin.saveError"));
+        setFormError(text);
+        toast.error(text);
+      },
+    });
+  }
+
+  return (
+    <Section title={<T k="padmin.places.title" />} description={<T k="padmin.places.desc" />}>
+      <form onSubmit={submit} className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="place-name"><T k="padmin.places.name" /></Label>
+          <Input
+            id="place-name"
+            value={draft.name}
+            maxLength={64}
+            onChange={(event) => patch("name", event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="place-kind"><T k="padmin.places.kind" /></Label>
+          <Select
+            value={draft.kind}
+            onValueChange={(value) => patch("kind", value as "city" | "district")}
+          >
+            <SelectTrigger id="place-kind" className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="city"><T k="padmin.places.city" /></SelectItem>
+              <SelectItem value="district"><T k="padmin.places.district" /></SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="place-parent"><T k="padmin.places.parent" /></Label>
+          <Select
+            value={draft.parent || "none"}
+            disabled={draft.kind !== "district"}
+            onValueChange={(value) => patch("parent", value === "none" || !value ? "" : value)}
+          >
+            <SelectTrigger id="place-parent" className="h-9 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none"><T k="padmin.places.noParent" /></SelectItem>
+              {cities.map((city) => (
+                <SelectItem key={city.id} value={city.id}>{city.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="place-ru"><T k="padmin.places.ru" /></Label>
+          <Input
+            id="place-ru"
+            value={draft.ru}
+            maxLength={64}
+            onChange={(event) => patch("ru", event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="place-en"><T k="padmin.places.en" /></Label>
+          <Input
+            id="place-en"
+            value={draft.en}
+            maxLength={64}
+            onChange={(event) => patch("en", event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="place-lat"><T k="padmin.places.lat" /></Label>
+          <Input
+            id="place-lat"
+            type="number"
+            step="any"
+            min={-90}
+            max={90}
+            value={draft.lat}
+            onChange={(event) => patch("lat", event.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="place-lng"><T k="padmin.places.lng" /></Label>
+          <Input
+            id="place-lng"
+            type="number"
+            step="any"
+            min={-180}
+            max={180}
+            value={draft.lng}
+            onChange={(event) => patch("lng", event.target.value)}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button type="submit" disabled={busy}>
+            {create.isPending ? <T k="common.loading" /> : <T k="padmin.places.add" />}
+          </Button>
+        </div>
+      </form>
+
+      <FormError
+        text={formError ?? (places.error ? message(places.error, t("admin.loadError")) : null)}
+      />
+
+      {places.isPending ? (
+        <LoadingRows />
+      ) : rows.length === 0 ? (
+        <Empty><T k="padmin.places.empty" /></Empty>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead><T k="padmin.places.name" /></TableHead>
+                <TableHead><T k="padmin.places.kind" /></TableHead>
+                <TableHead><T k="padmin.places.parent" /></TableHead>
+                <TableHead><T k="common.status" /></TableHead>
+                <TableHead className="text-right"><T k="admin.actions" /></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((place) => {
+                const parent = cities.find((city) => city.id === place.parent);
+                return (
+                  <TableRow key={place.id}>
+                    <TableCell>
+                      <p className="font-medium">{place.name}</p>
+                      {(place.ru || place.en) ? (
+                        <p className="text-xs text-muted-foreground">
+                          {[place.ru, place.en].filter(Boolean).join(" · ")}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {t(
+                        place.kind === "city"
+                          ? "padmin.places.city"
+                          : "padmin.places.district",
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {parent?.name ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={place.active ? "secondary" : "outline"}>
+                        {place.active ? t("admin.active") : t("admin.hidden")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => {
+                          if (!place.active && !window.confirm(t("padmin.places.confirmShow"))) return;
+                          toggle.mutate(
+                            { id: place.id, active: !place.active },
+                            {
+                              onSuccess: () => toast.success(t("padmin.places.updated")),
+                              onError: (cause) =>
+                                toast.error(message(cause, t("admin.saveError"))),
+                            },
+                          );
+                        }}
+                      >
+                        {place.active
+                          ? t("padmin.places.hide")
+                          : t("padmin.places.show")}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </Section>
+  );
+}
 
 export function SettingsView() {
   const t = useT();
@@ -214,6 +479,8 @@ export function SettingsView() {
           </div>
         )}
       </Section>
+
+      <PlacesManager />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Section title={<T k="admin.featuredListings" />} description={<T k="admin.featuredDesc" />}>

@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/api/guard";
+import { getActor } from "@/lib/domain/access";
 import { TABLES } from "@/lib/appwrite/db";
 import { create, list, remove, str } from "@/lib/domain/crud";
 import { getBarber, getBarbers, isBookable, type BarberRow } from "@/lib/domain/professional";
@@ -63,14 +64,15 @@ async function listFavorites(userId: string): Promise<Favorite[]> {
 
 /** GET /api/favorites — saved chairs for the signed-in client. */
 export async function GET() {
-  const guarded = await requireUser();
-  if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
+  // Public profile pages render this button for everybody. Guests and
+  // professional accounts simply get an empty list; only writes are gated.
+  const actor = await getActor();
+  if (!actor || actor.profile.role !== "client") {
+    return apiOk({ favorites: [] });
   }
 
   try {
-    return apiOk({ favorites: await listFavorites(guarded.actor.userId) });
+    return apiOk({ favorites: await listFavorites(actor.userId) });
   } catch (error) {
     console.error("[api] favorites failed", error);
     return apiError("Could not load your saved chairs.", 502, "favorites_failed");

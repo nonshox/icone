@@ -4,6 +4,7 @@ import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { ImageUpload } from "@/components/upload/image-upload";
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ const BLANK = {
   buffer: "0",
   category: "Hair",
   active: true,
+  image: "",
 };
 
 export function BarberServices() {
@@ -78,6 +80,7 @@ export function BarberServices() {
       buffer: String(service.buffer ?? 0),
       category: service.category,
       active: service.active,
+      image: service.image,
     });
     setFormError(null);
   }
@@ -114,6 +117,7 @@ export function BarberServices() {
       buffer,
       category: form.category.trim() || t("barber.hair"),
       active: form.active,
+      image: form.image.trim(),
     };
 
     const done = () => {
@@ -223,6 +227,15 @@ export function BarberServices() {
                 value={form.note}
                 maxLength={256}
                 onChange={(event) => set("note", event.target.value)}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <ImageUpload
+                id="service-image"
+                folder="service"
+                label={<T k="admin.image" />}
+                value={form.image}
+                onChange={(id) => set("image", id)}
               />
             </div>
             <div className="sm:col-span-2">

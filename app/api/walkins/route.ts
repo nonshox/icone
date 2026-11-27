@@ -11,6 +11,7 @@ import { bookWalkin } from "@/lib/domain/booking";
 import { getBarber } from "@/lib/domain/professional";
 import { notify } from "@/lib/domain/notify";
 import { toBookingRows } from "@/lib/domain/appointment";
+import { label } from "@/lib/domain/time";
 
 const schema = z.object({
   barber: z.string().trim().min(1).max(36),
@@ -87,7 +88,11 @@ export async function POST(request: NextRequest) {
       await notify({
         userId: barber.user,
         key: "booked",
-        params: { date: booking.date, time: String(booking.start) },
+        params: {
+          date: booking.date,
+          time: label(booking.start),
+          barber: booking.barberName,
+        },
         link: `/bookings/${booking.id}`,
       }).catch((error) => console.error("[walkin] notice failed", error));
     }

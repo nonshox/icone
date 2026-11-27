@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { T } from "@/components/i18n/t";
 import { SettingsView } from "@/components/customer/settings-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
 async function SettingsPanel() {
   const actor = await getActor();
   if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/settings")}`);
+  if (actor.profile.role !== "client") redirect("/account");
   return <SettingsView />;
 }
 
@@ -33,7 +35,7 @@ export default function SettingsPage() {
       <SiteHeader />
 
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 pt-10 pb-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="nav.settings" /></h1>
 
         <div className="mt-6">
           <Suspense fallback={<SettingsSkeleton />}>

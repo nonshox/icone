@@ -108,21 +108,11 @@ export async function transition(input: {
   return { ok: true, booking: toBooking(row) };
 }
 
-/** Wake anyone waiting for the slot that just opened up. */
+/** Wake anyone whose real preferences match a slot that just opened up. */
 async function releaseWaitlist(booking: Booking): Promise<void> {
   try {
-    const rows = await list(TABLES.waits, [
-      Query.equal("barber", booking.barber),
-      Query.equal("state", "open"),
-      Query.limit(50),
-    ]);
-
-    await Promise.all(
-      rows
-        .map((row) => ({ id: row.$id, from: str(row.from), to: str(row.to) }))
-        .filter((row) => row.from <= booking.date && booking.date <= row.to)
-        .map((row) => update(TABLES.waits, row.id, { state: "notified" })),
-    );
+    const { matchWaitlist } = await import("./waitlist");
+    await matchWaitlist(booking.barber);
   } catch (error) {
     console.error("[domain] waitlist release failed", error);
   }

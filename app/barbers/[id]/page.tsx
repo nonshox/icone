@@ -18,6 +18,7 @@ import {
 import { FavoriteButton } from "@/components/barbers/favorite-button";
 import { NextSlots } from "@/components/barbers/next-slots";
 import { T } from "@/components/i18n/t";
+import { ShareProfile } from "@/components/share/share-profile";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { imageUrl } from "@/lib/client/files";
 import { servicesFor } from "@/lib/domain/catalog";
 import { publicPortfolio } from "@/lib/domain/portfolio";
 import { getBarber } from "@/lib/domain/professional";
@@ -51,11 +53,19 @@ export async function generateMetadata({
     description:
       barber?.bio ||
       "Meet the barber, see the menu and reserve a chair at icone in Tashkent.",
-    robots: { index: false, follow: false },
+    robots: { index: true, follow: true },
+    openGraph: barber
+      ? {
+          title: `${barber.name} · icone`,
+          description: barber.bio || "Book a barber in Tashkent on icone.",
+          images: imageUrl(barber.photo) ? [imageUrl(barber.photo)] : undefined,
+        }
+      : undefined,
   };
 }
 
-function photoStyle(url: string) {
+function photoStyle(value: string) {
+  const url = imageUrl(value);
   if (!/^https?:\/\//.test(url)) return undefined;
   return { backgroundImage: `url("${url.replace(/"/g, "%22")}")` };
 }
@@ -195,6 +205,10 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
 
               <div className="flex flex-wrap gap-2">
                 <FavoriteButton barber={barber.id} />
+                <ShareProfile
+                  path={`/barbers/${barber.slug || barber.id}`}
+                  title={barber.name}
+                />
                 <Link
                   href={`/book?barber=${barber.id}`}
                   className={cn(

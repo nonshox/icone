@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { requireUser } from "@/lib/api/guard";
 import { TABLES } from "@/lib/appwrite/db";
-import { inBusiness, onBarber, readableBarbers } from "@/lib/domain/access";
+import { can, inBusiness, onBarber, readableBarbers } from "@/lib/domain/access";
 import { toBooking, book } from "@/lib/domain/booking";
 import { toBookingRow, toBookingRows } from "@/lib/domain/appointment";
 import { list } from "@/lib/domain/crud";
@@ -16,18 +16,26 @@ import {
   notify,
   notifyMany,
 } from "@/lib/domain/notify";
-import { getBarber } from "@/lib/domain/professional";
+import { getBarber, getBarbers } from "@/lib/domain/professional";
 import { isDate } from "@/lib/domain/time";
 import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
-const bodySchema = z.object({
-  barber: z.string().trim().min(1).max(36),
-  service: z.string().trim().min(1).max(36),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  start: z.number().int().min(0).max(1439),
-  note: z.string().trim().max(200).default(""),
-});
+const bodySchema = z
+  .object({
+    barber: z.string().trim().min(1).max(36),
+    /** Every service in the visit, in the order they will be performed. */
+    services: z.array(z.string().trim().min(1).max(36)).min(1).max(10).optional(),
+    /** Legacy single-service field, still accepted by older deep links. */
+    service: z.string().trim().min(1).max(36).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    start: z.number().int().min(0).max(1439),
+    note: z.string().trim().max(200).default(""),
+  })
+  .refine((body) => Boolean(body.services?.length || body.service), {
+    message: "Choose at least one service.",
+    path: ["services"],
+  });
 
 /** Booking rows with the flag both visit views use for the review form. */
 async function withReviewed(bookings: Awaited<ReturnType<typeof toBookingRows>>) {
@@ -81,6 +89,16 @@ export async function GET(request: NextRequest) {
         if (!permitted) {
           return apiError("You do not have access to this calendar.", 403, "forbidden");
         }
+        const readable =
+          actor.barber?.id === barberId
+            ? can(actor, "calendar.read", {
+                barber: barberId,
+                business: requested.business,
+              })
+            : can(actor, "calendar.read.all", { business: requested.business });
+        if (!readable) {
+          return apiError("You cannot read this calendar.", 403, "forbidden");
+        }
       }
       if (actor.profile.role === "barber" && !barberId) {
         if (!actor.barber) {
@@ -93,7 +111,15 @@ export async function GET(request: NextRequest) {
         barberId = actor.barber.id;
       }
 
-      const allowed = barberId ? [barberId] : await readableBarbers(actor);
+      const candidates = barberId ? [barberId] : await readableBarbers(actor);
+      const resolved = await getBarbers(candidates);
+      const allowed = candidates.filter((id) => {
+        const business = resolved.get(id)?.business;
+        return (
+          can(actor, "calendar.read", { barber: id, business }) ||
+          can(actor, "calendar.read.all", { business })
+        );
+      });
       if (allowed.length === 0 && actor.profile.role !== "admin") {
         return apiOk({ bookings: [] });
       }
@@ -151,11 +177,20 @@ export async function POST(request: NextRequest) {
     return apiError("Check the booking details and try again.", 400, "invalid_booking");
   }
 
+  // keep the legacy primary service first; `book()` resolves every id against
+  // this barber and computes one duration and one price for the whole visit.
+  const services = [
+    ...new Set([
+      ...(parsed.data.service ? [parsed.data.service] : []),
+      ...(parsed.data.services ?? []),
+    ]),
+  ].slice(0, 10);
+
   try {
     const result = await book({
       user: actor.userId,
       barber: parsed.data.barber,
-      services: [parsed.data.service],
+      services,
       date: parsed.data.date,
       start: parsed.data.start,
       note: parsed.data.note,

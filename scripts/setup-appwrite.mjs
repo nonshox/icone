@@ -14,7 +14,7 @@
  * renaming would drop live rows — see docs/DATA.md for every such case.
  */
 import fs from "node:fs";
-import { Client, Databases, ID, Query } from "node-appwrite";
+import { Client, Databases, ID, Query, Storage } from "node-appwrite";
 
 function readEnv() {
   const file = fs.readFileSync(".env", "utf8");
@@ -35,7 +35,9 @@ const client = new Client()
   .setProject(env.APPWRITE_PROJECT_ID)
   .setKey(env.APPWRITE_API_KEY);
 const db = new Databases(client);
+const storage = new Storage(client);
 const databaseId = env.APPWRITE_DATABASE_ID;
+const bucketId = env.APPWRITE_BUCKET_ID;
 
 const schema = {
   /* ----------------------------------------------------------- accounts */
@@ -616,6 +618,45 @@ function log(message) {
   console.log(message);
 }
 
+/** Storage must allow anonymous reads or public profile images 401. */
+async function ensureBucket() {
+  if (!bucketId) {
+    log("bucket: APPWRITE_BUCKET_ID is not set — uploads are unavailable");
+    return;
+  }
+  const permissions = ['read("any")'];
+  try {
+    const existing = await storage.getBucket({ bucketId });
+    if (
+      !existing.enabled ||
+      JSON.stringify(existing.$permissions ?? []) !== JSON.stringify(permissions)
+    ) {
+      await storage.updateBucket({
+        bucketId,
+        name: existing.name || "icone",
+        enabled: true,
+        fileSecurity: false,
+        permissions,
+      });
+      log(`bucket ${bucketId}: public read enabled`);
+    } else {
+      log(`bucket ${bucketId}: already public`);
+    }
+  } catch (error) {
+    if (error.code !== 404) throw error;
+    await storage.createBucket({
+      bucketId,
+      name: "icone",
+      enabled: true,
+      fileSecurity: false,
+      permissions,
+      maximumFileSize: 5 * 1024 * 1024,
+      allowedFileExtensions: ["jpg", "jpeg", "png", "webp", "avif"],
+    });
+    log(`bucket ${bucketId}: created with public read`);
+  }
+}
+
 async function ensureCollection(id) {
   try {
     await db.getCollection({ databaseId, collectionId: id });
@@ -858,6 +899,9 @@ async function main() {
       await ensureIndex(collectionId, index);
     }
   }
+
+  log(`bucket ${bucketId}`);
+  await ensureBucket();
 
   await seedReference();
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { T } from "@/components/i18n/t";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,21 +12,21 @@ export default function NotFound() {
     >
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>404 — nothing here</CardTitle>
+          <CardTitle><T k="error.notFoundTitle" /></CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            The page you were looking for does not exist or has moved.
+            <T k="error.notFoundBody" />
           </p>
           <div className="flex gap-2">
             <Link href="/" className={buttonVariants({ size: "sm" })}>
-              Back home
+              <T k="error.home" />
             </Link>
             <Link
               href="/barbers"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Browse barbers
+              <T k="nav.barbers" />
             </Link>
           </div>
         </CardContent>

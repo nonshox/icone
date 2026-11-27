@@ -27,10 +27,14 @@ const TEAM_LINKS: ReadonlyArray<{ href: string; label: string; cap: Capability }
 export async function BarberNav() {
   const actor = await getActor();
   const team = !!actor && hasTeam(actor);
+  const business =
+    actor?.owns[0] ?? actor?.memberships[0]?.business ?? "";
   const links = [
     ...BASE_LINKS,
     ...(team
-      ? TEAM_LINKS.filter((link) => !!actor && can(actor, link.cap))
+      ? TEAM_LINKS.filter(
+          (link) => !!actor && can(actor, link.cap, { business }),
+        )
       : []),
   ];
 
@@ -82,8 +86,8 @@ export function BarberShell({
   description,
   children,
 }: {
-  title: string;
-  description: string;
+  title: ReactNode;
+  description?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -92,7 +96,9 @@ export function BarberShell({
 
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        {description ? (
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        ) : null}
 
         <div className="mt-6">
           <Suspense fallback={<BarberSkeleton />}>

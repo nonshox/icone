@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { SiteHeader } from "@/components/layout/site-header";
 import { WaitlistView } from "@/components/waitlist/waitlist-view";
+import { getActor } from "@/lib/domain/access";
+
+async function WaitlistGate() {
+  const actor = await getActor();
+  if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/waits")}`);
+  return <WaitlistView />;
+}
 
 export const metadata: Metadata = {
   title: "Waitlist — icone",
@@ -22,7 +30,7 @@ export default function WaitsPage() {
           <Suspense
             fallback={<div className="h-64 animate-pulse rounded-2xl bg-muted" />}
           >
-            <WaitlistView />
+            <WaitlistGate />
           </Suspense>
         </div>
       </main>

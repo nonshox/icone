@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useT } from "@/lib/i18n/use-t";
+
 export type MapPoint = {
   id: string;
   lat: number;
@@ -40,6 +42,7 @@ type Props = {
  * has full coverage of Uzbekistan; coordinates always come from real profiles.
  */
 export function MapCanvas({ center, points, selected, onSelect, onMove }: Props) {
+  const t = useT();
   const [zoom, setZoom] = useState(12);
   const centerKey = `${center.lat},${center.lng}`;
   const [view, setView] = useState<{
@@ -197,7 +200,8 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
             type="button"
             onClick={() => setZoom((value) => Math.min(18, value + 1))}
             className="rounded-lg border border-border px-2 py-1 hover:bg-brand/10"
-            aria-label="Zoom in"
+            aria-label={t("map.zoomIn")}
+            title={t("map.zoomIn")}
           >
             +
           </button>
@@ -205,7 +209,7 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
             type="button"
             onClick={() => setZoom((value) => Math.max(3, value - 1))}
             className="rounded-lg border border-border px-2 py-1 hover:bg-brand/10"
-            aria-label="Zoom out"
+            aria-label={t("map.zoomOut")}
           >
             −
           </button>
@@ -217,7 +221,7 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
             }}
             className="rounded-lg border border-border px-2 py-1 hover:bg-brand/10"
           >
-            My location
+            {t("map.myLocation")}
           </button>
         </div>
         <span>© OpenStreetMap contributors</span>

@@ -172,15 +172,18 @@ export async function matchWaitlist(barberId?: string): Promise<number> {
 
     if (!satisfied) continue;
 
-    await update(TABLES.waits, wait.id, { state: "notified" });
-
     const sent = await notify({
       userId: wait.user,
       key: "waitlist",
       link: `/barbers/${wait.barber}`,
     });
 
-    if (sent) notified += 1;
+    // Only close the request once a channel actually accepted the message;
+    // a failed delivery leaves it open for the next run to retry.
+    if (sent) {
+      await update(TABLES.waits, wait.id, { state: "notified" });
+      notified += 1;
+    }
   }
 
   return notified;
@@ -202,7 +205,8 @@ export async function expireWaits(): Promise<number> {
   const clock = shopClock();
   const rows = await list(TABLES.waits, [
     Query.equal("state", "open"),
-    Query.limit(100),
+    Query.lessThan("to", clock.date),
+    Query.limit(500),
   ]);
 
   const stale = rows.filter((row) => toWaitlist(row).to < clock.date);

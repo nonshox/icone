@@ -1,8 +1,8 @@
 "use client";
 
-import { CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, Copy, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
@@ -34,7 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiError } from "@/lib/api/client";
 import {
+  useCloneWeek,
   useCreateMyHour,
   useDeleteMyDay,
   useDeleteMyHour,
@@ -64,6 +66,15 @@ function message(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+/** Map the clone endpoint's stable codes to the visitor's language. */
+function cloneMessage(error: unknown, t: (key: string) => string): string {
+  if (error instanceof ApiError) {
+    if (error.code === "no_workspace") return t("work.staff.cloneNoWorkspace");
+    if (error.code === "rate_limited") return t("work.staff.cloneRateLimited");
+  }
+  return message(error, t("work.staff.cloneFailed"));
+}
+
 function FormError({ text }: { text: string | null }) {
   if (!text) return null;
   return (
@@ -79,6 +90,83 @@ function LoadingRows() {
       <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
       <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
       <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
+    </div>
+  );
+}
+
+/** Small in-page confirmation; keeps the rest of the schedule screen intact. */
+function CloneWeekDialog({
+  open,
+  busy,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  busy: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    confirmRef.current?.focus();
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) onCancel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, busy, onCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="clone-week-title"
+        aria-describedby="clone-week-desc"
+        className="glass w-full max-w-sm space-y-4 rounded-2xl p-5 shadow-xl"
+      >
+        <div className="space-y-2">
+          <h2 id="clone-week-title" className="text-lg font-semibold">
+            <T k="work.staff.cloneTitle" />
+          </h2>
+          <p id="clone-week-desc" className="text-sm text-muted-foreground">
+            <T k="work.staff.cloneHint" />
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <T k="work.staff.cloneBreaks" />
+          </p>
+          <FormError text={error} />
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            <T k="work.staff.cloneCancel" />
+          </Button>
+          <Button
+            ref={confirmRef}
+            type="button"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <Copy className="size-4" aria-hidden />
+            )}
+            <T k="work.staff.cloneConfirm" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -173,11 +261,29 @@ function HoursSection({ state }: { state: ChairState }) {
   const [start, setStart] = useState("10:00");
   const [end, setEnd] = useState("21:00");
   const [formError, setFormError] = useState<string | null>(null);
+  const clone = useCloneWeek();
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
 
   const error =
     formError ??
     (create.error ? message(create.error, t("work.toast.failed")) : null) ??
     (remove.error ? message(remove.error, t("work.toast.failed")) : null);
+
+  function confirmClone() {
+    setCloneError(null);
+    clone.mutate(undefined, {
+      onSuccess: () => {
+        setCloneOpen(false);
+        toast.success(t("work.staff.cloneSuccess"));
+      },
+      onError: (cause) => {
+        const text = cloneMessage(cause, t);
+        setCloneError(text);
+        toast.error(text);
+      },
+    });
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -216,134 +322,156 @@ function HoursSection({ state }: { state: ChairState }) {
   const hours = state.data?.hours ?? [];
 
   return (
-    <Card className="glass">
-      <CardHeader>
-        <CardTitle>
-          <T k="work.staff.weekly" />
-        </CardTitle>
-        <CardDescription>
-          <T k="work.staff.weeklyHint" />
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {state.isPending ? (
-          <LoadingRows />
-        ) : state.isError ? (
-          <FormError text={state.errorMessage} />
-        ) : !state.data?.barber ? (
-          <p className="text-sm text-muted-foreground">
-            <T k="work.staff.noChair" />
-          </p>
-        ) : (
-          <>
-            <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="staff-hour-day">
-                  <T k="work.staff.day" />
-                </Label>
-                <Select value={day} onValueChange={(value) => setDay(String(value))}>
-                  <SelectTrigger id="staff-hour-day" className="h-9 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 7 }, (_, index) => (
-                      <SelectItem key={index} value={String(index)}>
-                        <T k={`day.${index}`} />
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="staff-hour-start">
-                  <T k="work.staff.opens" />
-                </Label>
-                <Input
-                  id="staff-hour-start"
-                  type="time"
-                  value={start}
-                  onChange={(event) => setStart(event.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="staff-hour-end">
-                  <T k="work.staff.closes" />
-                </Label>
-                <Input
-                  id="staff-hour-end"
-                  type="time"
-                  value={end}
-                  onChange={(event) => setEnd(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-3 sm:col-span-3">
-                <Button type="submit" className="h-10" disabled={create.isPending}>
-                  {create.isPending ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Plus className="size-4" aria-hidden />
-                  )}
-                  <T k="work.staff.addHour" />
+    <>
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>
+            <T k="work.staff.weekly" />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.staff.weeklyHint" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {state.isPending ? (
+            <LoadingRows />
+          ) : state.isError ? (
+            <FormError text={state.errorMessage} />
+          ) : !state.data?.barber ? (
+            <p className="text-sm text-muted-foreground">
+              <T k="work.staff.noChair" />
+            </p>
+          ) : (
+            <>
+              <div className="flex justify-end pb-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCloneError(null);
+                    setCloneOpen(true);
+                  }}
+                >
+                  <Copy className="size-4" aria-hidden />
+                  <T k="work.staff.cloneWeek" />
                 </Button>
-                <FormError text={error} />
               </div>
-            </form>
+              <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-hour-day">
+                    <T k="work.staff.day" />
+                  </Label>
+                  <Select value={day} onValueChange={(value) => setDay(String(value))}>
+                    <SelectTrigger id="staff-hour-day" className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 7 }, (_, index) => (
+                        <SelectItem key={index} value={String(index)}>
+                          <T k={`day.${index}`} />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-hour-start">
+                    <T k="work.staff.opens" />
+                  </Label>
+                  <Input
+                    id="staff-hour-start"
+                    type="time"
+                    value={start}
+                    onChange={(event) => setStart(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="staff-hour-end">
+                    <T k="work.staff.closes" />
+                  </Label>
+                  <Input
+                    id="staff-hour-end"
+                    type="time"
+                    value={end}
+                    onChange={(event) => setEnd(event.target.value)}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-3 sm:col-span-3">
+                  <Button type="submit" className="h-10" disabled={create.isPending}>
+                    {create.isPending ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                    ) : (
+                      <Plus className="size-4" aria-hidden />
+                    )}
+                    <T k="work.staff.addHour" />
+                  </Button>
+                  <FormError text={error} />
+                </div>
+              </form>
 
-            <Separator className="my-6" />
+              <Separator className="my-6" />
 
-            {hours.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                <T k="work.staff.hoursEmpty" />
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        <T k="work.staff.day" />
-                      </TableHead>
-                      <TableHead>
-                        <T k="common.time" />
-                      </TableHead>
-                      <TableHead className="text-right">
-                        <T k="work.agenda.actions" />
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {hours.map((hour) => (
-                      <TableRow
-                        key={`${hour.scope}-${hour.day}-${hour.start}`}
-                      >
-                        <TableCell className="font-medium">
-                          <T k={`day.${hour.day}`} />
-                        </TableCell>
-                        <TableCell className="tabular-nums">
-                          {label(hour.start)}–{label(hour.end)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="destructive"
-                            aria-label={`${t("common.remove")} ${t(`day.${hour.day}`)}`}
-                            disabled={remove.isPending}
-                            onClick={() => removeHour(hour)}
-                          >
-                            <Trash2 aria-hidden />
-                          </Button>
-                        </TableCell>
+              {hours.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  <T k="work.staff.hoursEmpty" />
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <T k="work.staff.day" />
+                        </TableHead>
+                        <TableHead>
+                          <T k="common.time" />
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <T k="work.agenda.actions" />
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {hours.map((hour) => (
+                        <TableRow
+                          key={`${hour.scope}-${hour.day}-${hour.start}`}
+                        >
+                          <TableCell className="font-medium">
+                            <T k={`day.${hour.day}`} />
+                          </TableCell>
+                          <TableCell className="tabular-nums">
+                            {label(hour.start)}–{label(hour.end)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="destructive"
+                              aria-label={`${t("common.remove")} ${t(`day.${hour.day}`)}`}
+                              disabled={remove.isPending}
+                              onClick={() => removeHour(hour)}
+                            >
+                              <Trash2 aria-hidden />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+      <CloneWeekDialog
+        open={cloneOpen}
+        busy={clone.isPending}
+        error={cloneError}
+        onCancel={() => setCloneOpen(false)}
+        onConfirm={confirmClone}
+      />
+    </>
   );
 }
 

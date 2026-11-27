@@ -12,10 +12,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFavorites, useRemoveFavorite } from "@/lib/api/customer-queries";
 import { useBarbers, useProfile } from "@/lib/api/queries";
+import { imageUrl } from "@/lib/client/files";
 import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
 
-function photoStyle(url: string) {
+function photoStyle(value: string) {
+  const url = imageUrl(value);
   if (!/^https?:\/\//.test(url)) return undefined;
   return { backgroundImage: `url("${url.replace(/"/g, "%22")}")` };
 }

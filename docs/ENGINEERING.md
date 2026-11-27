@@ -38,6 +38,9 @@ training data.
   the browser; no tokens in `localStorage`.
 - The bot knows the Telegram chat, so web and in-app sign-in resolve to the same
   `tg_<id>` account. Phone is shared with one tap; typing is a fallback only.
+- Images go to Appwrite Storage through `/api/uploads` as multipart form data.
+  Rows store only the generated file id; `NEXT_PUBLIC_APPWRITE_BUCKET_ID`
+  resolves it in the browser. The API key never reaches the client.
 - `APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` are
   server-only. Never prefix them with `NEXT_PUBLIC_`, log them, or send them to
   the client.

@@ -364,6 +364,7 @@ export async function notify(input: NotifyInput): Promise<boolean> {
 
   const allowed = input.force || prefs[PREF_OF[input.key]];
 
+  let stored = false;
   try {
     await create(TABLES.notifications, {
       user: input.userId,
@@ -373,16 +374,18 @@ export async function notify(input: NotifyInput): Promise<boolean> {
       state: "new",
       link: (input.link ?? "").slice(0, 256),
     });
+    stored = true;
   } catch (error) {
     console.error("[notify] inbox write failed", error);
   }
 
-  if (!allowed) return true;
+  if (!allowed) return stored;
 
   const chatId = chatOf(input.userId);
-  if (chatId === null) return true;
+  if (chatId === null) return stored;
 
-  return telegram(chatId, `${title}\n${body}`, absolute(input.link));
+  const sent = await telegram(chatId, `${title}\n${body}`, absolute(input.link));
+  return stored || sent;
 }
 
 /** Build an absolute URL for the button under a Telegram message. */

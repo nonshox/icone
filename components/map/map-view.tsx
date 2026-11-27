@@ -5,14 +5,15 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { api } from "@/lib/api/client";
+import { imageUrl } from "@/lib/client/files";
 import type { SearchResult } from "@/lib/domain/discovery";
 import { formatPrice, label as timeLabel } from "@/lib/domain/time";
 
 import { MapCanvas, type MapPoint } from "./map-canvas";
 
-export function MapView() {
+export function MapView({ initialQ = "" }: { initialQ?: string }) {
   const [filters, setFilters] = useState({
-    q: "",
+    q: initialQ,
     type: "all",
     city: "",
     service: "",
@@ -209,7 +210,7 @@ export function MapView() {
                 {row.photo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={row.photo}
+                    src={imageUrl(row.photo)}
                     alt=""
                     className="h-12 w-12 rounded-xl object-cover"
                   />

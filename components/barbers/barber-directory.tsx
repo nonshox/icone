@@ -24,17 +24,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { imageUrl } from "@/lib/client/files";
 import type { Barber } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
-function photoStyle(url: string) {
+function photoStyle(value: string) {
+  const url = imageUrl(value);
   if (!/^https?:\/\//.test(url)) return undefined;
   return { backgroundImage: `url("${url.replace(/"/g, "%22")}")` };
 }
 
-export function BarberDirectory({ barbers }: { barbers: Barber[] }) {
+export function BarberDirectory({
+  barbers,
+  initialQuery = "",
+}: {
+  barbers: Barber[];
+  initialQuery?: string;
+}) {
   const t = useT();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [title, setTitle] = useState("all");
   const deferredQuery = useDeferredValue(query);
 

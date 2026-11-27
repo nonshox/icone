@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description: "Meet the barbers behind the chairs at icone in Tashkent.",
 };
 
-async function BarberList() {
+async function BarberList({ initialQuery }: { initialQuery: string }) {
   let barbers;
   try {
     barbers = await listBarbers();
@@ -40,7 +40,7 @@ async function BarberList() {
     );
   }
 
-  return <BarberDirectory barbers={barbers} />;
+  return <BarberDirectory barbers={barbers} initialQuery={initialQuery} />;
 }
 
 function ListSkeleton() {
@@ -56,7 +56,20 @@ function ListSkeleton() {
   );
 }
 
-export default function BarbersPage() {
+async function FilteredList({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  return <BarberList initialQuery={q ?? ""} />;
+}
+
+export default function BarbersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
@@ -67,7 +80,7 @@ export default function BarbersPage() {
 
         <div className="mt-6">
           <Suspense fallback={<ListSkeleton />}>
-            <BarberList />
+            <FilteredList searchParams={searchParams} />
           </Suspense>
         </div>
 

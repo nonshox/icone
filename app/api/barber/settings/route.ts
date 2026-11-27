@@ -30,6 +30,7 @@ const profileSchema = z.object({
   title: z.string().trim().max(64).optional(),
   bio: text.optional(),
   photo: link.optional(),
+  logo: link.optional(),
   active: z.boolean().optional(),
   shop: z.string().trim().max(64).optional(),
   address: z.string().trim().max(128).optional(),
@@ -93,6 +94,7 @@ function prefsView(prefs: NotificationPrefs) {
 function businessPatch(input: z.infer<typeof profileSchema>): Partial<Business> {
   const patch: Partial<Business> = {};
   if (typeof input.name === "string") patch.name = input.name;
+  if (typeof input.logo === "string") patch.logo = input.logo;
   if (typeof input.phone === "string") patch.phone = input.phone;
   if (typeof input.city === "string") patch.city = input.city;
   if (typeof input.address === "string") patch.address = input.address;

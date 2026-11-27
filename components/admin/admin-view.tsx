@@ -76,8 +76,10 @@ type DayView = DayOverride & { id: string; barber: string };
 function Field({ label: name, wide, children }: { label: ReactNode; wide?: boolean; children: ReactNode }) {
   return (
     <div className={`space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
-      <Label>{name}</Label>
-      {children}
+      <Label>
+        {name}
+        {children}
+      </Label>
     </div>
   );
 }

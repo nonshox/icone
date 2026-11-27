@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageUpload } from "@/components/upload/image-upload";
 import {
   useSettings,
   useUpdateSettings,
@@ -150,18 +151,13 @@ function SettingsForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="settings-avatar"><T k="settings.avatar" /></Label>
-                  <Input
+                  <ImageUpload
                     id="settings-avatar"
                     value={avatar}
-                    type="url"
-                    maxLength={512}
-                    placeholder="https://…"
-                    onChange={(event) => setAvatar(event.target.value)}
+                    onChange={setAvatar}
+                    folder="avatar"
+                    label={<T k="settings.avatar" />}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    <T k="settings.avatarHint" />
-                  </p>
                 </div>
 
                 <Button type="submit" size="sm" className="h-9 rounded-xl" disabled={update.isPending}>

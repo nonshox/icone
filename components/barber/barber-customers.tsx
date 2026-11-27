@@ -26,10 +26,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useBarberCustomer,
   useBarberCustomers,
+  useBarberSettings,
   useSaveBarberNote,
   type BookingRow,
   type CustomerDetail,
 } from "@/lib/api/barber-queries";
+import { useReviews } from "@/lib/api/queries";
+import { useReplyReview, type Review } from "@/lib/api/platform-queries";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
 
 import {
@@ -197,6 +200,140 @@ function Detail({ detail }: { detail: CustomerDetail }) {
   );
 }
 
+function ReviewList({
+  reviews,
+  savedId,
+  onSaved,
+}: {
+  reviews: Review[];
+  savedId: string | null;
+  onSaved: (id: string | null) => void;
+}) {
+  const t = useT();
+  const reply = useReplyReview();
+  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(reviews.map((item) => [item.id, item.reply ?? ""])),
+  );
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function save(event: FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault();
+    const text = (drafts[id] ?? "").trim();
+    if (!text) {
+      setFormError(t("work.reviews.required"));
+      return;
+    }
+    setFormError(null);
+    onSaved(null);
+    reply.mutate(
+      { id, reply: text },
+      {
+        onSuccess: () => {
+          onSaved(id);
+          toast.success(t("work.reviews.saved"));
+        },
+        onError: (cause) => {
+          const text = message(cause, t("work.reviews.error"));
+          setFormError(text);
+          toast.error(text);
+        },
+      },
+    );
+  }
+
+  return (
+    <ul className="divide-y">
+      {reviews.map((review) => (
+        <li key={review.id} className="py-3 first:pt-0 last:pb-0">
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              <T k="work.reviews.rate" /> {review.rate}/5
+            </span>
+            <span>{review.userName || t("work.reviews.author")}</span>
+            <span>{formatDate(review.created)}</span>
+          </div>
+          {review.note ? (
+            <p className="mb-2 text-sm text-muted-foreground">{review.note}</p>
+          ) : null}
+          <form onSubmit={(event) => save(event, review.id)} className="space-y-2">
+            <Label htmlFor={`review-reply-${review.id}`}>
+              <T k="work.reviews.replyLabel" />
+            </Label>
+            <Textarea
+              id={`review-reply-${review.id}`}
+              value={drafts[review.id] ?? ""}
+              maxLength={512}
+              placeholder={t("work.reviews.replyPlaceholder")}
+              onChange={(event) =>
+                setDrafts((current) => ({
+                  ...current,
+                  [review.id]: event.target.value,
+                }))
+              }
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" size="sm" disabled={reply.isPending}>
+                {reply.isPending ? <T k="common.loading" /> : <T k="work.reviews.reply" />}
+              </Button>
+              {savedId === review.id ? (
+                <span role="status" className="text-xs text-primary">
+                  <T k="work.reviews.saved" />
+                </span>
+              ) : null}
+              {formError ? <FormError text={formError} /> : null}
+            </div>
+          </form>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Replies belong to the chair this actor actually owns; the API rechecks it. */
+function ReviewReplies() {
+  const t = useT();
+  const settings = useBarberSettings();
+  const chair = settings.data?.barber;
+  const myBarberId = chair && "user" in chair && chair.user ? chair.id : "";
+  const reviews = useReviews(myBarberId);
+  const [savedId, setSavedId] = useState<string | null>(null);
+
+  const rows = (reviews.data ?? []).filter((item) => item.barber === myBarberId);
+
+  // Business workspaces have no chair of their own to answer reviews for.
+  if (!myBarberId) return null;
+
+  return (
+    <Card className="glass">
+      <CardHeader>
+        <CardTitle><T k="work.reviews.title" /></CardTitle>
+        <CardDescription><T k="work.reviews.desc" /></CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {settings.isPending || reviews.isPending ? (
+          <LoadingRows />
+        ) : settings.isError || reviews.isError ? (
+          <FormError
+            text={message(
+              settings.error ?? reviews.error,
+              t("work.reviews.loadError"),
+            )}
+          />
+        ) : rows.length === 0 ? (
+          <Empty>{t("work.reviews.empty")}</Empty>
+        ) : (
+          <ReviewList
+            key={JSON.stringify(rows)}
+            reviews={rows}
+            savedId={savedId}
+            onSaved={setSavedId}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function BarberCustomers() {
   const customers = useBarberCustomers();
   const t = useT();
@@ -314,6 +451,8 @@ export function BarberCustomers() {
           </CardContent>
         </Card>
       ) : null}
+
+      <ReviewReplies />
     </div>
   );
 }
