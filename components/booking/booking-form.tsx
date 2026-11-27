@@ -9,11 +9,14 @@ import {
   Loader2,
   Scissors,
 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
+import { api } from "@/lib/api/client";
 import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
@@ -157,6 +160,27 @@ export function BookingForm() {
     branch,
   });
   const create = useCreateBooking();
+  const [waitFeedback, setWaitFeedback] = useState("");
+  const joinWait = useMutation({
+    mutationFn: () =>
+      api<{ ok: true }>("/api/waits", {
+        method: "POST",
+        body: JSON.stringify({
+          barber: matchedBarberForWait(),
+          service: servicesInDraft[0],
+          note: note.trim(),
+        }),
+      }),
+    onSuccess: () => {
+      setWaitFeedback(t("booking.waitlistJoined"));
+      toast.success(t("booking.waitlistJoined"));
+    },
+    onError: () => toast.error(t("booking.waitlistFailed")),
+  });
+
+  function matchedBarberForWait(): string {
+    return anyBarber ? quote.data?.barber ?? "" : barberId;
+  }
 
   const resolved = quote.data?.services ?? [];
   const selectedNames = servicesInDraft.map(
@@ -211,61 +235,6 @@ export function BookingForm() {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="barber"><T k="booking.barber" /></Label>
-          <Select
-            value={anyBarber ? "any" : barberId || null}
-            onValueChange={(value) => {
-              if (value) chooseBarber(value);
-            }}
-          >
-            <SelectTrigger id="barber" className="h-9 w-full">
-              <SelectValue placeholder={t("booking.barber")} />
-            </SelectTrigger>
-            <SelectContent>
-              {business ? (
-                <SelectItem value="any">{t("booking.anyBarber")}</SelectItem>
-              ) : null}
-              {(barbers.data ?? []).map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name} · {item.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {anyBarber && quote.data?.barberName ? (
-            <p role="status" className="text-xs text-muted-foreground">
-              {t("booking.matchedBarber")}: {quote.data.barberName}
-            </p>
-          ) : null}
-          {anyBarber && quote.data && !quote.data.barber ? (
-            <p className="text-xs text-muted-foreground">
-              {t("booking.noBarberAvailable")}
-            </p>
-          ) : null}
-          {barbers.isPending ? <Skeleton className="h-4 w-40" /> : null}
-          {barbers.isError ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs text-destructive">
-                <T k="booking.barberLoadError" />
-              </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => void barbers.refetch()}
-              >
-                <T k="common.tryAgain" />
-              </Button>
-            </div>
-          ) : null}
-          {barbers.isSuccess && (barbers.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              <T k="booking.noBarbers" />
-            </p>
-          ) : null}
-        </div>
-
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Label><T k="booking.services" /></Label>
@@ -340,6 +309,61 @@ export function BookingForm() {
               })}
             </div>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="barber"><T k="booking.barber" /></Label>
+          <Select
+            value={anyBarber ? "any" : barberId || null}
+            onValueChange={(value) => {
+              if (value) chooseBarber(value);
+            }}
+          >
+            <SelectTrigger id="barber" className="h-9 w-full">
+              <SelectValue placeholder={t("booking.barber")} />
+            </SelectTrigger>
+            <SelectContent>
+              {business ? (
+                <SelectItem value="any">{t("booking.anyBarber")}</SelectItem>
+              ) : null}
+              {(barbers.data ?? []).map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.name} · {item.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {anyBarber && quote.data?.barberName ? (
+            <p role="status" className="text-xs text-muted-foreground">
+              {t("booking.matchedBarber")}: {quote.data.barberName}
+            </p>
+          ) : null}
+          {anyBarber && quote.data && !quote.data.barber ? (
+            <p className="text-xs text-muted-foreground">
+              {t("booking.noBarberAvailable")}
+            </p>
+          ) : null}
+          {barbers.isPending ? <Skeleton className="h-4 w-40" /> : null}
+          {barbers.isError ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs text-destructive">
+                <T k="booking.barberLoadError" />
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void barbers.refetch()}
+              >
+                <T k="common.tryAgain" />
+              </Button>
+            </div>
+          ) : null}
+          {barbers.isSuccess && (barbers.data ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              <T k="booking.noBarbers" />
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -442,9 +466,34 @@ export function BookingForm() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              <T k="booking.noTimes" />
-            </p>
+            <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
+              <p className="text-sm text-muted-foreground">
+                <T k="booking.noTimes" />
+              </p>
+              {matchedBarber && servicesInDraft.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={joinWait.isPending}
+                    onClick={() => joinWait.mutate()}
+                  >
+                    {joinWait.isPending
+                      ? t("common.loading")
+                      : t("booking.joinWaitlist")}
+                  </Button>
+                  <Link href="/waits" className="text-xs text-brand-strong hover:underline">
+                    <T k="nav.waitlist" />
+                  </Link>
+                </div>
+              ) : null}
+              {waitFeedback ? (
+                <p role="status" className="text-xs text-brand-strong">
+                  {waitFeedback}
+                </p>
+              ) : null}
+            </div>
           )}
         </div>
 

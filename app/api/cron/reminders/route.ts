@@ -11,7 +11,13 @@ import { apiError, apiOk } from "@/lib/http";
 const COOLDOWN_MS = 60_000;
 let lastRunAt = 0;
 
-const EMPTY: ReminderCounts = { created: 0, sent: 0, skipped: 0, failed: 0 };
+const EMPTY: ReminderCounts = {
+  created: 0,
+  sent: 0,
+  skipped: 0,
+  failed: 0,
+  reconciled: 0,
+};
 
 function cronSecret(): string {
   return serverEnv().CRON_SECRET ?? serverEnv().TELEGRAM_WEBHOOK_SECRET;

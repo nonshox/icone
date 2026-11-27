@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ImageUpload } from "@/components/upload/image-upload";
 import { T } from "@/components/i18n/t";
+import { useMe } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,11 +85,13 @@ function stateFrom(chair: Chair): FormState {
 function SettingsForm({
   chair,
   prefs,
+  onSwitchScope,
 }: {
   chair: Chair;
   prefs: NotificationPrefs;
+  onSwitchScope?: () => void;
 }) {
-  const save = useUpdateBarberSettings();
+  const save = useUpdateBarberSettings("logo" in chair ? "business" : "barber");
   const t = useT();
   const isBusiness = "logo" in chair;
   const [form, setForm] = useState<FormState>(() => stateFrom(chair));
@@ -194,8 +197,23 @@ function SettingsForm({
           <CardTitle>
             <T k="work.settings.profile" />
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="flex flex-wrap items-center gap-2">
             <T k="work.settings.profileHint" />
+            {onSwitchScope ? (
+              <button
+                type="button"
+                onClick={onSwitchScope}
+                className="rounded-lg border border-border px-2 py-1 text-xs hover:bg-brand/10"
+              >
+                <T
+                  k={
+                    isBusiness
+                      ? "work.settings.personalProfile"
+                      : "work.settings.businessProfile"
+                  }
+                />
+              </button>
+            ) : null}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -519,7 +537,11 @@ function SettingsForm({
 }
 
 export function BarberSettings() {
-  const settings = useBarberSettings();
+  const me = useMe();
+  const [scope, setScope] = useState<"barber" | "business">(
+    me.data?.businessId ? "business" : "barber",
+  );
+  const settings = useBarberSettings(scope);
   const t = useT();
 
   if (settings.isPending) return <LoadingRows />;
@@ -536,9 +558,14 @@ export function BarberSettings() {
 
   return (
     <SettingsForm
-      key={`${settings.data.barber.id}-${JSON.stringify(settings.data.prefs)}`}
+      key={`${scope}-${settings.data.barber.id}`}
       chair={settings.data.barber}
       prefs={settings.data.prefs}
+      onSwitchScope={
+        me.data?.businessId
+          ? () => setScope((current) => (current === "business" ? "barber" : "business"))
+          : undefined
+      }
     />
   );
 }

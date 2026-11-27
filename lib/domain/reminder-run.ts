@@ -3,7 +3,7 @@ import "server-only";
 import { Query } from "node-appwrite";
 
 import { adminDb, databaseId, TABLES } from "@/lib/appwrite/db";
-import { getBooking } from "@/lib/domain/booking";
+import { getBooking, reconcileBookings } from "@/lib/domain/booking";
 import { ensureReminder, listPending, markSent } from "@/lib/domain/reminders";
 import { notify } from "@/lib/domain/notify";
 import { getBarbers } from "@/lib/domain/professional";
@@ -17,6 +17,7 @@ export type ReminderCounts = {
   sent: number;
   skipped: number;
   failed: number;
+  reconciled: number;
 };
 
 /**
@@ -31,7 +32,13 @@ export type ReminderCounts = {
 export async function runReminders(): Promise<ReminderCounts> {
   const date = today();
   const tomorrow = addDays(date, 1);
-  const counts: ReminderCounts = { created: 0, sent: 0, skipped: 0, failed: 0 };
+  const counts: ReminderCounts = {
+    created: 0,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+    reconciled: 0,
+  };
 
   const upcoming = await adminDb().listDocuments({
     databaseId: databaseId(),
@@ -110,6 +117,8 @@ export async function runReminders(): Promise<ReminderCounts> {
   }
 
   // Requests that can now be satisfied are announced in the same run.
+  counts.reconciled = await reconcileBookings();
+
   const { matchWaitlist, expireWaits } = await import("@/lib/domain/waitlist");
   await expireWaits();
   await matchWaitlist();

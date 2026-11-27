@@ -10,6 +10,7 @@ import {
   requireWorkspace,
   writeDenied,
 } from "@/app/api/barber/_auth";
+import { can, type Actor } from "@/lib/domain/access";
 import { setPrefs } from "@/lib/domain/account";
 import { audit } from "@/lib/domain/audit";
 import { getBusiness, updateBusiness } from "@/lib/domain/business";
@@ -110,19 +111,59 @@ function businessPatch(input: z.infer<typeof profileSchema>): Partial<Business> 
   return patch;
 }
 
-/** GET /api/barber/settings — professional/business profile and prefs. */
-export async function GET() {
+type Target = {
+  kind: "barber" | "business";
+  id: string;
+  chair: Awaited<ReturnType<typeof getBarber>> | Awaited<ReturnType<typeof getBusiness>>;
+};
+
+/**
+ * `?scope=business` always resolves to the shop, even for an owner who also
+ * has their own barber row. Without it the personal chair is edited.
+ */
+async function targetOf(
+  actor: Actor,
+  workspace: { barber: string; business: string },
+  scope: string,
+): Promise<Target | null> {
+  if (scope === "business") {
+    const id =
+      actor.owns[0] ??
+      actor.memberships.find((row) => row.role === "owner" || row.role === "manager")
+        ?.business ??
+      workspace.business;
+    if (!id || !can(actor, "settings.business", { business: id })) return null;
+    return { kind: "business", id, chair: await getBusiness(id) };
+  }
+  if (workspace.barber) {
+    return { kind: "barber", id: workspace.barber, chair: await getBarber(workspace.barber) };
+  }
+  if (workspace.business) {
+    return {
+      kind: "business",
+      id: workspace.business,
+      chair: await getBusiness(workspace.business),
+    };
+  }
+  return null;
+}
+
+/** GET /api/barber/settings?scope=business — professional/business profile. */
+export async function GET(request: NextRequest) {
   const guarded = await requireWorkspace("settings.profile");
   if (!guarded.ok) return guarded.response;
 
   const { actor, workspace } = guarded;
+  const scope = request.nextUrl.searchParams.get("scope") ?? "";
   try {
-    const chair = workspace.barber
-      ? await getBarber(workspace.barber)
-      : workspace.business
-        ? await getBusiness(workspace.business)
-        : null;
-    return apiOk({ barber: chair, chair, prefs: prefsView(actor.profile.prefs) });
+    const target = await targetOf(actor, workspace, scope);
+    if (!target) return apiError("No workspace to edit.", 403, "no_workspace");
+    return apiOk({
+      barber: target.chair,
+      chair: target.chair,
+      scope: target.kind,
+      prefs: prefsView(actor.profile.prefs),
+    });
   } catch (error) {
     return businessFailure(error, "Could not load your settings.", "settings_failed");
   }
@@ -151,21 +192,17 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { actor, workspace } = guarded;
+  const scope = request.nextUrl.searchParams.get("scope") ?? "";
   try {
-    let chair = workspace.barber
-      ? await getBarber(workspace.barber)
-      : workspace.business
-        ? await getBusiness(workspace.business)
-        : null;
+    const target = await targetOf(actor, workspace, scope);
+    if (!target) return apiError("Set up your workspace first.", 403, "no_workspace");
+    let chair = target.chair;
 
     if (parsed.data.profile) {
-      if (workspace.barber) {
-        chair = await updateBarber(workspace.barber, parsed.data.profile);
-      } else if (workspace.business) {
-        chair = await updateBusiness(workspace.business, businessPatch(parsed.data.profile));
-      } else {
-        return apiError("Set up your workspace first.", 403, "no_workspace");
-      }
+      chair =
+        target.kind === "barber"
+          ? await updateBarber(target.id, parsed.data.profile)
+          : await updateBusiness(target.id, businessPatch(parsed.data.profile));
     }
 
     let prefs = actor.profile.prefs;
@@ -180,11 +217,16 @@ export async function PATCH(request: NextRequest) {
     await audit({
       actor: actor.userId,
       action: "settings.change",
-      kind: workspace.barber ? "barber" : "business",
-      target: workspace.barber || workspace.business,
+      kind: target.kind,
+      target: target.id,
     });
 
-    return apiOk({ barber: chair, chair, prefs: prefsView(prefs) });
+    return apiOk({
+      barber: chair,
+      chair,
+      scope: target.kind,
+      prefs: prefsView(prefs),
+    });
   } catch (error) {
     return businessFailure(error, "Could not save your settings.", "settings_failed");
   }

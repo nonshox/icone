@@ -173,6 +173,8 @@ export type MeResponse = {
   user: SessionUser | null;
   /** True when the account has an approved professional row or membership. */
   professional: boolean;
+  /** First business this account owns, or "" for an independent barber. */
+  businessId: string;
 };
 
 /** Shared cached read behind both the role-aware navigation and the profile. */

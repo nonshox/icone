@@ -16,7 +16,7 @@ import {
 import { resolveOffer, servicesFor } from "./catalog";
 import { getBarber, isBookable } from "./professional";
 import { getBranch, getBusiness } from "./business";
-import { shopClock } from "./time";
+import { shopClock, today } from "./time";
 import { visitPrice } from "./pricing";
 import type { Booking, OfferedService, Source, Status } from "./types";
 
@@ -330,6 +330,62 @@ export async function logStatus(
   } catch (error) {
     console.error("[domain] appointment log failed", error);
   }
+}
+
+/**
+ * Settlement sweep for insert-then-verify races that were interrupted (a
+ * worker died after insert, before the loser could be cancelled). Keeps one
+ * deterministic winner per overlapping interval and closes the rest, always
+ * with an audit row — never a silent delete.
+ */
+export async function reconcileBookings(): Promise<number> {
+  const rows: Row[] = [];
+  const page = 200;
+  for (let offset = 0; offset < 4000; offset += page) {
+    const batch = await list(TABLES.bookings, [
+      Query.greaterThanEqual("date", today()),
+      Query.limit(page),
+      Query.offset(offset),
+    ]);
+    rows.push(...batch);
+    if (batch.length < page) break;
+  }
+
+  const groups = new Map<string, Booking[]>();
+  for (const row of rows) {
+    const booking = toBooking(row);
+    if (!["pending", "confirmed", "done"].includes(booking.status)) continue;
+    const key = `${booking.barber}|${booking.date}`;
+    const list = groups.get(key) ?? [];
+    list.push(booking);
+    groups.set(key, list);
+  }
+
+  let closed = 0;
+  for (const candidates of groups.values()) {
+    const sorted = [...candidates].sort((a, b) => a.start - b.start || a.end - b.end);
+    const kept: Booking[] = [];
+    for (const row of sorted) {
+      const overlap = kept.filter(
+        (other) => row.start < other.end && other.start < row.end,
+      );
+      if (overlap.length === 0) {
+        kept.push(row);
+        continue;
+      }
+      // The earliest insert wins; `$id` is the deterministic tie-breaker.
+      const winner = [...overlap, row].sort((a, b) =>
+        a.created === b.created ? (a.id < b.id ? -1 : 1) : a.created < b.created ? -1 : 1,
+      )[0];
+      if (winner.id === row.id) {
+        kept.push(row);
+      } else {
+        await cancelBooking(row.id, "reconcile", "conflict", row.status);
+        closed += 1;
+      }
+    }
+  }
+  return closed;
 }
 
 /* ------------------------------------------------------- staff-side entry */

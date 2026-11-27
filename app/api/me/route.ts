@@ -31,6 +31,8 @@ export async function GET() {
     user,
     /** The real signal for an approved professional row or membership. */
     professional: guarded.actor.summary.professional,
+    /** First owned shop, used by the workspace settings scope switch. */
+    businessId: guarded.actor.owns[0] ?? "",
   });
 }
 

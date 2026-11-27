@@ -161,11 +161,13 @@ export function useBarberNotifications() {
   });
 }
 
-export function useBarberSettings() {
+export function useBarberSettings(scope: "barber" | "business" | "" = "") {
   return useQuery({
-    queryKey: barberKeys.settings,
+    queryKey: [...barberKeys.settings, scope],
     queryFn: () =>
-      api<{ barber: Barber; prefs: NotificationPrefs }>("/api/barber/settings"),
+      api<{ barber: Barber; prefs: NotificationPrefs; scope?: string }>(
+        `/api/barber/settings${scope ? `?scope=${scope}` : ""}`,
+      ),
   });
 }
 
@@ -277,14 +279,17 @@ export function useMarkAllBarberNotifications() {
   });
 }
 
-export function useUpdateBarberSettings() {
+export function useUpdateBarberSettings(scope: "barber" | "business" | "" = "") {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: SettingsPatch) =>
-      api<{ barber: Barber; prefs: NotificationPrefs }>("/api/barber/settings", {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }),
+      api<{ barber: Barber; prefs: NotificationPrefs }>(
+        `/api/barber/settings${scope ? `?scope=${scope}` : ""}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(input),
+        },
+      ),
     onSuccess: () => refresh(client, true),
   });
 }
