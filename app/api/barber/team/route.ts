@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
   if (!business || !can(actor, "team.manage", { business })) {
     return apiError("You cannot invite team members.", 403, "forbidden");
   }
+  if (parsed.data.role === "owner" && !isOwner(actor, business)) {
+    return apiError("Only an owner can invite an owner.", 403, "forbidden");
+  }
 
   try {
     const invite = await createInvite({
@@ -155,19 +158,33 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return apiError("Check the member details.", 400, "invalid_member");
   }
-  if (
-    parsed.data.role === "owner" &&
-    !isOwner(actor, parsed.data.business ?? "")
-  ) {
-    return apiError("Only an owner can promote to owner.", 403, "forbidden");
-  }
-
   const business = await resolveBusiness(actor, parsed.data.business);
   if (!business || !can(actor, "team.manage", { business })) {
     return apiError("You cannot manage this team.", 403, "forbidden");
   }
+  if (
+    parsed.data.role === "owner" &&
+    !isOwner(actor, business)
+  ) {
+    return apiError("Only an owner can promote to owner.", 403, "forbidden");
+  }
 
   try {
+    // The membership id must belong to the business we just authorized; never
+    // trust a client-supplied id to select a cross-tenant row.
+    const existing = (await listMemberships(business)).find(
+      (row) => row.id === parsed.data.id,
+    );
+    if (!existing) {
+      return apiError("This member is not in your team.", 403, "forbidden");
+    }
+    const isSelf = existing.user === actor.userId;
+    if (isSelf && (parsed.data.role || parsed.data.active !== undefined || parsed.data.perms)) {
+      return apiError("You cannot change your own membership.", 403, "forbidden");
+    }
+    if (parsed.data.perms && !isOwner(actor, business)) {
+      return apiError("Only an owner can change permissions.", 403, "forbidden");
+    }
     const member = await updateMember(parsed.data.id, {
       role: parsed.data.role,
       active: parsed.data.active,

@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
     if (requested) {
       const employee = await getBarber(requested);
       if (!employee) return apiError("Professional not found.", 404, "no_barber");
-      business = business || employee.business;
+      // Never let a client override the barber's actual business: that would
+      // authorize against shop A while reading shop B's wait requests.
+      business = employee.business;
 
       if (actor.barber?.id === requested) {
         if (!can(actor, "customer.read", { barber: requested })) {

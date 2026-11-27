@@ -7,7 +7,7 @@ import { serverEnv } from "@/lib/env";
 import { sendTelegramMessage } from "@/lib/telegram/notify";
 
 import { getProfiles } from "./account";
-import { create, list, str, update, type Row } from "./crud";
+import { create, first, list, str, update, type Row } from "./crud";
 import { formatPhone } from "./directory";
 import { label } from "./time";
 import type { Locale, Notification, NotificationPrefs } from "./types";
@@ -286,6 +286,12 @@ export async function unreadCount(userId: string): Promise<number> {
 
 export async function markRead(userId: string, id?: string): Promise<void> {
   if (id) {
+    // Ownership belongs in the domain, not only in the calling route.
+    const row = await first(TABLES.notifications, [
+      Query.equal("$id", id),
+      Query.equal("user", userId),
+    ]);
+    if (!row) return;
     await update(TABLES.notifications, id, { state: "read" });
     return;
   }

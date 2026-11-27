@@ -12,7 +12,7 @@ import {
   writeDenied,
   type Workspace,
 } from "@/app/api/barber/_auth";
-import type { Actor } from "@/lib/domain/access";
+import { can, type Actor } from "@/lib/domain/access";
 import {
   createService,
   getService,
@@ -42,10 +42,14 @@ const createSchema = z.object({
 });
 const patchSchema = createSchema.partial().extend({ id: idSchema });
 
-function owns(service: Service, workspace: Workspace): boolean {
+function owns(service: Service, workspace: Workspace, actor: Actor): boolean {
+  if (workspace.barber && service.barber === workspace.barber) return true;
+  // A shop employee may not edit the shared catalogue; only someone with
+  // business-scoped service rights may touch rows owned by the business.
   return Boolean(
-    (workspace.barber && service.barber === workspace.barber) ||
-      (workspace.business && service.business === workspace.business),
+    workspace.business &&
+      service.business === workspace.business &&
+      can(actor, "service.write", { business: workspace.business }),
   );
 }
 
@@ -173,7 +177,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const existing = await getService(id);
-    if (!existing || !owns(existing, guarded.workspace)) {
+    if (!existing || !owns(existing, guarded.workspace, guarded.actor)) {
       return apiError("That service is not yours.", 404, "not_found");
     }
     return apiOk({ service: await updateService(id, patch) });
@@ -200,7 +204,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const existing = await getService(parsed.data);
-    if (!existing || !owns(existing, guarded.workspace)) {
+    if (!existing || !owns(existing, guarded.workspace, guarded.actor)) {
       return apiError("That service is not yours.", 404, "not_found");
     }
     await retireService(parsed.data);
@@ -209,3 +213,4 @@ export async function DELETE(request: NextRequest) {
     return businessFailure(error, "Could not remove the service.", "service_failed");
   }
 }
+

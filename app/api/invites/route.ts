@@ -71,11 +71,9 @@ export async function POST(request: NextRequest) {
       return apiError("This invitation is no longer available.", 404, "invite_gone");
     }
     const profile = await getProfile(guarded.actor.userId);
-    if (
-      invite.to &&
-      invite.to !== guarded.actor.userId &&
-      !(profile?.phone && invite.phone === profile.phone)
-    ) {
+    // Phone numbers are self-asserted, so an invitation must name this account
+    // exactly. Phone-only invites are addressed by the owner before acceptance.
+    if (invite.to !== guarded.actor.userId) {
       return apiError("This invitation is not for your account.", 403, "forbidden");
     }
 

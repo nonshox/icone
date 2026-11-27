@@ -218,16 +218,11 @@ export async function invitationsFor(user: {
   id: string;
   phone: string;
 }): Promise<Invite[]> {
+  // Phone is self-asserted, so only account-addressed invitations are
+  // surfaced. A phone-only invite is claimed through its unguessable token.
   const queries: string[][] = [
     [Query.equal("state", "pending"), Query.equal("to", user.id), Query.limit(50)],
   ];
-  if (user.phone) {
-    queries.push([
-      Query.equal("state", "pending"),
-      Query.equal("phone", user.phone),
-      Query.limit(50),
-    ]);
-  }
   const found = await Promise.all(queries.map((q) => list(TABLES.invites, q)));
   const byId = new Map<string, Invite>();
   for (const invite of found.flat().map(toInvite)) {

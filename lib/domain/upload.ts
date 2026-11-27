@@ -34,6 +34,18 @@ function extension(type: string): string | null {
   return ALLOWED[type] ?? null;
 }
 
+/** Never trust the client's MIME label: inspect the file signature. */
+async function hasImageSignature(file: File, ext: string): Promise<boolean> {
+  const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  if (ext === "jpg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (ext === "png")
+    return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const ascii = String.fromCharCode(...bytes.slice(0, 12));
+  if (ext === "webp") return ascii.startsWith("RIFF") && ascii.slice(8, 12) === "WEBP";
+  if (ext === "avif") return ascii.slice(4, 12).startsWith("ftypavif");
+  return false;
+}
+
 /** Public URL for a stored file, or "" for anything we do not recognise. */
 export function fileUrl(name: string): string {
   if (!name) return "";
@@ -81,6 +93,10 @@ export async function uploadImage(
 
   if (file.size === 0) {
     return { ok: false, message: "That file is empty." };
+  }
+
+  if (!(await hasImageSignature(file, ext))) {
+    return { ok: false, message: "That file is not a real image." };
   }
 
   const name = `${folder}-${ID.unique()}.${ext}`;

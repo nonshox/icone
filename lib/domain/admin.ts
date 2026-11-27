@@ -649,6 +649,9 @@ export async function exportBookings(
 }
 
 function csv(value: string): string {
-  const escaped = value.replace(/"/g, '""');
+  // Spreadsheet formula injection guard: a note must never execute when the
+  // owner opens the export in Excel or Sheets.
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  const escaped = safe.replace(/"/g, '""');
   return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
 }

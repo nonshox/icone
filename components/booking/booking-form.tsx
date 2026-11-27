@@ -424,7 +424,7 @@ export function BookingForm() {
         <div className="space-y-2">
           <Label><T k="booking.time" /></Label>
 
-          {servicesInDraft.length === 0 || !barberId ? (
+          {servicesInDraft.length === 0 || !matchedBarber ? (
             <p className="text-sm text-muted-foreground">
               <T k="booking.pickServiceBarber" />
             </p>

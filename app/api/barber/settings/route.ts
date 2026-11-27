@@ -139,6 +139,7 @@ async function targetOf(
     return { kind: "barber", id: workspace.barber, chair: await getBarber(workspace.barber) };
   }
   if (workspace.business) {
+    if (!can(actor, "settings.business", { business: workspace.business })) return null;
     return {
       kind: "business",
       id: workspace.business,
