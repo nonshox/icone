@@ -68,6 +68,9 @@ export function BookingForm() {
 
   const servicesInDraft = useBookingDraft((state) => state.services);
   const barberId = useBookingDraft((state) => state.barber);
+  const business = useBookingDraft((state) => state.business);
+  const branch = useBookingDraft((state) => state.branch);
+  const anyBarber = useBookingDraft((state) => state.anyBarber);
   const storedDate = useBookingDraft((state) => state.date);
   const start = useBookingDraft((state) => state.start);
   const note = useBookingDraft((state) => state.note);
@@ -106,14 +109,19 @@ export function BookingForm() {
   const barbers = useBarbers();
   const barber = barbers.data?.find((item) => item.id === barberId);
   const visibleServices = useMemo(
-    () => (services.data ?? []).filter((item) => compatible(item, barber)),
-    [services.data, barber],
+    () =>
+      (services.data ?? []).filter((item) =>
+        anyBarber
+          ? !business || item.business === business
+          : compatible(item, barber),
+      ),
+    [services.data, barber, anyBarber, business],
   );
 
   // A deep link or a rebook can seed a service that is no longer offered by
   // the chosen barber. Drop it once both catalogues are available.
   useEffect(() => {
-    if (!barberId || !barber || !services.data) return;
+    if (!barberId || anyBarber || !barber || !services.data) return;
     const allowed = new Set(
       (services.data ?? [])
         .filter((item) => compatible(item, barber))
@@ -121,10 +129,14 @@ export function BookingForm() {
     );
     const kept = servicesInDraft.filter((id) => allowed.has(id));
     if (kept.length !== servicesInDraft.length) setServices(kept);
-  }, [barberId, barber, services.data, servicesInDraft, setServices]);
+  }, [barberId, anyBarber, barber, services.data, servicesInDraft, setServices]);
 
   function chooseBarber(value: string | null) {
     const id = String(value ?? "");
+    if (id === "any") {
+      useBookingDraft.getState().setAnyBarber(true);
+      return;
+    }
     setBarber(id);
     if (!services.data) return;
     const next = barbers.data?.find((item) => item.id === id);
@@ -137,9 +149,12 @@ export function BookingForm() {
   // One availability call covers the whole visit: the server resolves every
   // service for this barber and returns slots for the combined duration.
   const quote = useAvailabilityQuote({
-    barber: barberId,
+    barber: anyBarber ? "any" : barberId,
     date,
     services: servicesInDraft,
+    any: anyBarber,
+    business,
+    branch,
   });
   const create = useCreateBooking();
 
@@ -157,15 +172,17 @@ export function BookingForm() {
         .map((id) => services.data?.find((item) => item.id === id))
         .filter((item): item is Service => !!item),
     );
+  const matchedBarber = anyBarber ? quote.data?.barber ?? "" : barberId;
   const ready =
-    servicesInDraft.length > 0 && Boolean(barber && date && start !== null);
+    servicesInDraft.length > 0 &&
+    Boolean(matchedBarber && date && start !== null);
 
   async function submit() {
-    if (!barber || !date || start === null || servicesInDraft.length === 0) return;
+    if (!matchedBarber || !date || start === null || servicesInDraft.length === 0) return;
 
     try {
       const booking = await create.mutateAsync({
-        barber: barber.id,
+        barber: matchedBarber,
         services: servicesInDraft,
         date,
         start,
@@ -197,7 +214,7 @@ export function BookingForm() {
         <div className="space-y-2">
           <Label htmlFor="barber"><T k="booking.barber" /></Label>
           <Select
-            value={barberId || null}
+            value={anyBarber ? "any" : barberId || null}
             onValueChange={(value) => {
               if (value) chooseBarber(value);
             }}
@@ -206,6 +223,9 @@ export function BookingForm() {
               <SelectValue placeholder={t("booking.barber")} />
             </SelectTrigger>
             <SelectContent>
+              {business ? (
+                <SelectItem value="any">{t("booking.anyBarber")}</SelectItem>
+              ) : null}
               {(barbers.data ?? []).map((item) => (
                 <SelectItem key={item.id} value={item.id}>
                   {item.name} · {item.title}
@@ -213,6 +233,16 @@ export function BookingForm() {
               ))}
             </SelectContent>
           </Select>
+          {anyBarber && quote.data?.barberName ? (
+            <p role="status" className="text-xs text-muted-foreground">
+              {t("booking.matchedBarber")}: {quote.data.barberName}
+            </p>
+          ) : null}
+          {anyBarber && quote.data && !quote.data.barber ? (
+            <p className="text-xs text-muted-foreground">
+              {t("booking.noBarberAvailable")}
+            </p>
+          ) : null}
           {barbers.isPending ? <Skeleton className="h-4 w-40" /> : null}
           {barbers.isError ? (
             <div className="flex flex-wrap items-center gap-2">

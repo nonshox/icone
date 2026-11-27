@@ -14,6 +14,10 @@ import { create } from "zustand";
 type BookingDraft = {
   services: string[];
   barber: string;
+  /** Shop context: lets the server pick the first qualified employee. */
+  business: string;
+  branch: string;
+  anyBarber: boolean;
   date: string;
   start: number | null;
   note: string;
@@ -22,6 +26,9 @@ type BookingDraft = {
   /** Legacy single-service setter, kept for links and rebooking. */
   setService: (service: string) => void;
   setBarber: (barber: string) => void;
+  setBusiness: (business: string) => void;
+  setBranch: (branch: string) => void;
+  setAnyBarber: (any: boolean) => void;
   setDate: (date: string) => void;
   setStart: (start: number | null) => void;
   setNote: (note: string) => void;
@@ -33,6 +40,9 @@ type BookingDraft = {
 const initial = {
   services: [] as string[],
   barber: "",
+  business: "",
+  branch: "",
+  anyBarber: false,
   date: "",
   start: null,
   note: "",
@@ -56,7 +66,11 @@ export const useBookingDraft = create<BookingDraft>((set) => ({
       return { services: selected, start: null };
     }),
   setService: (service) => set({ services: clean(service ? [service] : []), start: null }),
-  setBarber: (barber) => set({ barber, start: null }),
+  setBarber: (barber) =>
+    set({ barber, anyBarber: barber === "any", start: null }),
+  setBusiness: (business) => set({ business, start: null }),
+  setBranch: (branch) => set({ branch, start: null }),
+  setAnyBarber: (anyBarber) => set({ anyBarber, barber: "", start: null }),
   setDate: (date) => set({ date, start: null }),
   setStart: (start) => set({ start }),
   setNote: (note) => set({ note }),

@@ -5,6 +5,7 @@ import {
   Bell,
   CalendarDays,
   Heart,
+  MessageSquare,
   Scissors,
   Settings2,
   Star,
@@ -22,6 +23,7 @@ import {
   useFavorites,
   useNotifications,
 } from "@/lib/api/customer-queries";
+import { useThreads } from "@/lib/api/message-queries";
 import { useBarbers, useBookings, useProfile } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { imageUrl } from "@/lib/client/files";
@@ -75,6 +77,7 @@ export function CustomerView() {
   const bookings = useBookings();
   const favorites = useFavorites();
   const notifications = useNotifications();
+  const threads = useThreads();
   const barbers = useBarbers();
 
   const derived = useCustomerOverview({
@@ -100,7 +103,6 @@ export function CustomerView() {
   const firstName = profile.data.name.split(/\s+/)[0] || t("settings.member");
   const saved = favorites.data ?? [];
   const barberById = new Map((barbers.data ?? []).map((barber) => [barber.id, barber]));
-  const inbox = notifications.data?.notifications ?? [];
 
   return (
     <ClientGate role={profile.data.role}>
@@ -257,40 +259,45 @@ export function CustomerView() {
 
           <Card>
             <CardHeader>
-              <CardTitle><T k="customer.latest" /></CardTitle>
-              <CardDescription><T k="customer.latestBody" /></CardDescription>
+              <CardTitle><T k="msg.title" /></CardTitle>
+              <CardDescription><T k="customer.messagesBody" /></CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {notifications.isPending ? (
+              {threads.isPending ? (
                 <Skeleton className="h-16 w-full" />
-              ) : notifications.isError ? (
+              ) : threads.isError ? (
                 <p role="alert" className="text-sm text-destructive">
-                  <T k="inbox.loadError" />
+                  <T k="msg.loadError" />
                 </p>
-              ) : inbox.length === 0 ? (
-                <p className="text-sm text-muted-foreground"><T k="customer.noUpdates" /></p>
+              ) : (threads.data ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground"><T k="msg.empty" /></p>
               ) : (
                 <>
                   <ul className="divide-y divide-border/60">
-                    {inbox.slice(0, 3).map((item) => (
-                      <li key={item.id} className="py-2 first:pt-0 last:pb-0">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-medium">{item.title}</p>
-                          {item.state === "new" ? (
-                            <span className="size-1.5 shrink-0 rounded-full bg-brand" aria-label={t("inbox.new")} />
+                    {threads.data.slice(0, 3).map((thread) => (
+                      <li key={thread.id} className="py-2 first:pt-0 last:pb-0">
+                        <Link
+                          href={`/messages?with=${encodeURIComponent(thread.with)}`}
+                          className="block rounded-lg hover:text-brand-strong"
+                        >
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium">{thread.withName}</p>
+                            {thread.unread > 0 ? (
+                              <span className="size-1.5 shrink-0 rounded-full bg-brand" aria-label={t("inbox.new")} />
+                            ) : null}
+                          </div>
+                          {thread.last ? (
+                            <p className="line-clamp-2 text-xs text-muted-foreground">{thread.last}</p>
                           ) : null}
-                        </div>
-                        {item.body ? (
-                          <p className="line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
-                        ) : null}
+                        </Link>
                       </li>
                     ))}
                   </ul>
                   <Link
-                    href="/notifications"
+                    href="/messages"
                     className="inline-flex text-sm font-medium text-brand-strong hover:underline"
                   >
-                    {t("customer.openInbox")} →
+                    {t("customer.openMessages")} →
                   </Link>
                 </>
               )}
@@ -348,6 +355,10 @@ export function CustomerView() {
               <Heart className="size-4 text-brand-strong" aria-hidden />
               <T k="customer.savedBarbers" />
             </Link>
+            <Link href="/messages" className="flex items-center gap-2 text-sm font-medium hover:underline">
+              <MessageSquare className="size-4 text-brand-strong" aria-hidden />
+              <T k="nav.messages" />
+            </Link>
             <Link href="/settings" className="flex items-center gap-2 text-sm font-medium hover:underline">
               <Settings2 className="size-4 text-brand-strong" aria-hidden />
               <T k="customer.settings" />
@@ -355,10 +366,6 @@ export function CustomerView() {
             <Link href="/help" className="flex items-center gap-2 text-sm font-medium hover:underline">
               <Bell className="size-4 text-brand-strong" aria-hidden />
               <T k="customer.help" />
-            </Link>
-            <Link href="/become-barber" className="flex items-center gap-2 text-sm font-medium hover:underline">
-              <Scissors className="size-4 text-brand-strong" aria-hidden />
-              <T k="customer.becomeBarber" />
             </Link>
           </CardContent>
         </Card>

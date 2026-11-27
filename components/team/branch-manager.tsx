@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -42,7 +43,10 @@ import {
   type BranchCreate,
   type BranchPatch,
 } from "@/lib/api/team-queries";
+import { api } from "@/lib/api/client";
 import { useT } from "@/lib/i18n/use-t";
+import { label, parseTime } from "@/lib/domain/time";
+import type { HourRow } from "@/lib/domain/types";
 
 const BLANK = {
   name: "",
@@ -56,6 +60,23 @@ const BLANK = {
   active: true,
   primary: false,
 };
+
+const selectClass =
+  "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:opacity-50";
+
+type BranchHours = { branch: string; hours: Array<HourRow & { id: string }> };
+type BranchWindow = { day: number; start: number; end: number };
+
+function useBranchHours(business: string, branch: string) {
+  return useQuery({
+    queryKey: ["branch-hours", business, branch],
+    queryFn: () => {
+      const params = new URLSearchParams({ business, branch });
+      return api<BranchHours>(`/api/barber/branches/hours?${params.toString()}`);
+    },
+    enabled: Boolean(business && branch),
+  });
+}
 
 export function BranchManager({
   business,
@@ -76,6 +97,55 @@ export function BranchManager({
   const [formError, setFormError] = useState<string | null>(null);
 
   const rows = branches.data ?? [];
+  const [hoursBranch, setHoursBranch] = useState("");
+  const activeHoursBranch = hoursBranch || rows[0]?.id || "";
+  const hours = useBranchHours(business, activeHoursBranch);
+  const [draft, setDraft] = useState<{
+    branch: string;
+    windows: BranchWindow[];
+  } | null>(null);
+  const serverWindows: BranchWindow[] = (hours.data?.hours ?? []).map(
+    ({ day, start, end }) => ({ day, start, end }),
+  );
+  // A draft only applies to the branch it was edited for; switching branches
+  // falls back to the server data without a synchronous effect.
+  const windows =
+    draft?.branch === activeHoursBranch ? draft.windows : serverWindows;
+  const [hourDay, setHourDay] = useState("1");
+  const [hourStart, setHourStart] = useState("10:00");
+  const [hourEnd, setHourEnd] = useState("21:00");
+  const [hoursError, setHoursError] = useState<string | null>(null);
+  const client = useQueryClient();
+
+  function updateWindows(update: (current: BranchWindow[]) => BranchWindow[]) {
+    setDraft({
+      branch: activeHoursBranch,
+      windows: update(windows),
+    });
+  }
+
+  const saveHours = useMutation({
+    mutationFn: (next: BranchWindow[]) =>
+      api<BranchHours>("/api/barber/branches/hours", {
+        method: "POST",
+        body: JSON.stringify({ business, branch: activeHoursBranch, windows: next }),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["branch-hours", business] });
+      void client.invalidateQueries({ queryKey: ["agenda"] });
+      void client.invalidateQueries({ queryKey: ["availability"] });
+      void client.invalidateQueries({ queryKey: ["barbers"] });
+      setDraft(null);
+      setHoursError(null);
+      toast.success(t("work.toast.saved"));
+    },
+    onError: (error) => {
+      const text = message(error, t("work.toast.failed"));
+      setHoursError(text);
+      toast.error(text);
+    },
+  });
+
   const counts = new Map<string, number>();
   for (const member of team.data?.members ?? []) {
     if (member.branch && member.state === "active") {
@@ -432,6 +502,147 @@ export function BranchManager({
           )}
         </CardContent>
       </Card>
+
+      {canManage ? (
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle>
+              <T k="work.branches.hoursTitle" />
+            </CardTitle>
+            <CardDescription>
+              <T k="work.branches.hoursHint" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="hours-branch" className="text-sm text-muted-foreground">
+                <T k="work.branches.hoursPick" />
+              </label>
+              <select
+                id="hours-branch"
+                className={selectClass}
+                value={activeHoursBranch}
+                onChange={(event) => {
+                  setHoursBranch(event.target.value);
+                  setHoursError(null);
+                }}
+              >
+                {rows.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {branches.isPending ? (
+              <LoadingRows />
+            ) : !activeHoursBranch ? (
+              <p className="text-sm text-muted-foreground">
+                <T k="work.branches.empty" />
+              </p>
+            ) : hours.isPending ? (
+              <LoadingRows />
+            ) : hours.isError ? (
+              <FormError text={message(hours.error, t("work.branches.hoursLoadError"))} />
+            ) : (
+              <>
+                {windows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    <T k="work.branches.hoursEmpty" />
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {windows.map((window, index) => (
+                      <li
+                        key={`${window.day}-${window.start}-${index}`}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-sm"
+                      >
+                        <span className="tabular-nums">
+                          <T k={`day.${window.day}`} /> · {label(window.start)}–
+                          {label(window.end)}
+                        </span>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`${t("common.remove")} ${t(`day.${window.day}`)}`}
+                          disabled={saveHours.isPending}
+                          onClick={() =>
+                            updateWindows((current) =>
+                              current.filter((_, position) => position !== index),
+                            )
+                          }
+                        >
+                          <Trash2 aria-hidden />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <form
+                  className="grid gap-2 sm:grid-cols-4"
+                  onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                    event.preventDefault();
+                    const from = parseTime(hourStart);
+                    const to = parseTime(hourEnd);
+                    if (from === null || to === null || to <= from) {
+                      setHoursError(t("work.staff.timeInvalid"));
+                      return;
+                    }
+                    updateWindows((current) => [
+                      ...current,
+                      { day: Number(hourDay), start: from, end: to },
+                    ]);
+                    setHoursError(null);
+                  }}
+                >
+                  <select
+                    aria-label={t("work.staff.day")}
+                    className={selectClass}
+                    value={hourDay}
+                    onChange={(event) => setHourDay(event.target.value)}
+                  >
+                    {Array.from({ length: 7 }, (_, index) => (
+                      <option key={index} value={index}>
+                        {t(`day.${index}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    aria-label={t("work.staff.opens")}
+                    type="time"
+                    value={hourStart}
+                    onChange={(event) => setHourStart(event.target.value)}
+                  />
+                  <Input
+                    aria-label={t("work.staff.closes")}
+                    type="time"
+                    value={hourEnd}
+                    onChange={(event) => setHourEnd(event.target.value)}
+                  />
+                  <Button type="submit" variant="outline" size="sm">
+                    <Plus className="size-4" aria-hidden />
+                    <T k="work.branches.addWindow" />
+                  </Button>
+                </form>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    disabled={saveHours.isPending || !activeHoursBranch}
+                    onClick={() => saveHours.mutate(windows)}
+                  >
+                    <T k="common.save" />
+                  </Button>
+                  <FormError text={hoursError} />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

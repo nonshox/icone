@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 async function NotificationsPanel() {
   const actor = await getActor();
   if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/notifications")}`);
-  if (actor.profile.role !== "client") redirect("/account");
+  // Professionals also receive customer-facing booking notifications.
   return <NotificationsView />;
 }
 

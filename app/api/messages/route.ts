@@ -18,7 +18,12 @@ import {
   thread,
   type Message,
 } from "@/lib/domain/messages";
-import { getBarber, getBarbers } from "@/lib/domain/professional";
+import {
+  barberForUser,
+  getBarber,
+  getBarbers,
+  isBookable,
+} from "@/lib/domain/professional";
 import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -58,7 +63,34 @@ async function allowedPartners(actor: Actor): Promise<string[] | null> {
 async function resolveTarget(id: string, allowed: string[] | null): Promise<string> {
   if (allowed?.includes(id) || allowed === null) return id;
   const barber = await getBarber(id).catch(() => null);
-  return barber?.user && (allowed?.includes(barber.user) ?? true) ? barber.user : id;
+  if (barber?.user) {
+    // Booking-derived partners and active public chairs both resolve to the
+    // account that actually receives the message.
+    if (allowed.includes(barber.user) || isBookable(barber)) return barber.user;
+  }
+  return id;
+}
+
+/**
+ * A public profile is a second, booking-independent way to start a thread:
+ * any signed-in member may write to an active professional. Historical
+ * booking-derived partners stay authorized even if a chair later goes quiet.
+ */
+async function publicBarber(userId: string): Promise<string | null> {
+  const barber = await barberForUser(userId).catch(() => null);
+  return barber && isBookable(barber) && barber.user === userId
+    ? barber.user
+    : null;
+}
+
+async function mayMessage(
+  actor: Actor,
+  allowed: string[] | null,
+  target: string,
+): Promise<boolean> {
+  if (target === actor.userId || actor.profile.role === "admin") return false;
+  if (allowed?.includes(target)) return true;
+  return (await publicBarber(target).catch(() => null)) !== null;
 }
 
 function toMessage(row: Row): Message {
@@ -110,13 +142,15 @@ export async function GET(request: NextRequest) {
       if (!other || other === actor.userId || !conversation) {
         return apiError("That conversation is not available.", 403, "forbidden");
       }
+      // An existing thread stays readable; a brand-new one needs either a
+      // booking-derived partner or an active professional's public profile.
       if (
         actor.profile.role !== "admin" &&
-        (!isParticipant(conversation, actor.userId) ||
-          !allowed?.includes(other))
+        !isParticipant(conversation, actor.userId) &&
+        !(await mayMessage(actor, allowed, other))
       ) {
         return apiError(
-          "You can only message a barber from one of your bookings.",
+          "You cannot open a conversation with this member.",
           403,
           "forbidden",
         );
@@ -142,16 +176,29 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const names = await counterpartNames(allowed ?? []);
-    const threads = await conversationsFor(actor.userId, names);
-    const visible = allowed ? threads.filter((row) => allowed.includes(row.with)) : threads;
+    const threads = await conversationsFor(actor.userId, new Map());
+    let visibleIds: string[] | null = null;
+    if (allowed) {
+      const fromProfiles = new Set<string>();
+      for (const row of threads) {
+        if (allowed.includes(row.with)) continue;
+        if (await publicBarber(row.with)) fromProfiles.add(row.with);
+      }
+      visibleIds = [...new Set([...allowed, ...fromProfiles])];
+    }
+
+    const names = await counterpartNames(visibleIds ?? threads.map((row) => row.with));
+    const ids = visibleIds;
+    const visible = ids
+      ? threads.filter((row) => ids.includes(row.with))
+      : threads;
 
     // Keep the original DTO keys while carrying the richer domain fields.
     return apiOk({
       threads: visible.map((row) => ({
         ...row,
         id: row.with,
-        name: row.withName || "Member",
+        name: names.get(row.with) || row.withName || "Member",
         preview: row.last,
         at: row.lastAt,
         conversation: row.id,
@@ -196,9 +243,9 @@ export async function POST(request: NextRequest) {
     const allowed = await allowedPartners(actor);
     const to = await resolveTarget(parsed.data.to, allowed);
 
-    if (actor.profile.role === "admin" || to === actor.userId || !allowed?.includes(to)) {
+    if (!(await mayMessage(actor, allowed, to))) {
       return apiError(
-        "You can only message a barber from one of your bookings.",
+        "You cannot message this member.",
         403,
         "forbidden",
       );

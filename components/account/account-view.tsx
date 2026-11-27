@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  BriefcaseBusiness,
   CalendarDays,
-  CheckCircle2,
+  Clock,
+  Heart,
   LayoutDashboard,
   Loader2,
+  MessageSquare,
   Scissors,
-  Settings2,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -55,9 +57,12 @@ function initials(name: string) {
 export function AccountView({
   user,
   profile,
+  professional,
 }: {
   user: SessionUser;
   profile: Profile;
+  /** An approved professional row/membership, independent of the role label. */
+  professional: boolean;
 }) {
   const t = useT();
   const update = useUpdateProfile();
@@ -244,33 +249,31 @@ export function AccountView({
 
         <Card size="sm">
           <CardContent className="space-y-2">
-            {profile.role === "client" ? (
-              <Link
-                href="/customer"
-                className="flex items-center gap-2 text-sm font-medium hover:underline"
-              >
-                <LayoutDashboard className="size-4" aria-hidden />
-                <T k="account.customerHome" />
-              </Link>
-            ) : null}
-            {profile.role === "barber" ? (
-              <Link
-                href="/barber"
-                className="flex items-center gap-2 text-sm font-medium hover:underline"
-              >
-                <LayoutDashboard className="size-4" aria-hidden />
-                <T k="account.businessDashboard" />
-              </Link>
-            ) : null}
             {profile.role === "admin" ? (
               <Link
                 href="/admin"
                 className="flex items-center gap-2 text-sm font-medium hover:underline"
               >
-                <LayoutDashboard className="size-4" aria-hidden />
+                <ShieldCheck className="size-4" aria-hidden />
                 <T k="account.adminDashboard" />
               </Link>
             ) : null}
+            {professional ? (
+              <Link
+                href="/barber"
+                className="flex items-center gap-2 text-sm font-medium text-brand-strong hover:underline"
+              >
+                <BriefcaseBusiness className="size-4" aria-hidden />
+                <T k="nav.workspace" />
+              </Link>
+            ) : null}
+            <Link
+              href="/customer"
+              className="flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              <LayoutDashboard className="size-4" aria-hidden />
+              <T k="account.customerHome" />
+            </Link>
             <Link
               href="/bookings"
               className="flex items-center gap-2 text-sm font-medium hover:underline"
@@ -279,37 +282,40 @@ export function AccountView({
               <T k="nav.myVisits" />
             </Link>
             <Link
+              href="/favorites"
+              className="flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              <Heart className="size-4" aria-hidden />
+              <T k="nav.saved" />
+            </Link>
+            <Link
+              href="/messages"
+              className="flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              <MessageSquare className="size-4" aria-hidden />
+              <T k="nav.messages" />
+            </Link>
+            <Link
+              href="/waits"
+              className="flex items-center gap-2 text-sm font-medium hover:underline"
+            >
+              <Clock className="size-4" aria-hidden />
+              <T k="nav.waitlist" />
+            </Link>
+            <Link
               href="/book"
               className="flex items-center gap-2 text-sm font-medium hover:underline"
             >
               <Scissors className="size-4" aria-hidden />
               <T k="nav.book" />
             </Link>
-            {profile.role === "client" ? (
+            {!professional && profile.role !== "admin" ? (
               <Link
                 href="/become-barber"
-                className="flex items-center gap-2 text-sm font-medium hover:underline"
+                className="flex items-center gap-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
-                <UserRound className="size-4" aria-hidden />
+                <UserRound className="size-3.5" aria-hidden />
                 <T k="nav.becomeBarber" />
-              </Link>
-            ) : null}
-            {profile.role !== "client" ? (
-              <Link
-                href="/agenda"
-                className="flex items-center gap-2 text-sm font-medium hover:underline"
-              >
-                <CheckCircle2 className="size-4" aria-hidden />
-                Staff agenda
-              </Link>
-            ) : null}
-            {profile.role === "admin" ? (
-              <Link
-                href="/admin"
-                className="flex items-center gap-2 text-sm font-medium hover:underline"
-              >
-                <Settings2 className="size-4" aria-hidden />
-                Manage chairs
               </Link>
             ) : null}
           </CardContent>

@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Send,
   Scale,
+  ShieldCheck,
   Sun,
   UserRound,
   X,
@@ -22,8 +23,9 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 
 import { T } from "@/components/i18n/t";
+import { useMe } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
-import { navSections } from "@/lib/navigation";
+import { becomeBarberCta, visibleNavSections } from "@/lib/navigation";
 import { useLocaleStore, type Locale } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +41,9 @@ const tabs = [
 
 const sectionIcons = {
   "nav.discover": Compass,
+  "customer.eyebrow": UserRound,
   "nav.forBarbers": BriefcaseBusiness,
+  "nav.admin": ShieldCheck,
   "nav.help": CircleHelp,
   "nav.legal": Scale,
   "nav.telegram": Send,
@@ -50,6 +54,72 @@ const languages: Array<{ value: Locale; short: string; label: string }> = [
   { value: "ru", short: "RU", label: "Русский" },
   { value: "en", short: "EN", label: "English" },
 ];
+
+/** Role-aware links in the More sheet, mounted only while the sheet is open. */
+function MoreSections({ onNavigate }: { onNavigate: () => void }) {
+  const t = useT();
+  const me = useMe();
+  const professional = Boolean(me.data?.professional);
+  const admin = me.data?.profile.role === "admin";
+  const sections = visibleNavSections({ professional, admin });
+  const showCta = !me.isPending && !professional && !admin;
+
+  return (
+    <>
+      {sections.map((section) => {
+        const Icon = sectionIcons[section.title as keyof typeof sectionIcons] ?? Compass;
+        const headingId = `mobile-menu-${section.title.replace(/\./g, "-")}`;
+        return (
+          <section key={section.title} aria-labelledby={headingId} className="py-2">
+            <h2
+              id={headingId}
+              className="flex items-center gap-2 px-1 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase"
+            >
+              <Icon className="size-3.5 text-brand-strong" aria-hidden />
+              <T k={section.title} />
+            </h2>
+            <ul className="space-y-0.5">
+              {section.links.map((link) => (
+                <li key={link.href}>
+                  {link.external ? (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-lg px-1 py-2 text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      {t(link.label)}
+                    </a>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      onClick={onNavigate}
+                      className="block rounded-lg px-1 py-2 text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      {t(link.label)}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {showCta ? (
+        <div className="px-1 pb-1 pt-2">
+          <Link
+            href={becomeBarberCta.href}
+            onClick={onNavigate}
+            className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            {t(becomeBarberCta.label)}
+          </Link>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 function MobileNavInner() {
   const pathname = usePathname();
@@ -97,45 +167,7 @@ function MobileNavInner() {
               </button>
             </div>
 
-            {navSections.map((section) => {
-              const Icon = sectionIcons[section.title as keyof typeof sectionIcons] ?? Compass;
-              const headingId = `mobile-menu-${section.title.replace(/\./g, "-")}`;
-              return (
-                <section key={section.title} aria-labelledby={headingId} className="py-2">
-                  <h2
-                    id={headingId}
-                    className="flex items-center gap-2 px-1 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase"
-                  >
-                    <Icon className="size-3.5 text-brand-strong" aria-hidden />
-                    <T k={section.title} />
-                  </h2>
-                  <ul className="space-y-0.5">
-                    {section.links.map((link) => (
-                      <li key={link.href}>
-                        {link.external ? (
-                          <a
-                            href={link.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block rounded-lg px-1 py-2 text-sm text-muted-foreground hover:text-foreground"
-                          >
-                            {t(link.label)}
-                          </a>
-                        ) : (
-                          <Link
-                            href={link.href}
-                            onClick={() => setMoreOpen(false)}
-                            className="block rounded-lg px-1 py-2 text-sm text-muted-foreground hover:text-foreground"
-                          >
-                            {t(link.label)}
-                          </Link>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              );
-            })}
+            <MoreSections onNavigate={() => setMoreOpen(false)} />
 
             <div className="mt-2 flex items-center gap-2 border-t border-border/70 pt-3">
               <div className="min-w-0 flex-1">

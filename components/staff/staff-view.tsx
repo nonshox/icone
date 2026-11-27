@@ -37,7 +37,9 @@ import {
 import { ApiError } from "@/lib/api/client";
 import {
   useCloneWeek,
+  useCreateMyBreak,
   useCreateMyHour,
+  useDeleteMyBreak,
   useDeleteMyDay,
   useDeleteMyHour,
   useMyChair,
@@ -45,11 +47,13 @@ import {
   type DayRow,
   type HourRow,
   type MyChairData,
+  type StaffBreak,
 } from "@/lib/api/staff-queries";
 import { formatDate, label, parseTime } from "@/lib/domain/time";
 
 const TABS = [
   { id: "hours", key: "work.staff.hours" },
+  { id: "breaks", key: "work.staff.breaks" },
   { id: "days", key: "work.staff.days" },
 ] as const;
 
@@ -246,6 +250,7 @@ export function StaffView() {
       </Card>
 
       {tab === "hours" ? <HoursSection state={state} /> : null}
+      {tab === "breaks" ? <BreaksSection state={state} /> : null}
       {tab === "days" ? <DaysSection state={state} /> : null}
     </div>
   );
@@ -472,6 +477,205 @@ function HoursSection({ state }: { state: ChairState }) {
         onConfirm={confirmClone}
       />
     </>
+  );
+}
+
+/* ----------------------------------------------------------------- breaks */
+
+function BreaksSection({ state }: { state: ChairState }) {
+  const create = useCreateMyBreak();
+  const remove = useDeleteMyBreak();
+  const t = useT();
+  const [day, setDay] = useState("1");
+  const [start, setStart] = useState("13:00");
+  const [end, setEnd] = useState("14:00");
+  const [note, setNote] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const error =
+    formError ??
+    (create.error ? message(create.error, t("work.toast.failed")) : null) ??
+    (remove.error ? message(remove.error, t("work.toast.failed")) : null);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+    const from = parseTime(start);
+    const to = parseTime(end);
+    if (from === null || to === null || to <= from) {
+      setFormError(t("work.staff.timeInvalid"));
+      return;
+    }
+
+    create.mutate(
+      { day: Number(day), start: from, end: to, note: note.trim() },
+      {
+        onSuccess: () => {
+          toast.success(t("work.toast.added"));
+          setNote("");
+          setFormError(null);
+        },
+        onError: (cause) =>
+          toast.error(message(cause, t("work.toast.failed"))),
+      },
+    );
+  }
+
+  function removeBreakItem(item: StaffBreak) {
+    if (!item.id) return;
+    remove.mutate(item.id, {
+      onSuccess: () => toast.success(t("work.toast.removed")),
+      onError: (cause) => toast.error(message(cause, t("work.toast.failed"))),
+    });
+  }
+
+  const breaks = state.data?.breaks ?? [];
+
+  return (
+    <Card className="glass">
+      <CardHeader>
+        <CardTitle>
+          <T k="work.staff.breaks" />
+        </CardTitle>
+        <CardDescription>
+          <T k="work.staff.breaksHint" />
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {state.isPending ? (
+          <LoadingRows />
+        ) : state.isError ? (
+          <FormError text={state.errorMessage} />
+        ) : !state.data?.barber ? (
+          <p className="text-sm text-muted-foreground">
+            <T k="work.staff.noChair" />
+          </p>
+        ) : (
+          <>
+            <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="staff-break-day">
+                  <T k="work.staff.day" />
+                </Label>
+                <Select value={day} onValueChange={(value) => setDay(String(value))}>
+                  <SelectTrigger id="staff-break-day" className="h-9 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 7 }, (_, index) => (
+                      <SelectItem key={index} value={String(index)}>
+                        <T k={`day.${index}`} />
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staff-break-note">
+                  <T k="common.note" />
+                </Label>
+                <Input
+                  id="staff-break-note"
+                  value={note}
+                  maxLength={64}
+                  placeholder={t("work.staff.noteHint")}
+                  onChange={(event) => setNote(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staff-break-start">
+                  <T k="work.staff.opens" />
+                </Label>
+                <Input
+                  id="staff-break-start"
+                  type="time"
+                  value={start}
+                  onChange={(event) => setStart(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staff-break-end">
+                  <T k="work.staff.closes" />
+                </Label>
+                <Input
+                  id="staff-break-end"
+                  type="time"
+                  value={end}
+                  onChange={(event) => setEnd(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+                <Button type="submit" className="h-10" disabled={create.isPending}>
+                  {create.isPending ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Plus className="size-4" aria-hidden />
+                  )}
+                  <T k="work.staff.addBreak" />
+                </Button>
+                <FormError text={error} />
+              </div>
+            </form>
+
+            <Separator className="my-6" />
+
+            {breaks.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                <T k="work.staff.breaksEmpty" />
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <T k="work.staff.day" />
+                      </TableHead>
+                      <TableHead>
+                        <T k="common.time" />
+                      </TableHead>
+                      <TableHead>
+                        <T k="common.note" />
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <T k="work.agenda.actions" />
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {breaks.map((item) => (
+                      <TableRow key={`${item.scope}-${item.day}-${item.start}-${item.end}`}>
+                        <TableCell className="font-medium">
+                          <T k={`day.${item.day}`} />
+                        </TableCell>
+                        <TableCell className="tabular-nums">
+                          {label(item.start)}–{label(item.end)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {item.note || "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="destructive"
+                            aria-label={`${t("common.remove")} ${t(`day.${item.day}`)}`}
+                            disabled={remove.isPending || !item.id}
+                            onClick={() => removeBreakItem(item)}
+                          >
+                            <Trash2 aria-hidden />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

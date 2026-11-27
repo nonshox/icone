@@ -106,7 +106,7 @@ export function GlobalSearch() {
     };
   }, [open]);
 
-  const allHref = `/barbers?q=${encodeURIComponent(text.trim())}`;
+  const allHref = `/map?q=${encodeURIComponent(text.trim())}`;
   const hits = results.data ?? [];
 
   return (

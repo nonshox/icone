@@ -44,6 +44,8 @@ const profileSchema = z.object({
   cover: link.optional(),
   confirm: z.boolean().optional(),
   featured: z.boolean().optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 
 const prefsSchema = z.object({
@@ -103,6 +105,8 @@ function businessPatch(input: z.infer<typeof profileSchema>): Partial<Business> 
   if (typeof input.cover === "string") patch.cover = input.cover;
   if (typeof input.confirm === "boolean") patch.confirm = input.confirm;
   if (typeof input.active === "boolean") patch.active = input.active;
+  if (typeof input.lat === "number") patch.lat = input.lat;
+  if (typeof input.lng === "number") patch.lng = input.lng;
   return patch;
 }
 

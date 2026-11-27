@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2, MapPin } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -48,6 +49,8 @@ type FormState = {
   social: string;
   facilities: string;
   policy: string;
+  lat: string;
+  lng: string;
   active: boolean;
   confirm: boolean;
   featured: boolean;
@@ -70,6 +73,8 @@ function stateFrom(chair: Chair): FormState {
     social: "social" in chair ? chair.social : "",
     facilities: chair.facilities,
     policy: chair.policy,
+    lat: chair.lat ? String(chair.lat) : "",
+    lng: chair.lng ? String(chair.lng) : "",
     active: chair.active,
     confirm: chair.confirm,
     featured: "featured" in chair ? chair.featured : false,
@@ -89,6 +94,7 @@ function SettingsForm({
   const [form, setForm] = useState<FormState>(() => stateFrom(chair));
   const [notificationPrefs, setNotificationPrefs] = useState(prefs);
   const [formError, setFormError] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -98,17 +104,49 @@ function SettingsForm({
     setNotificationPrefs((current) => ({ ...current, [key]: value }));
   }
 
+  function useMyLocation() {
+    setFormError(null);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setFormError(t("work.settings.locationError"));
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        set("lat", position.coords.latitude.toFixed(6));
+        set("lng", position.coords.longitude.toFixed(6));
+        setLocating(false);
+        toast.success(t("work.settings.locationFound"));
+      },
+      () => {
+        setLocating(false);
+        setFormError(t("work.settings.locationError"));
+        toast.error(t("work.settings.locationError"));
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
 
     const years = Number(form.years);
+    const lat = Number(form.lat);
+    const lng = Number(form.lng);
     if (!form.name.trim()) {
       setFormError(t("work.settings.nameRequired"));
       return;
     }
     if (!Number.isInteger(years) || years < 0 || years > 80) {
       setFormError(t("work.settings.yearsInvalid"));
+      return;
+    }
+    if (
+      !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+      !Number.isFinite(lng) || lng < -180 || lng > 180
+    ) {
+      setFormError(t("work.settings.coordsInvalid"));
       return;
     }
 
@@ -130,6 +168,8 @@ function SettingsForm({
           social: form.social.trim(),
           facilities: form.facilities.trim(),
           policy: form.policy.trim(),
+          lat,
+          lng,
           active: form.active,
           confirm: form.confirm,
           featured: form.featured,
@@ -325,6 +365,69 @@ function SettingsForm({
               checked={form.featured}
               onChange={(value) => set("featured", value)}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle>
+            <T k="work.settings.location" />
+          </CardTitle>
+          <CardDescription>
+            <T k="work.settings.locationHint" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="biz-lat">
+              <T k="work.settings.latitude" />
+            </Label>
+            <Input
+              id="biz-lat"
+              type="number"
+              inputMode="decimal"
+              step="any"
+              min={-90}
+              max={90}
+              placeholder="41.299500"
+              value={form.lat}
+              onChange={(event) => set("lat", event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="biz-lng">
+              <T k="work.settings.longitude" />
+            </Label>
+            <Input
+              id="biz-lng"
+              type="number"
+              inputMode="decimal"
+              step="any"
+              min={-180}
+              max={180}
+              placeholder="69.240100"
+              value={form.lng}
+              onChange={(event) => set("lng", event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={useMyLocation}
+              disabled={locating || save.isPending}
+            >
+              {locating ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <MapPin className="size-4" aria-hidden />
+              )}
+              <T k={locating ? "work.settings.locating" : "work.settings.useMyLocation"} />
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              <T k="work.settings.coordsHint" />
+            </p>
           </div>
         </CardContent>
       </Card>

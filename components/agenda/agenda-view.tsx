@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "cn";
 import {
   CalendarDays,
   ChevronLeft,
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/table";
 import { useAgenda, useBarbers, useSetStatus } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
-import { addDays, formatDate, label } from "@/lib/domain/time";
+import { addDays, formatDate, label, weekday } from "@/lib/domain/time";
 import type { Role, Status } from "@/lib/domain/types";
 
 const badgeVariant: Record<
@@ -75,20 +76,227 @@ const ACTION_KEY: Record<Status, string> = {
   noshow: "",
 };
 
-export function AgendaView({ role }: { role: Role }) {
+type View = "day" | "week" | "month";
+
+const VIEWS: ReadonlyArray<{ id: View; key: string }> = [
+  { id: "day", key: "work.agenda.view.day" },
+  { id: "week", key: "work.agenda.view.week" },
+  { id: "month", key: "work.agenda.view.month" },
+];
+
+/* ------------------------------------------------------------ date helpers */
+
+/** Monday-based first day of the week containing `date`. */
+function mondayOf(date: string): string {
+  return addDays(date, -((weekday(date) + 6) % 7));
+}
+
+function firstOfMonth(date: string): string {
+  return `${date.slice(0, 7)}-01`;
+}
+
+function shiftMonth(date: string, delta: number): string {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7)) - 1 + delta;
+  const next = new Date(Date.UTC(year, month, 1));
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function daysInMonth(date: string): number {
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function monthKey(date: string): string {
+  return `work.agenda.month.${Number(date.slice(5, 7))}`;
+}
+
+/* -------------------------------------------------------------- grid cells */
+
+function DayCell({
+  date,
+  barber,
+  selected,
+  today,
+  outside,
+  compact,
+  onSelect,
+}: {
+  date: string;
+  barber: string;
+  selected: boolean;
+  today: string;
+  outside: boolean;
+  compact: boolean;
+  onSelect: (date: string) => void;
+}) {
+  const agenda = useAgenda(outside ? "" : date, barber);
+  const t = useT();
+  const bookings = agenda.data ?? [];
+  const count = bookings.length;
+  const pending = bookings.filter((row) => row.status === "pending").length;
+  const day = Number(date.slice(8, 10));
+
+  const ariaLabel = outside
+    ? ""
+    : `${t("work.agenda.selectDay")} ${formatDate(date)}. ${t("work.agenda.bookings")}: ${count}`;
+
+  if (outside) {
+    return (
+      <div
+        aria-hidden
+        className={cn(
+          compact
+            ? "aspect-square rounded-lg border border-transparent"
+            : "min-h-20 rounded-xl border border-transparent",
+        )}
+      />
+    );
+  }
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        title={ariaLabel}
+        aria-pressed={selected}
+        onClick={() => onSelect(date)}
+        className={cn(
+          "relative aspect-square rounded-lg border border-border text-left transition-colors hover:bg-brand/10",
+          selected && "border-brand/60 bg-brand/10",
+          date === today && "ring-1 ring-brand/40",
+        )}
+      >
+        <span className="absolute left-1 top-0.5 text-xs tabular-nums">{day}</span>
+        {agenda.isPending ? (
+          <Loader2
+            className="absolute bottom-1 right-1 size-3 animate-spin text-muted-foreground"
+            aria-hidden
+          />
+        ) : agenda.isError ? (
+          <span
+            title={t("work.agenda.dayError")}
+            className="absolute bottom-1 right-1 text-xs text-destructive"
+          >
+            !
+          </span>
+        ) : count > 0 ? (
+          <span className="absolute bottom-1 right-1 min-w-4 rounded bg-brand/15 px-0.5 text-center text-[10px] font-medium tabular-nums text-brand-strong">
+            {count}
+          </span>
+        ) : null}
+        {pending > 0 ? (
+          <span
+            aria-hidden
+            className="absolute bottom-1 left-1 size-1.5 rounded-full bg-brand"
+          />
+        ) : null}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      title={ariaLabel}
+      aria-pressed={selected}
+      onClick={() => onSelect(date)}
+      className={cn(
+        "flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-border p-2 text-center transition-colors hover:bg-brand/10",
+        selected && "border-brand/60 bg-brand/10",
+        date === today && "ring-1 ring-brand/40",
+      )}
+    >
+      <span className="w-full truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+        <T k={`day.${weekday(date)}`} />
+      </span>
+      <span className="text-lg font-semibold tabular-nums">{day}</span>
+      {agenda.isPending ? (
+        <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />
+      ) : agenda.isError ? (
+        <span title={t("work.agenda.dayError")} className="text-xs text-destructive">
+          !
+        </span>
+      ) : (
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {count > 0 ? count : "—"}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ screen */
+
+export function AgendaView({
+  role,
+  canPickBarber = false,
+  ownBarberId = "",
+}: {
+  role: Role;
+  canPickBarber?: boolean;
+  ownBarberId?: string;
+}) {
   const shopDate = useShopDate();
   const [chosenDate, setChosenDate] = useState("");
   const date = chosenDate || shopDate;
+  const [view, setView] = useState<View>("day");
   const [barber, setBarber] = useState("");
   const barbers = useBarbers();
-  const agenda = useAgenda(date, barber);
   const setStatus = useSetStatus();
   const t = useT();
 
+  const ownChair = Boolean(ownBarberId);
+  const firstBarber = barbers.data?.[0]?.id ?? "";
+  // A staff account promoted to "barber" may own no chair at all. The API
+  // needs an explicit barber id for those accounts, so pick a real one.
+  const barberFilter =
+    barber ||
+    ownBarberId ||
+    (role !== "admin" && canPickBarber ? firstBarber : "");
+  const needsBarberFilter = role !== "admin" && canPickBarber && !ownBarberId;
+  // Don't ask for an unscoped calendar before we can name a real barber.
+  const agendaDate = needsBarberFilter && barbers.isPending ? "" : date;
+
+  const agenda = useAgenda(agendaDate, barberFilter);
   const bookings = agenda.data ?? [];
   const pending = bookings.filter((row) => row.status === "pending").length;
   const confirmed = bookings.filter((row) => row.status === "confirmed").length;
   const done = bookings.filter((row) => row.status === "done").length;
+
+  const weekStart = date ? mondayOf(date) : "";
+  const weekDays = weekStart
+    ? Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+    : [];
+  const monthCells = date
+    ? (() => {
+        const first = firstOfMonth(date);
+        const start = mondayOf(first);
+        const count = Math.ceil(
+          ((weekday(first) + 6) % 7 + daysInMonth(first)) / 7,
+        ) * 7;
+        return Array.from({ length: count }, (_, index) => addDays(start, index));
+      })()
+    : [];
+
+  function selectDay(value: string) {
+    setChosenDate(value);
+    setView("day");
+  }
+
+  function shift(delta: number) {
+    if (!date) return;
+    if (view === "week") {
+      setChosenDate(addDays(mondayOf(date), delta * 7));
+    } else if (view === "month") {
+      setChosenDate(shiftMonth(firstOfMonth(date), delta));
+    } else {
+      setChosenDate(addDays(date, delta));
+    }
+  }
 
   function change(id: string, status: Status) {
     setStatus.mutate(
@@ -107,6 +315,21 @@ export function AgendaView({ role }: { role: Role }) {
     );
   }
 
+  const heading = !date
+    ? t("work.agenda.pickDay")
+    : view === "day"
+      ? formatDate(date)
+      : view === "week"
+        ? `${t("work.agenda.weekOf")} ${weekStart.slice(8)}–${addDays(weekStart, 6).slice(8)} ${t(monthKey(addDays(weekStart, 6)))} ${addDays(weekStart, 6).slice(0, 4)}`
+        : `${t(monthKey(date))} ${date.slice(0, 4)}`;
+
+  const hint =
+    view === "week"
+      ? t("work.agenda.weekHint")
+      : view === "month"
+        ? t("work.agenda.monthHint")
+        : t(ownChair ? "work.agenda.forChair" : "work.agenda.forAll");
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -119,9 +342,9 @@ export function AgendaView({ role }: { role: Role }) {
               type="button"
               size="icon-sm"
               variant="outline"
-              aria-label={t("work.agenda.prevDay")}
+              aria-label={`${t("work.agenda.prev")} ${t(`work.agenda.view.${view}`)}`}
               disabled={!date}
-              onClick={() => setChosenDate(addDays(date, -1))}
+              onClick={() => shift(-1)}
             >
               <ChevronLeft className="size-3.5" aria-hidden />
             </Button>
@@ -136,22 +359,22 @@ export function AgendaView({ role }: { role: Role }) {
               type="button"
               size="icon-sm"
               variant="outline"
-              aria-label={t("work.agenda.nextDay")}
+              aria-label={`${t("work.agenda.next")} ${t(`work.agenda.view.${view}`)}`}
               disabled={!date}
-              onClick={() => setChosenDate(addDays(date, 1))}
+              onClick={() => shift(1)}
             >
               <ChevronRight className="size-3.5" aria-hidden />
             </Button>
           </div>
         </div>
 
-        {role === "admin" ? (
+        {canPickBarber ? (
           <div className="space-y-2">
             <Label htmlFor="agenda-barber">
               <T k="booking.barber" />
             </Label>
             <Select
-              value={barber || "all"}
+              value={barber || ownBarberId || "all"}
               onValueChange={(value) =>
                 setBarber(value === "all" ? "" : String(value))
               }
@@ -173,6 +396,25 @@ export function AgendaView({ role }: { role: Role }) {
           </div>
         ) : null}
 
+        <div
+          role="group"
+          aria-label={t("work.agenda.viewLabel")}
+          className="flex flex-wrap gap-1"
+        >
+          {VIEWS.map((item) => (
+            <Button
+              key={item.id}
+              type="button"
+              size="sm"
+              variant={view === item.id ? "default" : "outline"}
+              aria-pressed={view === item.id}
+              onClick={() => setView(item.id)}
+            >
+              <T k={item.key} />
+            </Button>
+          ))}
+        </div>
+
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <Badge variant="outline">
             {pending} <T k="status.pending" />
@@ -188,19 +430,9 @@ export function AgendaView({ role }: { role: Role }) {
 
       <Card className="glass">
         <CardHeader>
-          <CardTitle>
-            {date ? formatDate(date) : t("work.agenda.pickDay")}
-          </CardTitle>
-          <CardDescription>
-            <T
-              k={
-                role === "barber"
-                  ? "work.agenda.forChair"
-                  : "work.agenda.forAll"
-              }
-            />
-          </CardDescription>
-          {role === "barber" ? (
+          <CardTitle>{heading}</CardTitle>
+          <CardDescription>{hint}</CardDescription>
+          {ownChair ? (
             <Link
               href="/agenda/me"
               className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -222,6 +454,52 @@ export function AgendaView({ role }: { role: Role }) {
               <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
               <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
               <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
+            </div>
+          ) : view === "week" ? (
+            <div className="grid min-w-[720px] grid-cols-7 gap-2">
+              {weekDays.map((day) => (
+                <DayCell
+                  key={day}
+                  date={day}
+                  barber={barberFilter}
+                  selected={day === (chosenDate || shopDate)}
+                  today={shopDate}
+                  outside={false}
+                  compact={false}
+                  onSelect={selectDay}
+                />
+              ))}
+            </div>
+          ) : view === "month" ? (
+            <div className="space-y-1">
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 7 }, (_, index) => {
+                  const name = t(`day.${(index + 1) % 7}`);
+                  return (
+                    <div
+                      key={index}
+                      title={name}
+                      className="truncate text-center text-[10px] uppercase tracking-wide text-muted-foreground"
+                    >
+                      {name.slice(0, 2)}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {monthCells.map((day) => (
+                  <DayCell
+                    key={day}
+                    date={day}
+                    barber={barberFilter}
+                    selected={day === (chosenDate || shopDate)}
+                    today={shopDate}
+                    outside={day.slice(0, 7) !== date.slice(0, 7)}
+                    compact
+                    onSelect={selectDay}
+                  />
+                ))}
+              </div>
             </div>
           ) : agenda.isError ? (
             <p role="alert" className="py-6 text-sm text-destructive">
@@ -267,9 +545,7 @@ export function AgendaView({ role }: { role: Role }) {
                       {label(booking.start)}–{label(booking.end)}
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium">
-                        {booking.customerName}
-                      </span>
+                      <span className="font-medium">{booking.customerName}</span>
                       {booking.customerPhone ? (
                         <span className="block text-xs text-muted-foreground">
                           {booking.customerPhone}
@@ -279,8 +555,7 @@ export function AgendaView({ role }: { role: Role }) {
                     <TableCell>
                       {booking.serviceName || "—"}
                       <span className="text-muted-foreground">
-                        {" "}
-                        · {booking.barberName}
+                        {" "}· {booking.barberName}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -306,8 +581,7 @@ export function AgendaView({ role }: { role: Role }) {
                             disabled={setStatus.isPending}
                             onClick={() => change(booking.id, target)}
                           >
-                            {target === "confirmed" ||
-                            target === "done" ? (
+                            {target === "confirmed" || target === "done" ? (
                               <T k={ACTION_KEY[target]} />
                             ) : target === "rejected" ? (
                               <T k="work.agenda.reject" />

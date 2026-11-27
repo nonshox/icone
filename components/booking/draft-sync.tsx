@@ -14,6 +14,9 @@ import { useBookingDraft } from "@/lib/store/booking-draft";
 export function DraftSync() {
   const params = useSearchParams();
   const barber = params.get("barber");
+  const business = params.get("business") ?? "";
+  const branch = params.get("branch") ?? "";
+  const anyBarber = params.get("any") === "1" || barber === "any";
   const services = [
     ...params.getAll("services").flatMap((value) => value.split(",")),
     ...params.getAll("service"),
@@ -34,15 +37,18 @@ export function DraftSync() {
       : null;
 
   useEffect(() => {
-    if (!barber && !serviceKey && !date && start === null) return;
+    if (!barber && !business && !serviceKey && !date && start === null) return;
 
     const state = useBookingDraft.getState();
     state.reset();
-    if (barber) state.setBarber(barber);
+    if (business) state.setBusiness(business);
+    if (branch) state.setBranch(branch);
+    if (barber && barber !== "any") state.setBarber(barber);
+    if (anyBarber) state.setAnyBarber(true);
     if (serviceKey) state.setServices(serviceKey.split(","));
     if (date) state.setDate(date);
     if (start !== null) state.setStart(start);
-  }, [barber, serviceKey, date, start]);
+  }, [barber, business, branch, anyBarber, serviceKey, date, start]);
 
   return null;
 }

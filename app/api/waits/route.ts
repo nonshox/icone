@@ -6,6 +6,8 @@ import { z } from "zod";
 import { requireUser } from "@/lib/api/guard";
 import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
+import { servicesFor } from "@/lib/domain/catalog";
+import { getBarber, isBookable } from "@/lib/domain/professional";
 import { joinWaitlist, myWaits, cancelWait } from "@/lib/domain/waitlist";
 
 const joinSchema = z.object({
@@ -51,6 +53,27 @@ export async function POST(request: NextRequest) {
   const parsed = joinSchema.safeParse(body);
   if (!parsed.success) {
     return apiError("Check the details and try again.", 400, "invalid_wait");
+  }
+
+  // A waitlist service is a real id from this professional's menu, never free
+  // text. Reject stale or fabricated ids before writing the request.
+  const serviceId = parsed.data.service;
+  if (serviceId) {
+    const [barber, offered] = await Promise.all([
+      getBarber(parsed.data.barber).catch(() => null),
+      servicesFor(parsed.data.barber).catch(() => []),
+    ]);
+    if (
+      !barber ||
+      !isBookable(barber) ||
+      !offered.some((item) => item.id === serviceId)
+    ) {
+      return apiError(
+        "Pick a service this professional offers.",
+        400,
+        "invalid_service",
+      );
+    }
   }
 
   try {

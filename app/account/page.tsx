@@ -6,6 +6,7 @@ import { AccountView } from "@/components/account/account-view";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getActor } from "@/lib/domain/access";
 import { getProfile } from "@/lib/domain/account";
 
 export const metadata: Metadata = {
@@ -20,12 +21,22 @@ async function AccountPanel() {
     redirect(`/sign-in?next=${encodeURIComponent("/account")}`);
   }
 
-  const profile = await getProfile(user.id);
+  // The membership flag comes from the actor, not from the role label: an
+  // approved barber is still a "client" in the profile. Fall back to the plain
+  // profile so an existing account never loses its account page.
+  const actor = await getActor();
+  const profile = actor?.profile ?? (await getProfile(user.id));
   if (!profile) {
     redirect(`/sign-in?next=${encodeURIComponent("/account")}`);
   }
 
-  return <AccountView user={user} profile={profile} />;
+  return (
+    <AccountView
+      user={user}
+      profile={profile}
+      professional={actor?.summary.professional ?? false}
+    />
+  );
 }
 
 function AccountSkeleton() {

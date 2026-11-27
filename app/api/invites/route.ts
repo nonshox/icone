@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/api/guard";
 import { apiError, apiOk, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
-import { getProfile } from "@/lib/domain/account";
+import { getProfile, setRole } from "@/lib/domain/account";
 import { createBarber, ensureBarber, updateBarber } from "@/lib/domain/professional";
 import { notify } from "@/lib/domain/notify";
 import {
@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
       branch: invite.branch,
       state: "active",
     });
+    await setRole(guarded.actor.userId, "barber");
     await setInviteState(invite.id, "accepted");
 
     if (invite.by) {

@@ -7,6 +7,8 @@ import { api } from "./client";
 export type Application = {
   id: string;
   user: string;
+  /** a = independent barber, b = barbershop with a team. */
+  model: "a" | "b";
   name: string;
   shop: string;
   city: string;
@@ -18,6 +20,17 @@ export type Application = {
   appState?: string;
   note: string;
   created: string;
+};
+
+/** The shared shape of the apply form, used by both submit and draft-save. */
+export type ApplicationInput = {
+  model?: "a" | "b";
+  name: string;
+  shop: string;
+  city: string;
+  address: string;
+  phone: string;
+  bio: string;
 };
 
 export const applicationKeys = {
@@ -47,15 +60,7 @@ export function useMyApplication() {
 export function useSubmitApplication() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
-      model?: "a" | "b";
-      name: string;
-      shop: string;
-      city: string;
-      address: string;
-      phone: string;
-      bio: string;
-    }) =>
+    mutationFn: (input: ApplicationInput) =>
       api<{ application: Application }>("/api/applications", {
         method: "POST",
         body: JSON.stringify(input),
@@ -64,6 +69,21 @@ export function useSubmitApplication() {
       void client.invalidateQueries({ queryKey: applicationKeys.mine });
       void client.invalidateQueries({ queryKey: ["me"] });
       void client.invalidateQueries({ queryKey: ["barbers"] });
+    },
+  });
+}
+
+/** Save the current form as a draft without entering the review queue. */
+export function useSaveApplicationDraft() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ApplicationInput) =>
+      api<{ application: Application }>("/api/applications", {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }).then((result) => result.application),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: applicationKeys.mine });
     },
   });
 }

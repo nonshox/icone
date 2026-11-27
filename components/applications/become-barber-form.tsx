@@ -20,10 +20,12 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type Application,
   useMyApplication,
+  useSaveApplicationDraft,
   useSubmitApplication,
 } from "@/lib/api/application-queries";
-import { useProfile } from "@/lib/api/queries";
+import { useMe } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
 import type { Role } from "@/lib/domain/types";
 
@@ -31,90 +33,59 @@ function isStaff(role: Role | undefined): boolean {
   return role === "barber" || role === "admin";
 }
 
+function failure(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 /**
- * The member's role is the authority on whether the switch happened. The
- * application record can still say "pending" if approval was interrupted, so
- * both are consulted before showing the apply form again.
+ * The editable form. It mounts only after the application query resolves, so
+ * its initial state is the saved draft — coming back later restores every
+ * field the applicant already entered.
  */
-export function BecomeBarberForm() {
-  const current = useMyApplication();
-  const profile = useProfile();
+function ApplicationForm({
+  application,
+  initialModel,
+  loadError,
+}: {
+  application: Application | null;
+  initialModel: "a" | "b";
+  loadError: boolean;
+}) {
   const submit = useSubmitApplication();
+  const draft = useSaveApplicationDraft();
   const t = useT();
-  const params = useSearchParams();
-  const [model, setModel] = useState<"a" | "b">(
-    params.get("model") === "b" ? "b" : "a",
-  );
-  const [name, setName] = useState("");
-  const [shop, setShop] = useState("");
-  const [city, setCity] = useState("Tashkent");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [bio, setBio] = useState("");
 
-  if (current.isPending || profile.isPending) {
-    return <Skeleton className="h-64 w-full" />;
-  }
+  const [model, setModel] = useState<"a" | "b">(application?.model ?? initialModel);
+  const [name, setName] = useState(application?.name ?? "");
+  const [shop, setShop] = useState(application?.shop ?? "");
+  const [city, setCity] = useState(application?.city || "Tashkent");
+  const [address, setAddress] = useState(application?.address ?? "");
+  const [phone, setPhone] = useState(application?.phone ?? "");
+  const [bio, setBio] = useState(application?.bio ?? "");
+  const [draftSaved, setDraftSaved] = useState(false);
 
-  const application = current.data;
-  const promoted = isStaff(profile.data?.role);
-  const dashboard = profile.data?.role === "admin" ? "/admin" : "/barber";
-
-  if (promoted || application?.state === "approved") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Check className="size-4" aria-hidden />
-            <T k="apply.approvedTitle" />
-          </CardTitle>
-          <CardDescription>
-            <T k="apply.approvedBody" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Link href={dashboard} className={buttonVariants({ size: "sm" })}>
-            <T k="apply.dashboard" />
-          </Link>
-          {application?.note ? (
-            <p className="text-sm text-muted-foreground">{application.note}</p>
-          ) : null}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const state = application?.appState ?? application?.state;
-  if (application && ["submitted", "review", "info", "pending"].includes(state ?? "")) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <T k="apply.pendingTitle" />
-          </CardTitle>
-          <CardDescription>
-            <T k="apply.pendingBody" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {application.shop || application.name} · <T k="apply.pendingReview" />
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const infoNeeded = application?.appState === "info";
+  const busy = submit.isPending || draft.isPending;
+  const values = { model, name, shop, city, address, phone, bio };
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submit.mutate(
-      { model, name, shop, city, address, phone, bio },
-      {
-        onSuccess: () => toast.success(t("apply.live")),
-        onError: (error) =>
-          toast.error(error instanceof Error ? error.message : t("apply.tryAgain")),
+    setDraftSaved(false);
+    submit.mutate(values, {
+      onSuccess: () => toast.success(t("apply.live")),
+      onError: (error) => toast.error(failure(error, t("apply.tryAgain"))),
+    });
+  }
+
+  function onSaveDraft() {
+    setDraftSaved(false);
+    draft.mutate(values, {
+      onSuccess: () => {
+        setDraftSaved(true);
+        toast.success(t("apply.draftSaved"));
       },
-    );
+      onError: (error) => toast.error(failure(error, t("apply.tryAgain"))),
+    });
   }
 
   return (
@@ -136,6 +107,19 @@ export function BecomeBarberForm() {
             >
               {application.note || t("apply.rejectedBody")}
             </p>
+          ) : null}
+          {infoNeeded ? (
+            <div
+              role="alert"
+              className="space-y-1 rounded-xl border border-border px-3 py-2 text-sm"
+            >
+              <p className="font-medium">
+                <T k="apply.infoTitle" />
+              </p>
+              {application?.note ? (
+                <p className="text-muted-foreground">{application.note}</p>
+              ) : null}
+            </div>
           ) : null}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">
@@ -241,19 +225,113 @@ export function BecomeBarberForm() {
               onChange={(event) => setBio(event.target.value)}
             />
           </div>
-          {current.isError ? (
+          {loadError ? (
             <p role="alert" className="text-sm text-destructive">
               <T k="apply.loadError" />
             </p>
           ) : null}
-          <Button type="submit" disabled={submit.isPending} className="w-full">
-            {submit.isPending ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : null}
-            <T k={submit.isPending ? "apply.sending" : "apply.submit"} />
-          </Button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button type="submit" disabled={busy} className="h-11 w-full">
+              {submit.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : null}
+              <T k={submit.isPending ? "apply.sending" : "apply.submit"} />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onSaveDraft}
+              disabled={busy}
+              className="h-11 w-full"
+            >
+              {draft.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : null}
+              <T k={draft.isPending ? "common.loading" : "apply.saveDraft"} />
+            </Button>
+          </div>
+          <p role="status" className="text-sm text-muted-foreground">
+            <T k={draftSaved ? "apply.draftSaved" : "apply.draftHint"} />
+          </p>
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Promotion is decided by three signals, not one: the account role, the
+ * professional/membership flag from `/api/me`, and an approved application.
+ * Approval now sets the role, but an interrupted promotion can leave any one
+ * of them lagging behind, so any of the three unlocks the workspace.
+ */
+export function BecomeBarberForm() {
+  const current = useMyApplication();
+  const me = useMe();
+  const params = useSearchParams();
+
+  if (current.isPending || me.isPending) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  const application = current.data;
+  const role = me.data?.profile.role;
+  const approved =
+    application?.appState === "approved" || application?.state === "approved";
+  const promoted = isStaff(role) || me.data?.professional === true || approved;
+  const dashboard = role === "admin" ? "/admin" : "/barber";
+
+  if (promoted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Check className="size-4" aria-hidden />
+            <T k="apply.approvedTitle" />
+          </CardTitle>
+          <CardDescription>
+            <T k="apply.approvedBody" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Link href={dashboard} className={buttonVariants({ size: "sm" })}>
+            <T k="apply.dashboard" />
+          </Link>
+          {application?.note ? (
+            <p className="text-sm text-muted-foreground">{application.note}</p>
+          ) : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // `info` is editable — the applicant must answer the reviewer's note.
+  const state = application?.appState ?? application?.state;
+  if (application && ["submitted", "review"].includes(state ?? "")) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <T k="apply.pendingTitle" />
+          </CardTitle>
+          <CardDescription>
+            <T k="apply.pendingBody" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            {application.shop || application.name} · <T k="apply.pendingReview" />
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <ApplicationForm
+      application={application ?? null}
+      initialModel={params.get("model") === "b" ? "b" : "a"}
+      loadError={current.isError}
+    />
   );
 }

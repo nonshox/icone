@@ -1,22 +1,24 @@
 "use client";
 
 import { Heart, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
 import { useFavorites, useToggleFavorite } from "@/lib/api/customer-queries";
+import { useProfile } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
 
-export function FavoriteButton({
+function SavedButton({
   barber,
-  initialSaved = false,
+  initialSaved,
 }: {
   barber: string;
-  initialSaved?: boolean;
+  initialSaved: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -68,4 +70,49 @@ export function FavoriteButton({
       {saved ? <T k="common.saved" /> : <T k="favorites.save" />}
     </Button>
   );
+}
+
+/**
+ * Guests never hit /api/favorites: the session is checked first and they get
+ * a sign-in link instead. Signed-in behaviour is unchanged.
+ */
+export function FavoriteButton({
+  barber,
+  initialSaved = false,
+}: {
+  barber: string;
+  initialSaved?: boolean;
+}) {
+  const profile = useProfile();
+  const t = useT();
+  const next = encodeURIComponent(`/barbers/${barber}`);
+
+  if (profile.isPending) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled
+        className="h-9 rounded-xl"
+        aria-label={t("favorites.saveThis")}
+      >
+        <Heart className="size-3.5" aria-hidden />
+      </Button>
+    );
+  }
+
+  if (!profile.data) {
+    return (
+      <Link
+        href={`/sign-in?next=${next}`}
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 rounded-xl")}
+      >
+        <Heart className="size-3.5" aria-hidden />
+        <T k="favorites.signInToSave" />
+      </Link>
+    );
+  }
+
+  return <SavedButton barber={barber} initialSaved={initialSaved} />;
 }

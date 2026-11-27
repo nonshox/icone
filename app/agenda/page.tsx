@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { AgendaView } from "@/components/agenda/agenda-view";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
-import { getActor } from "@/lib/domain/access";
+import { can, getActor } from "@/lib/domain/access";
 
 export const metadata: Metadata = {
   title: "Agenda",
@@ -19,11 +19,19 @@ async function AgendaGate() {
     redirect(`/sign-in?next=${encodeURIComponent("/agenda")}`);
   }
 
-  if (actor.profile.role === "client") {
+  // An approved account may still be a customer; only a chair or a team
+  // membership grants access to the professional calendar.
+  if (!actor.summary.staff && actor.profile.role !== "admin") {
     redirect("/account");
   }
 
-  return <AgendaView role={actor.profile.role} />;
+  return (
+    <AgendaView
+      role={actor.profile.role}
+      canPickBarber={can(actor, "calendar.read.all")}
+      ownBarberId={actor.barber?.id ?? ""}
+    />
+  );
 }
 
 function AgendaSkeleton() {

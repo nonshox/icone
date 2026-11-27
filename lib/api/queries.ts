@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { SessionUser } from "@/lib/auth/types";
 import type {
   Barber,
   BookingRow,
@@ -19,8 +20,12 @@ export const keys = {
   services: ["services"] as const,
   availability: (barber: string, date: string, services: string[]) =>
     ["availability", barber, date, [...services]] as const,
-  availabilityQuote: (barber: string, date: string, services: string[]) =>
-    ["availability-quote", barber, date, [...services]] as const,
+  availabilityQuote: (
+    barber: string,
+    date: string,
+    services: string[],
+    scope = "",
+  ) => ["availability-quote", barber, date, [...services], scope] as const,
   bookings: ["bookings"] as const,
   booking: (id: string) => ["booking", id] as const,
   agenda: (date: string, barber: string) => ["agenda", date, barber] as const,
@@ -52,10 +57,17 @@ export type AvailabilityInput = {
   services?: string[];
   /** Legacy single-service callers keep working unchanged. */
   service?: string;
+  /** Server picks the first qualified employee in this business/branch. */
+  any?: boolean;
+  business?: string;
+  branch?: string;
 };
 
 /** The server's answer for a whole visit: real slots plus resolved totals. */
 export type AvailabilityQuote = {
+  /** The employee the server matched when `any` was requested. */
+  barber?: string;
+  barberName?: string;
   slots: Slot[];
   /** Total minutes the visit occupies, buffer included. */
   time: number;
@@ -75,6 +87,12 @@ function availabilityIds(input: AvailabilityInput): string[] {
 
 function availabilityQuery(input: AvailabilityInput, ids: string[]): string {
   const query = new URLSearchParams({ barber: input.barber, date: input.date });
+  if (input.any) {
+    query.set("barber", "any");
+    query.set("any", "1");
+    if (input.business) query.set("business", input.business);
+    if (input.branch) query.set("branch", input.branch);
+  }
   ids.forEach((id) => query.append("services", id));
   return query.toString();
 }
@@ -98,7 +116,12 @@ export function useAvailability(input: AvailabilityInput) {
 export function useAvailabilityQuote(input: AvailabilityInput) {
   const ids = availabilityIds(input);
   return useQuery({
-    queryKey: keys.availabilityQuote(input.barber, input.date, ids),
+    queryKey: keys.availabilityQuote(
+      input.barber,
+      input.date,
+      ids,
+      `${input.business ?? ""}|${input.branch ?? ""}`,
+    ),
     queryFn: () =>
       api<AvailabilityQuote>(`/api/availability?${availabilityQuery(input, ids)}`),
     enabled: Boolean(input.barber && input.date && ids.length > 0),
@@ -115,7 +138,11 @@ export function useBookings() {
   });
 }
 
-export function useAgenda(date: string, barber: string) {
+/**
+ * One day of the staff calendar. An empty `barber` lets the server scope the
+ * agenda to the signed-in professional (or every chair for an admin).
+ */
+export function useAgenda(date: string, barber = "") {
   return useQuery({
     queryKey: keys.agenda(date, barber),
     queryFn: () =>
@@ -123,6 +150,8 @@ export function useAgenda(date: string, barber: string) {
         `/api/bookings?date=${date}${barber ? `&barber=${barber}` : ""}`,
       ).then((r) => r.bookings),
     enabled: Boolean(date),
+    // Day/week/month cells share cached dates; switching views reuses them.
+    staleTime: 30_000,
     refetchInterval: 60_000,
   });
 }
@@ -138,11 +167,29 @@ export function useReviews(barber: string) {
   });
 }
 
+/** The full /api/me response, including the professional membership signal. */
+export type MeResponse = {
+  profile: Profile;
+  user: SessionUser | null;
+  /** True when the account has an approved professional row or membership. */
+  professional: boolean;
+};
+
+/** Shared cached read behind both the role-aware navigation and the profile. */
+export function useMe() {
+  return useQuery({
+    queryKey: keys.me,
+    queryFn: () => api<MeResponse>("/api/me"),
+    // A 401 for a guest is expected, not a failed request worth retrying.
+    retry: false,
+  });
+}
+
 export function useProfile() {
   return useQuery({
     queryKey: keys.me,
-    queryFn: () =>
-      api<{ profile: Profile }>("/api/me").then((r) => r.profile),
+    queryFn: () => api<MeResponse>("/api/me"),
+    select: (response) => response.profile,
   });
 }
 

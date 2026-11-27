@@ -47,6 +47,36 @@ import { TEAM_ROLES } from "@/lib/domain/types";
 
 const BLANK = { role: "barber" as TeamRole, to: "", phone: "", name: "", branch: "" };
 
+/**
+ * Mirrors `CAPABILITIES` from `lib/domain/access.ts`. That module is
+ * `server-only`, so the values are repeated here for the checkbox grid; keep
+ * the two lists in sync when a capability is added.
+ */
+const CAPABILITIES = [
+  "calendar.read",
+  "calendar.read.all",
+  "calendar.write",
+  "appointment.create",
+  "appointment.manage",
+  "appointment.manage.all",
+  "service.read",
+  "service.write",
+  "customer.read",
+  "customer.read.all",
+  "customer.write",
+  "team.read",
+  "team.manage",
+  "branch.read",
+  "branch.manage",
+  "analytics.read",
+  "analytics.read.all",
+  "settings.business",
+  "settings.profile",
+  "portfolio.write",
+  "schedule.write",
+  "export",
+] as const;
+
 const selectClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:opacity-50";
 
@@ -62,10 +92,23 @@ function prettyPhone(value: string): string {
     : value;
 }
 
-function permissions(perms: Record<string, boolean> | undefined): string {
+function capLabel(key: string, t: (key: string) => string): string {
+  const label = t(`perm.${key}`);
+  return label === `perm.${key}` ? key : label;
+}
+
+function roleLabel(role: TeamRole, t: (key: string) => string): string {
+  const label = t(`role.${role}`);
+  return label === `role.${role}` ? role : label;
+}
+
+function permissions(
+  perms: Record<string, boolean> | undefined,
+  t: (key: string) => string,
+): string {
   const granted = Object.entries(perms ?? {})
     .filter(([, value]) => value)
-    .map(([key]) => key);
+    .map(([key]) => capLabel(key, t));
   return granted.length > 0 ? granted.join(", ") : "";
 }
 
@@ -88,6 +131,7 @@ export function TeamManager({
 
   const [form, setForm] = useState(BLANK);
   const [formError, setFormError] = useState<string | null>(null);
+  const [permMember, setPermMember] = useState("");
 
   const members = team.data?.members ?? [];
   const invites = team.data?.invites ?? [];
@@ -167,6 +211,16 @@ export function TeamManager({
     );
   }
 
+  function setPermission(member: Membership, cap: string, granted: boolean) {
+    change(member, { perms: { ...member.perms, [cap]: granted } });
+  }
+
+  function resetPermission(member: Membership, cap: string) {
+    const perms = { ...member.perms };
+    delete perms[cap];
+    change(member, { perms });
+  }
+
   const branchSelect = (value: string, onChange: (value: string) => void, id: string) => (
     <select
       id={id}
@@ -210,7 +264,7 @@ export function TeamManager({
                 >
                   {roles.map((role) => (
                     <option key={role} value={role}>
-                      {role}
+                      {roleLabel(role, t)}
                     </option>
                   ))}
                 </select>
@@ -341,15 +395,17 @@ export function TeamManager({
                         >
                           {roles.map((role) => (
                             <option key={role} value={role}>
-                              {role}
+                              {roleLabel(role, t)}
                             </option>
                           ))}
                           {!roles.includes(member.role) ? (
-                            <option value={member.role}>{member.role}</option>
+                            <option value={member.role}>
+                              {roleLabel(member.role, t)}
+                            </option>
                           ) : null}
                         </select>
                       ) : (
-                        member.role
+                        roleLabel(member.role, t)
                       )}
                     </TableCell>
                     <TableCell>
@@ -365,13 +421,16 @@ export function TeamManager({
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={member.state === "active" ? "secondary" : "outline"}
+                        variant={member.active ? "secondary" : "outline"}
                       >
-                        {member.state}
+                        {t(member.active ? "work.team.active" : "work.team.inactive")}
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-48 truncate text-muted-foreground" title={permissions(member.perms)}>
-                      {permissions(member.perms) || t("work.team.defaultPerms")}
+                    <TableCell
+                      className="max-w-48 truncate text-muted-foreground"
+                      title={permissions(member.perms, t)}
+                    >
+                      {permissions(member.perms, t) || t("work.team.defaultPerms")}
                     </TableCell>
                     {canManage ? (
                       <TableCell className="text-right">
@@ -407,6 +466,89 @@ export function TeamManager({
           )}
         </CardContent>
       </Card>
+
+      {canManage ? (
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle>
+              <T k="work.team.permissions" />
+            </CardTitle>
+            <CardDescription>
+              <T k="work.team.permsHint" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="perm-member" className="text-sm text-muted-foreground">
+                <T k="common.member" />
+              </label>
+              <select
+                id="perm-member"
+                className={selectClass}
+                value={permMember || members[0]?.id || ""}
+                onChange={(event) => setPermMember(event.target.value)}
+              >
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {roleLabel(member.role, t)} ·{" "}
+                    {member.user ? shortId(member.user) : shortId(member.id)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const member = members.find((row) => row.id === (permMember || members[0]?.id));
+              if (!member) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    <T k="work.team.empty" />
+                  </p>
+                );
+              }
+              return (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {CAPABILITIES.map((cap) => {
+                    const granted = member.perms[cap] === true;
+                    const overridden = typeof member.perms[cap] === "boolean";
+                    return (
+                      <div
+                        key={cap}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2"
+                      >
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-[var(--brand)]"
+                            checked={granted}
+                            disabled={update.isPending}
+                            aria-label={capLabel(cap, t)}
+                            onChange={(event) =>
+                              setPermission(member, cap, event.target.checked)
+                            }
+                          />
+                          {capLabel(cap, t)}
+                        </label>
+                        {overridden ? (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            disabled={update.isPending}
+                            onClick={() => resetPermission(member, cap)}
+                          >
+                            <T k="work.team.resetPerm" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="glass">
         <CardHeader>
@@ -450,7 +592,7 @@ export function TeamManager({
                     <TableCell className="font-medium">
                       {row.name || prettyPhone(row.phone) || shortId(row.to)}
                     </TableCell>
-                    <TableCell>{row.role}</TableCell>
+                    <TableCell>{roleLabel(row.role, t)}</TableCell>
                     <TableCell>
                       <Badge variant={row.state === "pending" ? "secondary" : "outline"}>
                         {row.state}

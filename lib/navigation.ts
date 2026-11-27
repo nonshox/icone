@@ -12,9 +12,16 @@ export type NavLink = {
   external?: boolean;
 };
 
+/** Who a section is for. "customer" means any account without a professional row. */
+export type NavAudience = "all" | "customer" | "professional";
+
 export type NavSection = {
   title: string;
   links: readonly NavLink[];
+  /** Omitted means "all". */
+  audience?: NavAudience;
+  /** Platform management stays separate from the role audiences. */
+  adminOnly?: boolean;
 };
 
 /** Links shown directly in the desktop bar. */
@@ -32,6 +39,15 @@ const telegramLink: NavLink = {
 };
 
 /**
+ * The single link that invites a customer to the professional side. Shown once,
+ * quietly — never as a whole "for barbers" section to customers.
+ */
+export const becomeBarberCta: NavLink = {
+  href: "/become-barber",
+  label: "nav.becomeBarber",
+};
+
+/**
  * The single menu panel, shared by the desktop dropdown, the mobile sheet and
  * the footer. Every link points at a real route (or the real Telegram bot).
  */
@@ -45,19 +61,30 @@ export const navSections: readonly NavSection[] = [
     ],
   },
   {
-    title: "nav.forBarbers",
+    title: "customer.eyebrow",
+    audience: "customer",
     links: [
-      { href: "/become-barber", label: "nav.becomeBarber" },
-      { href: "/become-barber?model=b", label: "nav.openShop" },
-      { href: "/invites", label: "nav.team" },
+      { href: "/bookings", label: "nav.myVisits" },
+      { href: "/favorites", label: "nav.saved" },
+      { href: "/messages", label: "nav.messages" },
+      { href: "/waits", label: "nav.waitlist" },
     ],
+  },
+  {
+    title: "nav.forBarbers",
+    audience: "professional",
+    links: [{ href: "/barber", label: "nav.workspace" }],
+  },
+  {
+    title: "nav.admin",
+    adminOnly: true,
+    links: [{ href: "/admin", label: "nav.admin" }],
   },
   {
     title: "nav.help",
     links: [
       { href: "/help", label: "nav.help" },
       { href: "/support", label: "nav.contact" },
-      { href: "/waits", label: "nav.waitlist" },
     ],
   },
   {
@@ -73,12 +100,30 @@ export const navSections: readonly NavSection[] = [
   },
 ];
 
+/**
+ * Pure filter for the shared menu: a plain customer never sees professional
+ * links repeated, while an approved professional keeps their customer links
+ * *and* gets a workspace. Admins keep platform management.
+ */
+export function visibleNavSections(input: {
+  professional?: boolean;
+  admin?: boolean;
+}): readonly NavSection[] {
+  const professional = input.professional === true;
+
+  return navSections.filter((section) => {
+    if (section.adminOnly) return input.admin === true;
+    if (!section.audience || section.audience === "all") return true;
+    return section.audience === "professional" ? professional : !professional;
+  });
+}
+
 /** Breadcrumb segment → dictionary key. Dynamic ids are handled separately. */
 export const segmentLabelKeys: Record<string, string> = {
   admin: "nav.admin",
   account: "nav.account",
   applications: "nav.applications",
-  barber: "nav.business",
+  barber: "nav.workspace",
   barbers: "nav.barbers",
   "become-barber": "nav.becomeBarber",
   book: "nav.book",

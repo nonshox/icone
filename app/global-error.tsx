@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 
+import { useT } from "@/lib/i18n/use-t";
+
 export default function GlobalError({
   error: _error,
   reset,
@@ -10,9 +12,10 @@ export default function GlobalError({
   reset: () => void;
 }) {
   void _error;
+  const t = useT();
 
   return (
-    <html lang="en">
+    <html lang="uz">
       <body
         style={{
           margin: 0,
@@ -33,10 +36,10 @@ export default function GlobalError({
             style={{ margin: "0 auto 12px", borderRadius: 10 }}
           />
           <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>
-            icone could not start
+            {t("error.title")}
           </h1>
           <p style={{ fontSize: 14, opacity: 0.7, margin: "0 0 20px" }}>
-            Something failed before the page could load.
+            {t("error.body")}
           </p>
           <button
             type="button"
@@ -50,7 +53,7 @@ export default function GlobalError({
               cursor: "pointer",
             }}
           >
-            Try again
+            {t("common.tryAgain")}
           </button>
         </div>
       </body>

@@ -13,6 +13,7 @@ Writes check the same-origin header and are rate limited.
 | `GET /api/barbers`, `GET /api/barbers/:id` | bookable professionals and one public profile |
 | `GET /api/services` | active services with resolved prices |
 | `GET /api/availability?barber=&date=&services=` | real free slot starts for one professional; several `services` params are combined into one visit duration |
+| `GET /api/availability?any=1&business=&branch=&date=&services=` | picks the first available qualified employee and balances workload across the team |
 | `GET /api/health` | readiness probe |
 | `GET /robots.txt`, `GET /sitemap.xml`, `GET /manifest.webmanifest` | crawler/PWA files |
 
@@ -81,6 +82,10 @@ draft. Anonymous visitors are redirected to
 | `GET/POST/DELETE /api/waits` | waitlist requests |
 | `POST /api/walkins` | slot-blocking walk-in visits |
 | `POST /api/staff/clone` | copy the weekly hours template onto next week |
+| `GET/POST/DELETE /api/staff/breaks` | recurring weekly breaks for the actor's chair |
+| `GET/POST/PATCH/DELETE /api/barber/services/assign` | employee service assignment and per-employee price/duration overrides |
+| `GET /api/barber/waits` | waitlist requests for the actor's chair/business |
+| `GET/POST/DELETE /api/barber/branches/hours` | owner-managed branch working hours |
 | `GET /api/search?q=` | unified Uzbek/Russian-aware discovery for barbers and shops |
 
 ## Image uploads

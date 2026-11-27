@@ -55,10 +55,7 @@ function visiblePrefs(profile: Profile): NotificationPrefs {
 export async function GET() {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
-  }
-
+  
   return apiOk({
     profile: guarded.actor.profile,
     prefs: visiblePrefs(guarded.actor.profile),
@@ -73,10 +70,7 @@ export async function PATCH(request: NextRequest) {
 
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
-  }
-
+  
   const limit = rateLimit(`settings:${guarded.actor.userId}`, 30, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
@@ -133,3 +127,4 @@ export async function PATCH(request: NextRequest) {
     return apiError("Could not save your settings.", 502, "settings_failed");
   }
 }
+

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, Navigation } from "lucide-react";
+import { ChevronDown, MapPin, Navigation, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 
@@ -11,6 +11,7 @@ import { imageUrl } from "@/lib/client/files";
 import type { SearchResult } from "@/lib/domain/discovery";
 import { formatPrice, label as timeLabel } from "@/lib/domain/time";
 import { useT } from "@/lib/i18n/use-t";
+import { cn } from "@/lib/utils";
 
 import { MapCanvas, type MapPoint } from "./map-canvas";
 
@@ -38,6 +39,7 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
   const [searchArea, setSearchArea] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // A stable callback that ignores identical bounds prevents the map from
   // re-rendering in a loop when it publishes its viewport.
@@ -136,6 +138,30 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
+  const collapsedCount =
+    Number(filters.type !== "all") +
+    Number(Boolean(filters.city)) +
+    Number(Boolean(filters.service)) +
+    Number(Boolean(filters.maxPrice)) +
+    Number(Boolean(filters.minRating)) +
+    Number(filters.verified) +
+    Number(filters.openNow) +
+    Number(searchArea);
+
+  function resetFilters() {
+    setFilters((current) => ({
+      ...current,
+      type: "all",
+      city: "",
+      service: "",
+      maxPrice: "",
+      minRating: "",
+      verified: false,
+      openNow: false,
+    }));
+    setSearchArea(false);
+  }
+
   const filterClass =
     "rounded-xl border border-input bg-background px-3 py-2 text-sm";
 
@@ -147,13 +173,13 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
           onChange={(event) => patch("q", event.target.value)}
           placeholder={t("search.placeholder")}
           aria-label={t("search.placeholder")}
-          className={filterClass}
+          className={cn(filterClass, "lg:col-span-2")}
         />
         <select
           aria-label={t("map.sort")}
           value={filters.sort}
           onChange={(event) => patch("sort", event.target.value as (typeof SORTS)[number])}
-          className={filterClass}
+          className={cn(filterClass, "lg:col-span-2")}
         >
           {SORTS.map((sort) => (
             <option key={sort} value={sort}>
@@ -161,97 +187,128 @@ export function MapView({ initialQ = "" }: { initialQ?: string }) {
             </option>
           ))}
         </select>
-        <select
-          aria-label={t("map.everyone")}
-          value={filters.type}
-          onChange={(event) => patch("type", event.target.value)}
-          className={filterClass}
+        <button
+          type="button"
+          aria-expanded={filtersOpen}
+          aria-controls="map-more-filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+          className="col-span-full flex items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 py-2 text-sm lg:hidden"
         >
-          <option value="all">{t("map.everyone")}</option>
-          <option value="barber">{t("map.barbers")}</option>
-          <option value="shop">{t("map.shops")}</option>
-        </select>
-        <select
-          aria-label={t("map.allCities")}
-          value={filters.city}
-          onChange={(event) => patch("city", event.target.value)}
-          className={filterClass}
+          <span className="flex items-center gap-2">
+            <SlidersHorizontal className="size-4 text-brand-strong" aria-hidden />
+            {t("map.filters").replace("{n}", String(collapsedCount))}
+          </span>
+          <ChevronDown
+            className={cn("size-4 transition-transform", filtersOpen && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+        <div
+          id="map-more-filters"
+          className={cn(
+            "col-span-full grid gap-2 sm:grid-cols-2 lg:grid-cols-4",
+            !filtersOpen && "hidden lg:grid",
+          )}
         >
-          <option value="">{t("map.allCities")}</option>
-          {(places.data?.cities ?? []).map((city) => (
-            <option key={city.id} value={city.name}>
-              {city.name}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label={t("map.allServices")}
-          value={filters.service}
-          onChange={(event) => patch("service", event.target.value)}
-          className={filterClass}
-        >
-          <option value="">{t("map.allServices")}</option>
-          {(places.data?.categories ?? []).map((category) => (
-            <option key={category.id} value={category.name}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label={t("map.rating")}
-          value={filters.minRating}
-          onChange={(event) => patch("minRating", event.target.value)}
-          className={filterClass}
-        >
-          <option value="">{t("map.anyRating")}</option>
-          {[4, 4.5, 4.8].map((rating) => (
-            <option key={rating} value={String(rating)}>
-              ★ {rating}+
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={0}
-          step={10000}
-          value={filters.maxPrice}
-          onChange={(event) => patch("maxPrice", event.target.value)}
-          placeholder={t("map.maxPrice")}
-          aria-label={t("map.maxPrice")}
-          className={filterClass}
-        />
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={filters.verified}
-              onChange={(event) => patch("verified", event.target.checked)}
-            />
-            <T k="map.verified" />
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={filters.openNow}
-              onChange={(event) => patch("openNow", event.target.checked)}
-            />
-            <T k="map.availableNow" />
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={searchArea}
-              onChange={(event) => setSearchArea(event.target.checked)}
-            />
-            <T k="map.searchArea" />
-          </label>
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="rounded-xl border border-brand px-3 py-1.5 text-xs hover:bg-brand/10"
+          <select
+            aria-label={t("map.everyone")}
+            value={filters.type}
+            onChange={(event) => patch("type", event.target.value)}
+            className={filterClass}
           >
-            <T k="map.refresh" />
-          </button>
+            <option value="all">{t("map.everyone")}</option>
+            <option value="barber">{t("map.barbers")}</option>
+            <option value="shop">{t("map.shops")}</option>
+          </select>
+          <select
+            aria-label={t("map.allCities")}
+            value={filters.city}
+            onChange={(event) => patch("city", event.target.value)}
+            className={filterClass}
+          >
+            <option value="">{t("map.allCities")}</option>
+            {(places.data?.cities ?? []).map((city) => (
+              <option key={city.id} value={city.name}>
+                {city.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={t("map.allServices")}
+            value={filters.service}
+            onChange={(event) => patch("service", event.target.value)}
+            className={filterClass}
+          >
+            <option value="">{t("map.allServices")}</option>
+            {(places.data?.categories ?? []).map((category) => (
+              <option key={category.id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={t("map.rating")}
+            value={filters.minRating}
+            onChange={(event) => patch("minRating", event.target.value)}
+            className={filterClass}
+          >
+            <option value="">{t("map.anyRating")}</option>
+            {[4, 4.5, 4.8].map((rating) => (
+              <option key={rating} value={String(rating)}>
+                ★ {rating}+
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={0}
+            step={10000}
+            value={filters.maxPrice}
+            onChange={(event) => patch("maxPrice", event.target.value)}
+            placeholder={t("map.maxPrice")}
+            aria-label={t("map.maxPrice")}
+            className={filterClass}
+          />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={filters.verified}
+                onChange={(event) => patch("verified", event.target.checked)}
+              />
+              <T k="map.verified" />
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={filters.openNow}
+                onChange={(event) => patch("openNow", event.target.checked)}
+              />
+              <T k="map.availableNow" />
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={searchArea}
+                onChange={(event) => setSearchArea(event.target.checked)}
+              />
+              <T k="map.searchArea" />
+            </label>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="rounded-xl border border-brand px-3 py-1.5 text-xs hover:bg-brand/10"
+            >
+              <T k="map.refresh" />
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-xl border border-border px-3 py-1.5 text-xs hover:bg-muted"
+            >
+              <T k="map.reset" />
+            </button>
+          </div>
         </div>
       </div>
 

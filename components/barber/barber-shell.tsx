@@ -7,13 +7,14 @@ import { T } from "@/components/i18n/t";
 import { getActor, hasTeam, can, type Capability } from "@/lib/domain/access";
 
 /** Links shown to every professional, independent barbers included. */
+// Minimal top-level navigation, following Fresha's pattern: the work tools
+// are primary; portfolio and inbox live in the overview quick links.
 const BASE_LINKS: ReadonlyArray<{ href: string; label: string }> = [
-  { href: "/barber", label: "nav.account" },
+  { href: "/barber", label: "nav.home" },
   { href: "/agenda", label: "nav.agenda" },
   { href: "/barber/services", label: "nav.services" },
-  { href: "/barber/customers", label: "nav.myVisits" },
-  { href: "/barber/portfolio", label: "nav.profile" },
-  { href: "/barber/notifications", label: "nav.inbox" },
+  { href: "/barber/customers", label: "work.customers.title" },
+  { href: "/agenda/me", label: "work.staff.hours" },
   { href: "/barber/settings", label: "nav.settings" },
 ];
 

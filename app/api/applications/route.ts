@@ -26,6 +26,20 @@ const schema = z.object({
 });
 
 /**
+ * A draft is saved mid-flow, so any field may still be empty. The field names
+ * and formats match `schema`; only the "name is required" rule is relaxed.
+ */
+const draftSchema = z.object({
+  model: z.enum(["a", "b"]).optional(),
+  name: z.string().trim().max(64).optional(),
+  shop: z.string().trim().max(64).optional(),
+  city: z.string().trim().max(64).optional(),
+  address: z.string().trim().max(128).optional(),
+  phone: z.string().trim().max(32).regex(/^[+\d\s()-]*$/, "Use digits and + ( ) - only.").optional(),
+  bio: z.string().trim().max(512).optional(),
+});
+
+/**
  * The customer form only knows three labels. The canonical state travels in
  * `appState` so the review queue and the applicant cannot disagree.
  */
@@ -57,6 +71,55 @@ export async function GET() {
     console.error("[applications] read failed — check the applications collection in db:setup", error);
     return apiError(
       "Applications are unavailable right now. Please try again shortly.",
+      502,
+      "applications_failed",
+    );
+  }
+}
+
+/**
+ * PATCH /api/applications — save progress without submitting.
+ *
+ * Returns the same visible shape as GET so the form can resume where it left
+ * off. This never moves the row into the review queue.
+ */
+export async function PATCH(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return apiError("This request came from an unexpected origin.", 403, "bad_origin");
+  }
+
+  const guarded = await requireUser();
+  if (!guarded.ok) return guarded.response;
+  if (guarded.actor.profile.role !== "client") {
+    return apiError("Only client accounts can apply.", 403, "forbidden");
+  }
+
+  const limit = rateLimit(`application-drafts:${guarded.actor.userId}`, 30, 60 * 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError("Invalid request body.", 400, "invalid_body");
+  }
+
+  const parsed = draftSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(
+      parsed.error.issues[0]?.message ?? "Check your details.",
+      400,
+      "invalid_application",
+    );
+  }
+
+  try {
+    const application = await saveDraft(guarded.actor.userId, parsed.data);
+    return apiOk({ application: visibleApplication(application) });
+  } catch (error) {
+    console.error("[applications] draft save failed — check the applications collection in db:setup", error);
+    return apiError(
+      "Could not save your draft. Please try again shortly.",
       502,
       "applications_failed",
     );

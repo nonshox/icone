@@ -8,6 +8,7 @@ import { api } from "@/lib/api/client";
 import { useBarbers, useAvailability } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
 import { useShopDate } from "@/lib/client/date";
+import { formatPrice } from "@/lib/domain/time";
 import type { OfferedService } from "@/lib/domain/types";
 
 export function WalkinForm() {
@@ -55,8 +56,11 @@ export function WalkinForm() {
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["walkin"] });
-      void client.invalidateQueries({ queryKey: ["availability"] });
+      void client.invalidateQueries({ queryKey: ["barber"] });
+      void client.invalidateQueries({ queryKey: ["analytics"] });
+      void client.invalidateQueries({ queryKey: ["customers"] });
       void client.invalidateQueries({ queryKey: ["agenda"] });
+      void client.invalidateQueries({ queryKey: ["availability"] });
       void client.invalidateQueries({ queryKey: ["bookings"] });
       setFeedback(t("walkin.registered"));
       setName("");
@@ -112,7 +116,7 @@ export function WalkinForm() {
             <option value="">{t("walkin.choose")}</option>
             {(services.data ?? []).map((row) => (
               <option key={row.id} value={row.id}>
-                {row.name} · {row.ownPrice} UZS
+                {row.name} · {formatPrice(row.ownPrice)}
               </option>
             ))}
           </select>

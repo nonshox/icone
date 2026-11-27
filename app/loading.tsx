@@ -1,13 +1,15 @@
+import { T } from "@/components/i18n/t";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
     <main
       id="main"
+      lang="uz"
       className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-4 px-6 py-10"
       aria-busy="true"
-      aria-label="Loading"
     >
+      <span className="sr-only"><T k="app.loading" /></span>
       <Skeleton className="h-8 w-56 max-w-full" />
       <Skeleton className="h-4 w-80 max-w-full" />
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

@@ -26,17 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useBookings,
-  useCreateReview,
-  useSetStatus,
-} from "@/lib/api/queries";
+import { useBookings, useCreateReview } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import { CANCELLABLE, type BookingRow, type Status } from "@/lib/domain/types";
+import type { BookingRow, Status } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
-import { RebookButton } from "./rebook-button";
-import { RescheduleControl } from "./reschedule-control";
 import { useServiceNames } from "./use-service-names";
 
 const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
@@ -48,36 +42,12 @@ const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destru
   noshow: "destructive",
 };
 
-function BookingCard({ booking, today }: { booking: BookingRow; today: string }) {
-  const setStatus = useSetStatus();
+function BookingCard({ booking }: { booking: BookingRow }) {
   const t = useT();
   const serviceNames = useServiceNames();
-  const canCancel = CANCELLABLE.includes(booking.status) && booking.date >= today;
-  const canRebook =
-    booking.status === "done" ||
-    booking.status === "noshow" ||
-    booking.status === "cancelled" ||
-    booking.status === "rejected";
 
-  function cancel() {
-    if (!window.confirm(t("visits.cancelAsk"))) return;
-
-    setStatus.mutate(
-      { id: booking.id, status: "cancelled" },
-      {
-        onSuccess: () =>
-          toast.success(t("visits.cancelled"), {
-            description: `${formatDate(booking.date)} ${label(booking.start)}`,
-          }),
-        onError: (error) =>
-          toast.error(t("visits.cancelFailed"), {
-            description:
-              error instanceof Error ? error.message : t("auth.tryAgain"),
-          }),
-      },
-    );
-  }
-
+  // Cancel, reschedule and rebook all live on the detail route so a card stays
+  // a single tap target on a 390px screen.
   return (
     <Card size="sm">
       <CardContent className="space-y-3">
@@ -103,23 +73,14 @@ function BookingCard({ booking, today }: { booking: BookingRow; today: string })
             ) : null}
           </div>
 
-          {canCancel ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={setStatus.isPending}
-              onClick={cancel}
-            >
-              {setStatus.isPending ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden />
-              ) : null}
-              <T k="visits.cancel" />
-            </Button>
-          ) : null}
+          <Link
+            href={`/bookings/${booking.id}`}
+            className={cn(buttonVariants({ size: "sm" }), "shrink-0 rounded-lg")}
+          >
+            <T k="visits.manage" />
+            <span className="sr-only"> · {serviceNames(booking)}</span>
+          </Link>
         </div>
-
-        {canCancel ? <RescheduleControl booking={booking} /> : null}
-        {canRebook ? <RebookButton booking={booking} /> : null}
       </CardContent>
     </Card>
   );
@@ -288,7 +249,7 @@ export function BookingsView() {
         ) : (
           <div className="space-y-3">
             {upcoming.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} today={todayDate} />
+              <BookingCard key={booking.id} booking={booking} />
             ))}
           </div>
         )}
@@ -313,7 +274,7 @@ export function BookingsView() {
           <div className="space-y-3">
             {history.map((booking) => (
               <div key={booking.id} className="space-y-3">
-                <BookingCard booking={booking} today={todayDate} />
+                <BookingCard booking={booking} />
                 {(booking.status === "done" || booking.status === "noshow") && !booking.reviewed ? (
                   reviewFor === booking.id ? (
                     <ReviewForm booking={booking} />

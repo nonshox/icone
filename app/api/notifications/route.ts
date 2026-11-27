@@ -29,10 +29,7 @@ function clientNotification(item: Notification): Notification {
 export async function GET(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
-  }
-
+  
   const raw = Number(request.nextUrl.searchParams.get("limit") ?? 20);
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 50) : 20;
 
@@ -59,10 +56,7 @@ export async function PATCH(request: NextRequest) {
 
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
-  }
-
+  
   const limit = rateLimit(`notifications:${guarded.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
@@ -101,3 +95,4 @@ export async function PATCH(request: NextRequest) {
     return apiError("Could not update your inbox.", 502, "notification_failed");
   }
 }
+

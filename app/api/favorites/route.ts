@@ -67,7 +67,7 @@ export async function GET() {
   // Public profile pages render this button for everybody. Guests and
   // professional accounts simply get an empty list; only writes are gated.
   const actor = await getActor();
-  if (!actor || actor.profile.role !== "client") {
+  if (!actor) {
     return apiOk({ favorites: [] });
   }
 
@@ -87,10 +87,7 @@ export async function POST(request: NextRequest) {
 
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
-  }
-
+  
   const limit = rateLimit(`favorites:${guarded.actor.userId}`, 40, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
@@ -136,10 +133,7 @@ export async function DELETE(request: NextRequest) {
 
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  if (guarded.actor.profile.role !== "client") {
-    return apiError("This area is for client accounts.", 403, "forbidden");
-  }
-
+  
   const barber = request.nextUrl.searchParams.get("barber") ?? "";
   if (!barber || barber.length > 36) {
     return apiError("Pick a barber to remove.", 400, "bad_barber");
@@ -154,3 +148,4 @@ export async function DELETE(request: NextRequest) {
     return apiError("Could not remove that chair.", 502, "favorite_failed");
   }
 }
+

@@ -9,7 +9,9 @@ import {
   Moon,
   Scale,
   Send,
+  ShieldCheck,
   Sun,
+  UserRound,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -17,15 +19,18 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 import { T } from "@/components/i18n/t";
+import { useMe } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
-import { navSections } from "@/lib/navigation";
+import { becomeBarberCta, visibleNavSections } from "@/lib/navigation";
 import { useLocaleStore, type Locale } from "@/lib/store/locale";
 import { useUIStore } from "@/lib/store/ui";
 import { cn } from "@/lib/utils";
 
 const sectionIcons = {
   "nav.discover": Compass,
+  "customer.eyebrow": UserRound,
   "nav.forBarbers": BriefcaseBusiness,
+  "nav.admin": ShieldCheck,
   "nav.help": CircleHelp,
   "nav.legal": Scale,
   "nav.telegram": Send,
@@ -39,6 +44,94 @@ const languages: Array<{ value: Locale; short: string; label: string }> = [
 
 const controlClass =
   "flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground";
+
+/** Role-aware links, mounted only while the menu is open. */
+function MenuLinks({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const t = useT();
+  const me = useMe();
+  const professional = Boolean(me.data?.professional);
+  const admin = me.data?.profile.role === "admin";
+  const sections = visibleNavSections({ professional, admin });
+  // Signed-out guests (query error) are still customers. Wait for the query
+  // before showing the CTA so approved professionals never see it flash.
+  const showCta = !me.isPending && !professional && !admin;
+
+  return (
+    <>
+      {sections.map((section) => {
+        const Icon = sectionIcons[section.title as keyof typeof sectionIcons] ?? Languages;
+        const headingId = `menu-${section.title.replace(/\./g, "-")}`;
+        return (
+          <section key={section.title} aria-labelledby={headingId} className="rounded-xl p-2">
+            <h2
+              id={headingId}
+              className="flex items-center gap-2 px-2 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase"
+            >
+              <Icon className="size-3.5 text-brand-strong" aria-hidden />
+              <T k={section.title} />
+            </h2>
+            <ul className="space-y-1">
+              {section.links.map((link) => {
+                // Query variants (e.g. ?model=b) are reachable but not
+                // highlighted, since the pathname alone cannot tell them apart.
+                const path = link.href.split("?")[0];
+                const active = !link.external && !link.href.includes("?") && pathname === path;
+                const className = cn(
+                  "block rounded-lg px-2 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-foreground/[0.06] text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
+                );
+
+                return (
+                  <li key={link.href}>
+                    {link.external ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={className}
+                      >
+                        {t(link.label)}
+                      </a>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        onClick={onNavigate}
+                        aria-current={active ? "page" : undefined}
+                        className={className}
+                      >
+                        {t(link.label)}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+
+      {showCta ? (
+        <div className="px-4 pb-1 pt-2">
+          <Link
+            href={becomeBarberCta.href}
+            onClick={onNavigate}
+            className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            {t(becomeBarberCta.label)}
+          </Link>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 /** Clean dropdown panel for the desktop navbar. Mobile uses the bottom bar. */
 export function SiteMenu() {
@@ -87,59 +180,7 @@ export function SiteMenu() {
 
       {open ? (
         <div className="absolute right-0 top-full z-50 mt-2 max-h-[min(70dvh,32rem)] w-[min(calc(100vw-2rem),22rem)] overflow-y-auto rounded-2xl border border-border/70 bg-popover p-2 text-popover-foreground shadow-lg">
-          {navSections.map((section) => {
-            const Icon = sectionIcons[section.title as keyof typeof sectionIcons] ?? Languages;
-            const headingId = `menu-${section.title.replace(/\./g, "-")}`;
-            return (
-              <section key={section.title} aria-labelledby={headingId} className="rounded-xl p-2">
-                <h2
-                  id={headingId}
-                  className="flex items-center gap-2 px-2 pb-1 text-[0.65rem] font-medium tracking-[0.14em] text-muted-foreground uppercase"
-                >
-                  <Icon className="size-3.5 text-brand-strong" aria-hidden />
-                  <T k={section.title} />
-                </h2>
-                <ul className="space-y-1">
-                  {section.links.map((link) => {
-                    // Query variants (e.g. ?model=b) are reachable but not
-                    // highlighted, since the pathname alone cannot tell them apart.
-                    const path = link.href.split("?")[0];
-                    const active = !link.external && !link.href.includes("?") && pathname === path;
-                    const className = cn(
-                      "block rounded-lg px-2 py-2 text-sm transition-colors",
-                      active
-                        ? "bg-foreground/[0.06] text-foreground"
-                        : "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground",
-                    );
-
-                    return (
-                      <li key={link.href}>
-                        {link.external ? (
-                          <a
-                            href={link.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={className}
-                          >
-                            {t(link.label)}
-                          </a>
-                        ) : (
-                          <Link
-                            href={link.href}
-                            onClick={() => setOpen(false)}
-                            aria-current={active ? "page" : undefined}
-                            className={className}
-                          >
-                            {t(link.label)}
-                          </Link>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            );
-          })}
+          <MenuLinks pathname={pathname} onNavigate={() => setOpen(false)} />
 
           <div className="my-2 h-px bg-border/70" />
 

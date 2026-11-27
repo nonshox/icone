@@ -4,6 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { T } from "@/components/i18n/t";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/lib/api/client";
 import { useBarbers } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
@@ -22,17 +29,28 @@ type Wait = {
 export function WaitlistView() {
   const t = useT();
   const client = useQueryClient();
+  const [barber, setBarber] = useState("");
+  const [service, setService] = useState("");
+  const [day, setDay] = useState(-1);
+  const [note, setNote] = useState("");
+  const [feedback, setFeedback] = useState("");
+
   const barbers = useBarbers();
   const waits = useQuery({
     queryKey: ["waits"],
     queryFn: () => api<{ waits: Wait[] }>("/api/waits"),
   });
 
-  const [barber, setBarber] = useState("");
-  const [service, setService] = useState("");
-  const [day, setDay] = useState(-1);
-  const [note, setNote] = useState("");
-  const [feedback, setFeedback] = useState("");
+  // The public barber bundle resolves each professional's real, bookable menu
+  // (including shop assignments and per-employee overrides).
+  const services = useQuery({
+    queryKey: ["barber-menu", barber],
+    queryFn: () =>
+      api<{ services: Array<{ id: string; name: string }> }>(
+        `/api/barbers/${encodeURIComponent(barber)}`,
+      ).then((response) => response.services),
+    enabled: Boolean(barber),
+  });
 
   const join = useMutation({
     mutationFn: () =>
@@ -40,7 +58,7 @@ export function WaitlistView() {
         method: "POST",
         body: JSON.stringify({
           barber,
-          service: service || undefined,
+          service: service && service !== "any" ? service : undefined,
           day,
           note,
         }),
@@ -87,7 +105,10 @@ export function WaitlistView() {
           <select
             value={barber}
             aria-label={t("waitlist.professional")}
-            onChange={(event) => setBarber(event.target.value)}
+            onChange={(event) => {
+              setBarber(event.target.value);
+              setService("");
+            }}
             className="w-full rounded-xl border border-input bg-background px-3 py-2"
           >
             <option value="">{t("waitlist.choose")}</option>
@@ -98,16 +119,40 @@ export function WaitlistView() {
             ))}
           </select>
         </label>
-        <label className="block space-y-1 text-sm">
+        <div className="space-y-1 text-sm">
           <span><T k="waitlist.service" /></span>
-          <input
-            value={service}
-            aria-label={t("waitlist.service")}
-            placeholder={t("waitlist.serviceHint")}
-            onChange={(event) => setService(event.target.value)}
-            className="w-full rounded-xl border border-input bg-background px-3 py-2"
-          />
-        </label>
+          {!barber ? (
+            <p className="rounded-xl border border-border p-3 text-xs text-muted-foreground">
+              <T k="waitlist.pickProfessional" />
+            </p>
+          ) : services.isPending ? (
+            <p role="status" className="rounded-xl border border-border p-3 text-xs text-muted-foreground">
+              <T k="waitlist.serviceLoading" />
+            </p>
+          ) : services.isError ? (
+            <p role="alert" className="rounded-xl border border-destructive/40 p-3 text-xs text-destructive">
+              <T k="waitlist.serviceError" />
+            </p>
+          ) : (services.data ?? []).length === 0 ? (
+            <p role="status" className="rounded-xl border border-border p-3 text-xs text-muted-foreground">
+              <T k="waitlist.serviceEmpty" />
+            </p>
+          ) : (
+            <Select value={service} onValueChange={(value) => setService(value ?? "")}>
+              <SelectTrigger aria-label={t("waitlist.service")} className="w-full rounded-xl">
+                <SelectValue placeholder={t("waitlist.serviceChoose")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">{t("waitlist.anyService")}</SelectItem>
+                {(services.data ?? []).map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
         <label className="block space-y-1 text-sm">
           <span><T k="waitlist.day" /></span>
           <select

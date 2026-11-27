@@ -18,6 +18,7 @@ import {
 import { FavoriteButton } from "@/components/barbers/favorite-button";
 import { NextSlots } from "@/components/barbers/next-slots";
 import { T } from "@/components/i18n/t";
+import { MessageProfileLink } from "@/components/messages/message-profile-link";
 import { ShareProfile } from "@/components/share/share-profile";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -205,6 +206,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
 
               <div className="flex flex-wrap gap-2">
                 <FavoriteButton barber={barber.id} />
+                <MessageProfileLink barber={barber.id} user={barber.user} />
                 <ShareProfile
                   path={`/barbers/${barber.slug || barber.id}`}
                   title={barber.name}

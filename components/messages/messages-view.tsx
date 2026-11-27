@@ -24,12 +24,19 @@ import { useProfile } from "@/lib/api/queries";
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
 import type { Message } from "@/lib/domain/messages";
+import { useLocaleStore, type Locale } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
 
-function detail(iso: string): string {
+const DATE_LOCALES: Record<Locale, string> = {
+  uz: "uz-UZ",
+  ru: "ru-RU",
+  en: "en-GB",
+};
+
+function detail(iso: string, locale: Locale): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(DATE_LOCALES[locale], {
     timeZone: "Asia/Tashkent",
     day: "2-digit",
     month: "short",
@@ -39,10 +46,10 @@ function detail(iso: string): string {
   }).format(date);
 }
 
-function clock(iso: string): string {
+function clock(iso: string, locale: Locale): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat(DATE_LOCALES[locale], {
     timeZone: "Asia/Tashkent",
     hour: "2-digit",
     minute: "2-digit",
@@ -55,7 +62,15 @@ function message(_error: unknown, fallback: string): string {
   return fallback;
 }
 
-function Bubble({ item, own }: { item: Message; own: boolean }) {
+function Bubble({
+  item,
+  own,
+  locale,
+}: {
+  item: Message;
+  own: boolean;
+  locale: Locale;
+}) {
   return (
     <div className={cn("flex flex-col gap-1", own ? "items-end" : "items-start")}>
       <div
@@ -69,7 +84,7 @@ function Bubble({ item, own }: { item: Message; own: boolean }) {
         {item.body}
       </div>
       <span className="px-1 text-[0.7rem] text-muted-foreground tabular-nums">
-        {clock(item.created)}
+        {clock(item.created, locale)}
       </span>
     </div>
   );
@@ -77,6 +92,7 @@ function Bubble({ item, own }: { item: Message; own: boolean }) {
 
 export function MessagesView({ initialWith }: { initialWith: string | null }) {
   const t = useT();
+  const locale = useLocaleStore((state) => state.locale);
   const [selected, setSelected] = useState<string | null>(initialWith);
   const [conversation, setConversation] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -175,7 +191,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-sm font-medium">{item.name}</span>
                 <span className="shrink-0 text-[0.7rem] text-muted-foreground tabular-nums">
-                  {detail(item.at ?? item.lastAt ?? "")}
+                  {detail(item.at ?? item.lastAt ?? "", locale)}
                 </span>
               </span>
               <span className="line-clamp-1 text-xs text-muted-foreground">
@@ -254,6 +270,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
                   key={item.id}
                   item={item}
                   own={item.sender === profile.data?.id}
+                  locale={locale}
                 />
               ))}
               <div ref={bottom} />

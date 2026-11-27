@@ -150,6 +150,7 @@ export function MapCanvas({
   }, [publish, origin]);
 
   const drag = useRef<{ x: number; y: number; lat: number; lng: number } | null>(null);
+  const draggedCenter = useRef<{ lat: number; lng: number } | null>(null);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-muted">
@@ -173,11 +174,13 @@ export function MapCanvas({
             c.y - (event.clientY - drag.current.y) / TILE,
             zoom,
           );
+          draggedCenter.current = moved;
           setView({ key: centerKey, origin: moved });
         }}
         onPointerUp={() => {
           drag.current = null;
-          publish(origin);
+          publish(draggedCenter.current ?? origin);
+          draggedCenter.current = null;
         }}
         onPointerCancel={() => {
           drag.current = null;

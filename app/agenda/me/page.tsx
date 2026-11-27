@@ -23,7 +23,9 @@ async function StaffGate() {
     redirect("/admin");
   }
 
-  if (actor.profile.role !== "barber") {
+  // A promoted account may still book as a customer. A chair or an active
+  // team membership is what grants access to this workspace.
+  if (!actor.summary.staff) {
     redirect("/account");
   }
 

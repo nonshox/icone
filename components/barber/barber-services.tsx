@@ -1,12 +1,14 @@
 "use client";
 
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { ImageUpload } from "@/components/upload/image-upload";
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice } from "@/lib/domain/time";
+import { ApiError, api } from "@/lib/api/client";
 import {
   useBarberServices,
   useCreateBarberService,
@@ -35,6 +38,7 @@ import {
   type Service,
   type ServiceInput,
 } from "@/lib/api/barber-queries";
+import type { Membership, OfferedService } from "@/lib/domain/types";
 
 import { Empty, FormError, LoadingRows, message, ToggleRow } from "./barber-ui";
 
@@ -48,6 +52,70 @@ const BLANK = {
   active: true,
   image: "",
 };
+
+const selectClass =
+  "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring disabled:opacity-50";
+
+type EmployeeMenu = {
+  business: string;
+  barber: string;
+  assigned: Array<
+    OfferedService & {
+      assignment: string;
+      overridePrice: number;
+      overrideTime: number;
+    }
+  >;
+  unassigned: Service[];
+};
+
+function useEmployees() {
+  return useQuery({
+    queryKey: ["employee-menu", "team"],
+    queryFn: async (): Promise<Membership[]> => {
+      try {
+        const result = await api<{ members: Membership[] }>("/api/barber/team");
+        return result.members.filter(
+          (row) => row.barber && row.state === "active" && row.active,
+        );
+      } catch (error) {
+        // Independent barbers have no team; an empty menu is the honest answer.
+        if (error instanceof ApiError && error.status === 403) return [];
+        throw error;
+      }
+    },
+  });
+}
+
+function useEmployeeMenu(barber: string) {
+  return useQuery({
+    queryKey: ["employee-menu", "services", barber],
+    queryFn: () =>
+      api<EmployeeMenu>(
+        `/api/barber/services/assign?barber=${encodeURIComponent(barber)}`,
+      ),
+    enabled: Boolean(barber),
+  });
+}
+
+function useEmployeeMenuWrite<T>() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: T & { method: "POST" | "PATCH" | "DELETE" }) =>
+      api<{ ok: true }>("/api/barber/services/assign", {
+        method: input.method,
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["employee-menu"] });
+      void client.invalidateQueries({ queryKey: ["barber"] });
+      void client.invalidateQueries({ queryKey: ["barbers"] });
+      void client.invalidateQueries({ queryKey: ["services"] });
+      void client.invalidateQueries({ queryKey: ["availability"] });
+      void client.invalidateQueries({ queryKey: ["agenda"] });
+    },
+  });
+}
 
 export function BarberServices() {
   const services = useBarberServices();
@@ -394,6 +462,334 @@ export function BarberServices() {
           )}
         </CardContent>
       </Card>
+
+      <EmployeeMenuPanel />
     </div>
+  );
+}
+
+/* ----------------------------------------------------------- employee menu */
+
+function EmployeeMenuPanel() {
+  const t = useT();
+  const employees = useEmployees();
+  const [barber, setBarber] = useState("");
+  const menu = useEmployeeMenu(barber);
+  const write = useEmployeeMenuWrite<Record<string, unknown>>();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [price, setPrice] = useState("");
+  const [time, setTime] = useState("");
+
+  const members = employees.data ?? [];
+  const chosen = barber || (members.length === 1 ? members[0].barber : "");
+  const active = chosen && members.some((row) => row.barber === chosen) ? chosen : "";
+
+  function feedback(error: unknown) {
+    toast.error(error instanceof Error ? error.message : t("work.toast.failed"));
+  }
+
+  function assign(service?: string) {
+    write.mutate(
+      {
+        method: "POST",
+        barber: active,
+        ...(service ? { service } : { all: true }),
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            t(service ? "work.toast.added" : "work.services.allAssigned"),
+          );
+        },
+        onError: feedback,
+      },
+    );
+  }
+
+  function patch(input: {
+    assignment: string;
+    active?: boolean;
+    price?: number;
+    time?: number;
+  }) {
+    write.mutate(
+      { method: "PATCH", barber: active, ...input },
+      {
+        onSuccess: () => {
+          setEditing(null);
+          toast.success(t("work.toast.updated"));
+        },
+        onError: feedback,
+      },
+    );
+  }
+
+  function unassign(assignment: string) {
+    write.mutate(
+      { method: "DELETE", barber: active, assignment },
+      {
+        onSuccess: () => toast.success(t("work.toast.removed")),
+        onError: feedback,
+      },
+    );
+  }
+
+  function startEdit(row: EmployeeMenu["assigned"][number]) {
+    setEditing(row.assignment);
+    setPrice(String(row.overridePrice >= 0 ? row.overridePrice : row.price));
+    setTime(String(row.overrideTime >= 0 ? row.overrideTime : row.time));
+  }
+
+  function saveEdit(row: EmployeeMenu["assigned"][number]) {
+    const nextPrice = Number(price);
+    const nextTime = Number(time);
+    if (!Number.isInteger(nextPrice) || nextPrice < 0) {
+      toast.error(t("work.services.priceRequired"));
+      return;
+    }
+    if (!Number.isInteger(nextTime) || nextTime < 5 || nextTime > 480) {
+      toast.error(t("work.services.durationInvalid"));
+      return;
+    }
+    patch({ assignment: row.assignment, price: nextPrice, time: nextTime });
+  }
+
+  const assigned = menu.data?.assigned ?? [];
+  const unassigned = menu.data?.unassigned ?? [];
+
+  return (
+    <Card className="glass">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="size-5 text-brand" aria-hidden />
+          <T k="work.services.employeeMenu" />
+        </CardTitle>
+        <CardDescription>
+          <T k="work.services.employeeMenuHint" />
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {employees.isPending ? (
+          <LoadingRows />
+        ) : employees.isError ? (
+          <FormError text={message(employees.error, t("work.services.employeeLoadError"))} />
+        ) : members.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            <T k="work.services.noEmployees" />
+          </p>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <label htmlFor="employee-menu-barber" className="text-sm text-muted-foreground">
+                <T k="work.services.pickEmployee" />
+              </label>
+              <select
+                id="employee-menu-barber"
+                className={selectClass}
+                value={active}
+                onChange={(event) => {
+                  setBarber(event.target.value);
+                  setEditing(null);
+                }}
+              >
+                <option value="">{t("walkin.choose")}</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.barber}>
+                    {member.user ? member.user.slice(0, 8) : member.barber.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {!active ? (
+              <p className="text-sm text-muted-foreground">
+                <T k="work.services.employeeRequired" />
+              </p>
+            ) : menu.isPending ? (
+              <LoadingRows />
+            ) : menu.isError ? (
+              <FormError text={message(menu.error, t("work.services.menuLoadError"))} />
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">
+                    <T k="work.services.assigned" /> · {assigned.length}
+                  </p>
+                  {unassigned.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={write.isPending}
+                      onClick={() => assign()}
+                    >
+                      <T k="work.services.assignAll" /> ({unassigned.length})
+                    </Button>
+                  ) : null}
+                </div>
+
+                {assigned.length === 0 ? (
+                  <Empty>{t("work.services.empty")}</Empty>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead><T k="common.name" /></TableHead>
+                          <TableHead className="text-right"><T k="common.price" /></TableHead>
+                          <TableHead className="text-right"><T k="common.time" /></TableHead>
+                          <TableHead><T k="common.status" /></TableHead>
+                          <TableHead className="text-right"><T k="work.agenda.actions" /></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {assigned.map((row) => (
+                          <TableRow key={row.id}>
+                            <TableCell className="font-medium">{row.name}</TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {formatPrice(
+                                row.overridePrice >= 0 ? row.overridePrice : row.price,
+                              )}
+                              {row.overridePrice < 0 ? (
+                                <span className="block text-xs text-muted-foreground">
+                                  <T k="work.services.inherit" />
+                                </span>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                              {row.overrideTime >= 0 ? row.overrideTime : row.time}{" "}
+                              {t("common.minutes")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={row.active ? "secondary" : "outline"}>
+                                <T k={row.active ? "common.open" : "work.services.hidden"} />
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex flex-wrap justify-end gap-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={write.isPending}
+                                  onClick={() =>
+                                    patch({ assignment: row.assignment, active: !row.active })
+                                  }
+                                >
+                                  <T k={row.active ? "work.services.hide" : "work.services.show"} />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  aria-label={`${t("common.edit")} ${row.name}`}
+                                  disabled={write.isPending}
+                                  onClick={() => startEdit(row)}
+                                >
+                                  <Pencil aria-hidden />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon-sm"
+                                  variant="destructive"
+                                  aria-label={`${t("work.services.unassign")} ${row.name}`}
+                                  disabled={write.isPending || !row.assignment}
+                                  onClick={() => unassign(row.assignment)}
+                                >
+                                  <Trash2 aria-hidden />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                {editing ? (
+                  <div className="grid gap-3 rounded-xl border border-border p-3 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="employee-price"><T k="common.price" /></Label>
+                      <Input
+                        id="employee-price"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={price}
+                        onChange={(event) => setPrice(event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="employee-time"><T k="work.services.duration" /></Label>
+                      <Input
+                        id="employee-time"
+                        type="number"
+                        min={5}
+                        max={480}
+                        step={5}
+                        value={time}
+                        onChange={(event) => setTime(event.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <Button
+                        type="button"
+                        disabled={write.isPending}
+                        onClick={() => {
+                          const row = assigned.find((item) => item.assignment === editing);
+                          if (row) saveEdit(row);
+                        }}
+                      >
+                        <T k="common.save" />
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                        <T k="common.cancel" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground sm:col-span-3">
+                      <T k="work.services.overrideHint" />
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    <T k="work.services.unassigned" /> · {unassigned.length}
+                  </p>
+                  {unassigned.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      <T k="work.services.allAssigned" />
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {unassigned.map((service) => (
+                        <li
+                          key={service.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
+                        >
+                          <span className="text-sm">
+                            {service.name} · {formatPrice(service.price)}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={write.isPending}
+                            onClick={() => assign(service.id)}
+                          >
+                            <T k="work.services.assign" />
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

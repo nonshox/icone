@@ -50,8 +50,8 @@ export function LandingSearch() {
 
   const results = query.data?.results ?? [];
   const allHref = submitted
-    ? `/barbers?q=${encodeURIComponent(submitted)}`
-    : "/barbers";
+    ? `/map?q=${encodeURIComponent(submitted)}`
+    : "/map";
 
   return (
     <section className="rounded-3xl border border-border/70 bg-card/60 p-5 sm:p-7">

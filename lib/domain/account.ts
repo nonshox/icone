@@ -99,6 +99,14 @@ export async function updateProfile(
   return toProfile(row);
 }
 
+/** Promote an account when it becomes a professional. Customer pages stay open. */
+export async function setRole(
+  userId: string,
+  role: "client" | "barber" | "admin",
+): Promise<void> {
+  await update(TABLES.users, userId, { role });
+}
+
 export async function setLocale(
   userId: string,
   locale: Locale,

@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 async function SettingsPanel() {
   const actor = await getActor();
   if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/settings")}`);
-  if (actor.profile.role !== "client") redirect("/account");
+  // One account can be both customer and professional: keep customer
+  // settings available to everybody after sign-in.
   return <SettingsView />;
 }
 

@@ -26,7 +26,12 @@ export async function GET() {
   if (!guarded.ok) return guarded.response;
 
   const user = await getCurrentUser();
-  return apiOk({ profile: guarded.actor.profile, user });
+  return apiOk({
+    profile: guarded.actor.profile,
+    user,
+    /** The real signal for an approved professional row or membership. */
+    professional: guarded.actor.summary.professional,
+  });
 }
 
 /** PATCH /api/me — update display name and phone. */

@@ -9,6 +9,7 @@ import { clean, create, first, list, str, update, type Row } from "./crud";
 import { createBranch, createBusiness, updateBusiness } from "./business";
 import { notify } from "./notify";
 import { addMember } from "./team";
+import { setRole } from "./account";
 import { createBarber, barberForUser, updateBarber } from "./professional";
 import { shopClock } from "./time";
 import type { Application, AppState, ApplicationStep } from "./types";
@@ -345,6 +346,9 @@ export async function decideApplication(input: {
         reason: "",
       });
       const approved = toApplication(row);
+      // One account is both customer and professional, but the role controls
+      // where sign-in lands and which workspace is offered first.
+      await setRole(application.user, "barber");
       await record(approved, "approved", input.by, input.note ?? "Approved");
 
       await notify({
