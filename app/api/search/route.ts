@@ -32,6 +32,9 @@ export async function GET(request: NextRequest) {
   const price = Number(params.get("maxPrice"));
   if (Number.isFinite(price) && price > 0) query.maxPrice = price;
 
+  const minRating = Number(params.get("minRating"));
+  if (Number.isFinite(minRating) && minRating > 0) query.minRating = minRating;
+
   try {
     return apiOk({ results: await search(query) });
   } catch (error) {

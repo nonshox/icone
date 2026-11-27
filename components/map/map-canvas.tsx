@@ -35,13 +35,21 @@ type Props = {
   selected?: string | null;
   onSelect?: (id: string) => void;
   onMove?: (bounds: { north: number; south: number; east: number; west: number }) => void;
+  onLocate?: (coords: { lat: number; lng: number }) => void;
 };
 
 /**
  * A small OSM raster map with no API key. Tiles come from OpenStreetMap, which
  * has full coverage of Uzbekistan; coordinates always come from real profiles.
  */
-export function MapCanvas({ center, points, selected, onSelect, onMove }: Props) {
+export function MapCanvas({
+  center,
+  points,
+  selected,
+  onSelect,
+  onMove,
+  onLocate,
+}: Props) {
   const t = useT();
   const [zoom, setZoom] = useState(12);
   const centerKey = `${center.lat},${center.lng}`;
@@ -51,7 +59,26 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
   }>(() => ({ key: centerKey, origin: center }));
   const origin = view.key === centerKey ? view.origin : center;
   const [size, setSize] = useState({ width: 800, height: 480 });
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
+
+  const locate = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const point = { lat: coords.latitude, lng: coords.longitude };
+        setMyLocation(point);
+        setView({ key: centerKey, origin: point });
+        setZoom(13);
+        onLocate?.(point);
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+    );
+  }, [centerKey, onLocate]);
 
   useEffect(() => {
     if (!frame.current) return;
@@ -197,6 +224,18 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
             </button>
           );
         })}
+
+        {myLocation ? (
+          <span
+            aria-label={t("map.myLocation")}
+            title={t("map.myLocation")}
+            className="pointer-events-none absolute z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-blue-600 shadow"
+            style={{
+              left: project(myLocation.lat, myLocation.lng).x,
+              top: project(myLocation.lat, myLocation.lng).y,
+            }}
+          />
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-border px-3 py-2 text-xs text-muted-foreground">
@@ -220,13 +259,23 @@ export function MapCanvas({ center, points, selected, onSelect, onMove }: Props)
           </button>
           <button
             type="button"
+            onClick={locate}
+            disabled={locating}
+            className="rounded-lg border border-border px-2 py-1 hover:bg-brand/10 disabled:opacity-50"
+            aria-label={t("map.locate")}
+          >
+            {locating ? t("map.locating") : t("map.locate")}
+          </button>
+          <button
+            type="button"
             onClick={() => {
               setView({ key: centerKey, origin: center });
               publish(center);
             }}
             className="rounded-lg border border-border px-2 py-1 hover:bg-brand/10"
+            aria-label={t("map.reset")}
           >
-            {t("map.myLocation")}
+            {t("map.reset")}
           </button>
         </div>
         <span>© OpenStreetMap contributors</span>
