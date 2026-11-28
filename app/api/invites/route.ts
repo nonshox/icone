@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   }
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  const limit = rateLimit(`invite:${guarded.actor.userId}`, 20, 10 * 60_000);
+  const limit = await rateLimit(`invite:${guarded.actor.userId}`, 20, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;

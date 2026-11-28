@@ -176,7 +176,8 @@ export function useAdminDashboard() {
   });
 }
 
-export function useAdminReports(days: number) {
+/** Analytics report for the reports page (the moderation queue has its own hook). */
+export function useAdminReportAnalytics(days: number) {
   return useQuery({
     queryKey: adminKeys.reports(days),
     queryFn: () =>
@@ -185,6 +186,9 @@ export function useAdminReports(days: number) {
       ),
   });
 }
+
+/** Backwards-compatible alias until every caller uses the canonical name. */
+export const useAdminReports = useAdminReportAnalytics;
 
 export function useAdminAppointments(filter: AppointmentFilter = {}) {
   const params = new URLSearchParams();

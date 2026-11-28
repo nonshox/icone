@@ -6,22 +6,21 @@ import {
   Clock,
   Heart,
   LayoutDashboard,
-  Loader2,
   MessageSquare,
   Scissors,
+  Settings,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
 
 import { useT } from "@/lib/i18n/use-t";
-import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { EmptyState, LoadingRows } from "@/components/ui/app-state";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -29,20 +28,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useBookings, useUpdateProfile } from "@/lib/api/queries";
+import { StatCard } from "@/components/ui/stat-card";
+import { useBookings } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import type { SessionUser } from "@/lib/auth/types";
 import { formatDate, label } from "@/lib/domain/time";
 import type { Profile, Role } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
-const roleLabel: Record<Role, string> = {
-  client: "Client",
-  barber: "Barber",
-  admin: "Admin",
+/** One localized role label, shared with the admin role controls. */
+const roleKey: Record<Role, string> = {
+  client: "admin.clients",
+  barber: "admin.barberAccounts",
+  admin: "admin.adminAccounts",
 };
 
 function initials(name: string) {
@@ -65,10 +63,7 @@ export function AccountView({
   professional: boolean;
 }) {
   const t = useT();
-  const update = useUpdateProfile();
   const bookings = useBookings();
-  const [name, setName] = useState(profile.name);
-  const [phone, setPhone] = useState(profile.phone);
   const todayDate = useShopDate();
 
   const all = bookings.data ?? [];
@@ -82,26 +77,6 @@ export function AccountView({
   const done = all.filter((booking) => booking.status === "done");
   const next = upcoming[0];
 
-  function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    update.mutate(
-      { name: name.trim(), phone: phone.trim() },
-      {
-        onSuccess: (saved) => {
-          setName(saved.name);
-          setPhone(saved.phone);
-          toast.success(t("common.saved"));
-        },
-        onError: (error) =>
-          toast.error(t("settings.failed"), {
-            description:
-              error instanceof Error ? error.message : t("auth.tryAgain"),
-          }),
-      },
-    );
-  }
-
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
       <div className="space-y-4">
@@ -114,50 +89,28 @@ export function AccountView({
               <div className="min-w-0">
                 <CardTitle className="truncate">{profile.name}</CardTitle>
                 <CardDescription className="truncate">
-                  {user.email ?? (user.telegramUsername ? `@${user.telegramUsername}` : "No contact on file")}
+                  {user.email ??
+                    (user.telegramUsername ? `@${user.telegramUsername}` : "—")}
                 </CardDescription>
               </div>
               <Badge variant="outline" className="ml-auto">
-                {roleLabel[profile.role]}
+                <T k={roleKey[profile.role]} />
               </Badge>
             </div>
           </CardHeader>
 
+          {/* /settings is the only editable profile form. */}
           <CardContent>
-            <form className="space-y-4" onSubmit={save}>
-              <div className="space-y-2">
-                <Label htmlFor="name"><T k="account.name" /></Label>
-                <Input
-                  id="name"
-                  value={name}
-                  maxLength={64}
-                  required
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone"><T k="account.phone" /></Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  maxLength={32}
-                  inputMode="tel"
-                  placeholder="+998 90 000 00 00"
-                  onChange={(event) => setPhone(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  For visit updates only.
-                </p>
-              </div>
-
-              <Button type="submit" size="sm" disabled={update.isPending}>
-                {update.isPending ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                ) : null}
-                <T k="account.save" />
-              </Button>
-            </form>
+            <Link
+              href="/settings"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "rounded-lg",
+              )}
+            >
+              <Settings className="size-3.5" aria-hidden />
+              <T k="nav.settings" />
+            </Link>
           </CardContent>
         </Card>
 
@@ -169,11 +122,10 @@ export function AccountView({
             </CardTitle>
             <CardDescription>
               {user.provider === "telegram"
-                ? "Telegram"
+                ? t("settings.telegram")
                 : user.provider === "email"
-                  ? "Email code"
-                  : "Member"}
-              {" · secure cookie session"}
+                  ? t("settings.emailCode")
+                  : t("settings.member")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -185,17 +137,16 @@ export function AccountView({
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Next visit</CardTitle>
-            <CardDescription>Your next visit.</CardDescription>
+            <CardTitle>{t("visits.upcoming")}</CardTitle>
           </CardHeader>
           <CardContent>
             {bookings.isPending || !todayDate ? (
-              <Skeleton className="h-16 w-full" />
+              <LoadingRows count={1} rowClassName="h-16 w-full" />
             ) : next ? (
               <div className="space-y-2">
                 <p className="font-medium">{next.serviceName}</p>
                 <p className="text-sm text-muted-foreground">
-                  {next.barberName} · {formatDate(next.date)} at{" "}
+                  {next.barberName} · {formatDate(next.date)} ·{" "}
                   {label(next.start)}
                 </p>
                 <Link
@@ -205,46 +156,36 @@ export function AccountView({
                     "mt-1 rounded-lg",
                   )}
                 >
-                  Manage booking
+                  <T k="visits.manage" />
                 </Link>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  No chair reserved yet.
-                </p>
-                <Link
-                  href="/book"
-                  className={cn(
-                    buttonVariants({ size: "sm" }),
-                    "rounded-lg",
-                  )}
-                >
-                  <Scissors className="size-3.5" aria-hidden />
-                  <T k="nav.book" />
-                </Link>
-              </div>
+              <EmptyState
+                action={
+                  <Link
+                    href="/book"
+                    className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
+                  >
+                    <Scissors className="size-3.5" aria-hidden />
+                    <T k="nav.book" />
+                  </Link>
+                }
+              >
+                {t("visits.nothingBooked")}
+              </EmptyState>
             )}
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
-          <Card size="sm">
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Upcoming</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
-                {todayDate ? upcoming.length : "—"}
-              </p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardContent>
-              <p className="text-xs text-muted-foreground">Completed</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
-                {bookings.isPending ? "—" : done.length}
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            label={t("common.upcoming")}
+            value={todayDate ? upcoming.length : "—"}
+          />
+          <StatCard
+            label={t("common.completed")}
+            value={bookings.isPending ? "—" : done.length}
+          />
         </div>
 
         <Card size="sm">

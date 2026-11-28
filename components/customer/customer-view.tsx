@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   useCustomerOverview,
   useFavorites,
@@ -36,17 +37,7 @@ function Stat({ label: name, value, icon: Icon }: {
   value: number | string;
   icon: typeof Bell;
 }) {
-  return (
-    <Card size="sm">
-      <CardContent className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted-foreground">{name}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-        </div>
-        <Icon className="size-4 text-brand-strong" aria-hidden />
-      </CardContent>
-    </Card>
-  );
+  return <StatCard label={name} value={value} icon={Icon} />;
 }
 
 function DashboardSkeleton() {

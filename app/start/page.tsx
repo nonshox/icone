@@ -1,3 +1,4 @@
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -6,7 +7,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { homeForRole } from "@/lib/auth/home";
 import { getProfile } from "@/lib/domain/account";
 
-export const metadata = { title: "Redirecting" };
+export const metadata = routeMetadata({
+  path: "/start",
+  titleKey: "app.loading",
+  descriptionKey: "meta.private.description",
+  private: true,
+});
 
 async function RoleHome() {
   const user = await getCurrentUser();

@@ -199,8 +199,11 @@
     border: none;
   }
 
+  /* Keyboard focus stays visible everywhere. The ring colour is a token so
+     both light and dark themes get a readable indicator. */
   :focus-visible {
-    outline: none;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   @media (prefers-reduced-motion: reduce) {

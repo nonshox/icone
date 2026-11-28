@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   const guarded = await requireWorkspace("portfolio.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:portfolio:${guarded.actor.userId}`, 60);
+  const denied = await writeDenied(request, `barber:portfolio:${guarded.actor.userId}`, 60);
   if (denied) return denied;
 
   const json = await readJson(request);
@@ -101,7 +101,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireWorkspace("portfolio.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:portfolio:${guarded.actor.userId}`, 60);
+  const denied = await writeDenied(request, `barber:portfolio:${guarded.actor.userId}`, 60);
   if (denied) return denied;
 
   const json = await readJson(request);
@@ -140,7 +140,7 @@ export async function DELETE(request: NextRequest) {
   const guarded = await requireWorkspace("portfolio.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:portfolio:${guarded.actor.userId}`, 60);
+  const denied = await writeDenied(request, `barber:portfolio:${guarded.actor.userId}`, 60);
   if (denied) return denied;
 
   const parsed = idSchema.safeParse(request.nextUrl.searchParams.get("id"));

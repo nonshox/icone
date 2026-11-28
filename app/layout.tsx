@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { T } from "@/components/i18n/t";
 import { Providers } from "@/components/providers";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { metaText } from "@/lib/metadata";
 
 import "./globals.css";
 
@@ -30,13 +31,14 @@ const instrumentSerif = Instrument_Serif({
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://icone-uz.vercel.app";
 
-const description =
-  "Book Tashkent's sharpest barbers in seconds. Live availability, real profiles and one-tap Telegram sign-in. No calls, no queues, no passwords.";
+// Static metadata cannot read the browser's locale: Uzbek is the default.
+const siteTitle = metaText("meta.site.title");
+const description = metaText("meta.site.description");
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "icone — your chair is waiting",
+    default: siteTitle,
     template: "%s · icone",
   },
   description,
@@ -61,14 +63,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "icone",
-    locale: "uz_UZ",
-    title: "icone — your chair is waiting",
+    locale: metaText("meta.site.ogLocale"),
+    title: siteTitle,
     description,
     url: appUrl,
   },
   twitter: {
     card: "summary_large_image",
-    title: "icone — your chair is waiting",
+    title: siteTitle,
     description,
   },
   robots: {

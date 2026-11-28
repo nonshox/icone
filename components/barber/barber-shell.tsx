@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { SiteHeader } from "@/components/layout/site-header";
-import { T } from "@/components/i18n/t";
+import { NavPills } from "@/components/barber/barber-ui";
 import { getActor, hasTeam, can, type Capability } from "@/lib/domain/access";
 
 /** Links shown to every professional, independent barbers included. */
@@ -39,22 +38,7 @@ export async function BarberNav() {
       : []),
   ];
 
-  return (
-    <nav
-      aria-label="Business sections"
-      className="flex flex-wrap gap-2 border-b border-border pb-4"
-    >
-      {links.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className="rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-brand/10 hover:text-foreground"
-        >
-          <T k={link.label} />
-        </Link>
-      ))}
-    </nav>
-  );
+  return <NavPills links={links} labelKey="nav.business" />;
 }
 
 /** Session check happens inside Suspense so the page shell stays static. */
@@ -95,7 +79,7 @@ export function BarberShell({
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
 
-      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description ? (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>

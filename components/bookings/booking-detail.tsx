@@ -13,7 +13,13 @@ import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
-import { Badge } from "@/components/ui/badge";
+import {
+  EmptyState,
+  ErrorState,
+  FormError,
+  LoadingRows,
+  message,
+} from "@/components/ui/app-state";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -31,38 +37,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useBookings, useCreateReview, useProfile, useSetStatus } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
-import { CANCELLABLE, type BookingRow, type Status } from "@/lib/domain/types";
+import { CANCELLABLE, type BookingRow } from "@/lib/domain/types";
 import { RebookButton } from "./rebook-button";
 import { RescheduleControl } from "./reschedule-control";
 import { useServiceNames } from "./use-service-names";
-
-const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
-  pending: "outline",
-  confirmed: "default",
-  rejected: "destructive",
-  cancelled: "outline",
-  done: "secondary",
-  noshow: "destructive",
-};
-
-function message(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
-
-function DetailSkeleton() {
-  return (
-    <div className="space-y-3" aria-hidden>
-      <Skeleton className="h-8 w-40" />
-      <Skeleton className="h-52 w-full" />
-      <Skeleton className="h-36 w-full" />
-    </div>
-  );
-}
 
 export function BookingDetail({ id }: { id: string }) {
   const t = useT();
@@ -113,40 +96,34 @@ export function BookingDetail({ id }: { id: string }) {
     );
   }
 
-  if (bookings.isPending || !todayDate) return <DetailSkeleton />;
+  if (bookings.isPending || !todayDate) {
+    return <LoadingRows count={3} rowClassName="h-24 w-full" />;
+  }
 
   if (bookings.isError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("visits.loadFailed")}</CardTitle>
-          <CardDescription><T k="visits.tryShort" /></CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p role="alert" aria-live="polite" className="text-sm text-destructive">
-            {message(bookings.error, t("visits.loadError"))}
-          </p>
-        </CardContent>
-      </Card>
+      <ErrorState
+        error={bookings.error}
+        fallback={t("visits.loadError")}
+        title={t("visits.loadFailed")}
+      />
     );
   }
 
   if (!row) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("visits.notFound")}</CardTitle>
-          <CardDescription><T k="visits.tryShort" /></CardDescription>
-        </CardHeader>
-        <CardContent>
+      <EmptyState
+        title={t("visits.notFound")}
+        description={t("visits.tryShort")}
+        action={
           <Link
             href="/bookings"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             <T k="nav.myVisits" />
           </Link>
-        </CardContent>
-      </Card>
+        }
+      />
     );
   }
 
@@ -184,15 +161,7 @@ export function BookingDetail({ id }: { id: string }) {
         )}
       </div>
 
-      {actionError ? (
-        <p
-          role="alert"
-          aria-live="polite"
-          className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        >
-          {actionError}
-        </p>
-      ) : null}
+      <FormError text={actionError} />
 
       <Card>
         <CardHeader>
@@ -201,9 +170,7 @@ export function BookingDetail({ id }: { id: string }) {
               <CardTitle className="text-xl">{serviceNames(row)}</CardTitle>
               <CardDescription>· {row.barberName}</CardDescription>
             </div>
-            <Badge variant={badgeVariant[row.status]}>
-              <T k={`status.${row.status}`} />
-            </Badge>
+            <StatusBadge status={row.status} />
           </div>
         </CardHeader>
 

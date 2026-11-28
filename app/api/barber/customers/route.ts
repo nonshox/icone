@@ -19,7 +19,7 @@ import { createClient, findClient } from "@/lib/domain/appointment";
 import { toBooking } from "@/lib/domain/booking";
 import { bool, list, str, update, type Row } from "@/lib/domain/crud";
 import { label } from "@/lib/domain/time";
-import type { Booking, Profile } from "@/lib/domain/types";
+import { isCompleted, isVisit, type Booking, type Profile } from "@/lib/domain/types";
 import { apiError, apiOk } from "@/lib/http";
 
 const noteSchema = z
@@ -31,9 +31,6 @@ const noteSchema = z
   .refine((value) => Boolean(value.userId || value.client), {
     message: "Pick a customer.",
   });
-
-/** Statuses that still mean a person came to this chair. */
-const HELD = new Set(["pending", "confirmed", "done"]);
 
 /** An owner sees everyone in the shop; a barber sees their own visitors. */
 function targetWorkspace(actor: Actor, workspace: Workspace): Workspace {
@@ -132,10 +129,10 @@ function toCustomer(id: string, data: CustomerData) {
     name: profile?.name ?? data.clientNames.get(id) ?? "Member",
     phone: profile?.phone ?? data.clientPhones.get(id) ?? "",
     avatar: profile?.avatar ?? "",
-    visits: mine.filter((row) => HELD.has(row.status)).length,
-    completed: mine.filter((row) => row.status === "done").length,
+    visits: mine.filter((row) => isVisit(row.status)).length,
+    completed: mine.filter((row) => isCompleted(row.status)).length,
     spend: mine
-      .filter((row) => row.status === "done")
+      .filter((row) => isCompleted(row.status))
       .reduce((total, row) => total + row.price, 0),
     last: mine.reduce((last, row) => (row.date > last ? row.date : last), ""),
     services: [
@@ -197,7 +194,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireWorkspace("customer.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:customers:${guarded.actor.userId}`,
     60,

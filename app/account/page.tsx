@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { AccountView } from "@/components/account/account-view";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -9,10 +9,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getActor } from "@/lib/domain/access";
 import { getProfile } from "@/lib/domain/account";
 
-export const metadata: Metadata = {
-  title: "Account",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/account",
+  titleKey: "account.title",
+  descriptionKey: "meta.private.description",
+  private: true,
+});
 
 async function AccountPanel() {
   const user = await getCurrentUser();

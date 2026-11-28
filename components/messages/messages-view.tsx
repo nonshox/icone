@@ -1,5 +1,8 @@
 "use client";
 
+import { message } from "@/components/ui/app-state";
+
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, MessageCircle, Send } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -16,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  messageKeys,
   useSendMessage,
   useThread,
   useThreads,
@@ -57,11 +61,6 @@ function clock(iso: string, locale: Locale): string {
   }).format(date);
 }
 
-function message(_error: unknown, fallback: string): string {
-  // Server errors are English; the localized fallback is the user-facing copy.
-  return fallback;
-}
-
 function Bubble({
   item,
   own,
@@ -98,6 +97,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement | null>(null);
+  const queryClient = useQueryClient();
 
   const profile = useProfile();
   const threads = useThreads();
@@ -109,6 +109,14 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
   }, [messages.length, selected]);
+
+  // Reading a thread clears its unread counter on the server; refresh the list
+  // so the dot disappears without waiting for the next polling interval.
+  const opened = thread.data?.conversation;
+  useEffect(() => {
+    if (!opened) return;
+    void queryClient.invalidateQueries({ queryKey: messageKeys.threads });
+  }, [opened, queryClient]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -189,7 +197,15 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
               )}
             >
               <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-medium">{item.name}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">{item.name}</span>
+                  {item.unread > 0 ? (
+                    <span
+                      className="size-1.5 shrink-0 rounded-full bg-brand"
+                      aria-label={t("inbox.new")}
+                    />
+                  ) : null}
+                </span>
                 <span className="shrink-0 text-[0.7rem] text-muted-foreground tabular-nums">
                   {detail(item.at ?? item.lastAt ?? "", locale)}
                 </span>

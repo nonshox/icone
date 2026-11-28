@@ -51,7 +51,7 @@ async function writeGuard(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:categories:${guard.actor.userId}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`admin:categories:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
   return { actor: guard.actor };
 }

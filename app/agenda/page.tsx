@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { AgendaView } from "@/components/agenda/agenda-view";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { can, getActor } from "@/lib/domain/access";
 
-export const metadata: Metadata = {
-  title: "Agenda",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/agenda",
+  titleKey: "nav.agenda",
+  descriptionKey: "work.agenda.hint",
+  private: true,
+});
 
 async function AgendaGate() {
   const actor = await getActor();

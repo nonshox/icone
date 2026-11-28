@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { imageUrl } from "@/lib/client/files";
+import { metaText } from "@/lib/metadata";
 import { businessBySlug, isPublic, listBranches } from "@/lib/domain/business";
 import { shopServices } from "@/lib/domain/discovery";
 import { listBusinessBarbers } from "@/lib/domain/professional";
@@ -24,16 +25,15 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const business = await businessBySlug(slug).catch(() => null);
-  if (!business) return { title: "Barbershop — icone" };
+  const fallback = metaText("meta.shop.description");
+  if (!business) return { title: metaText("meta.shop.title") };
   return {
     title: `${business.name} · icone`,
-    description:
-      business.about ||
-      `${business.name} in ${business.city} — services, team and booking on icone.`,
+    description: business.about || `${business.name} — ${fallback}`,
     robots: { index: true, follow: true },
     openGraph: {
       title: `${business.name} · icone`,
-      description: business.about || `Book a barbershop in ${business.city}.`,
+      description: business.about || fallback,
       images: imageUrl(business.logo) ? [imageUrl(business.logo)] : undefined,
     },
   };

@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:branch-hours:${guarded.actor.userId}`,
     60,
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:branch-hours:${guarded.actor.userId}`,
     60,

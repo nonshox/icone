@@ -4,12 +4,12 @@ import { Query } from "node-appwrite";
 
 import { TABLES } from "@/lib/appwrite/db";
 
-import { bool, create, first, getMany, list, num, str, update, type Row } from "./crud";
+import { bool, count, create, first, getMany, list, num, str, update, type Row } from "./crud";
 import { toBooking, logStatus, getBooking } from "./booking";
 import { getBarbers } from "./professional";
 import { getBusinessesSafe, getBranchesSafe } from "./directory";
 import { shopClock } from "./time";
-import { CANCELLABLE, type Booking, type BookingRow, type Status } from "./types";
+import { isCancellable, isHolding, type Booking, type BookingRow, type Status } from "./types";
 
 /** Statuses a transition may start from. */
 const FROM: Record<Status, readonly Status[]> = {
@@ -49,7 +49,7 @@ export const CUSTOMER_CANCEL_MINUTES = 120;
  * customer from vanishing minutes before their slot.
  */
 export function customerCanCancel(booking: Booking): boolean {
-  if (!CANCELLABLE.includes(booking.status)) return false;
+  if (!isCancellable(booking.status)) return false;
 
   const clock = shopClock();
   if (booking.date < clock.date) return false;
@@ -58,12 +58,23 @@ export function customerCanCancel(booking: Booking): boolean {
   return booking.start - clock.minutes >= CUSTOMER_CANCEL_MINUTES;
 }
 
+/** Length of a booking's append-only status trail. */
+function logLength(bookingId: string): Promise<number> {
+  return count(TABLES.apptlog, [Query.equal("booking", bookingId)]);
+}
+
 /**
  * Move an appointment to its next state, recording who did it and why.
  *
- * Transitions are checked against the row's *current* status inside the same
- * call that writes it, so two staff tapping "complete" and "cancel" cannot
- * both win: the second one sees the new status and is refused.
+ * Appwrite has no transactions, so safety is best-effort with two guards:
+ * the booking row is re-read immediately before the write (the caller's copy
+ * may be stale), and the append-only `apptlog` is used as a deterministic
+ * claim. We append our log row first, then check that (a) it is the only row
+ * added since the trail we read and (b) the booking still has the status we
+ * validated. Two staff tapping "complete" and "cancel" at the same moment
+ * therefore produce exactly one winner; the loser is refused with 409 and
+ * both outcomes are logged for diagnosis. A replay that finds the booking
+ * already in the target state stays idempotent.
  */
 export async function transition(input: {
   booking: Booking;
@@ -73,8 +84,6 @@ export async function transition(input: {
   kind?: string;
 }): Promise<TransitionResult> {
   const { to } = input;
-  // Re-read immediately before writing: the caller's copy may already be
-  // stale because another staff member acted on the same booking.
   const current = (await getBooking(input.booking.id)) ?? input.booking;
 
   if (current.status === to) {
@@ -89,9 +98,8 @@ export async function transition(input: {
     );
   }
 
-  const row = await update(TABLES.bookings, current.id, { status: to });
-
-  await logStatus(
+  const before = await logLength(current.id);
+  const logId = await logStatus(
     current.id,
     current.status,
     to,
@@ -99,6 +107,40 @@ export async function transition(input: {
     input.kind ?? "status",
     input.note ?? "",
   );
+
+  // The log write itself is best-effort. Without a claim we still write the
+  // status, but say so loudly instead of pretending the race was checked.
+  if (!logId) {
+    console.warn("[domain] transition without log claim", {
+      booking: current.id,
+      from: current.status,
+      to,
+    });
+    const row = await update(TABLES.bookings, current.id, { status: to });
+    if (to === "cancelled" || to === "rejected") await releaseWaitlist(current);
+    return { ok: true, booking: toBooking(row) };
+  }
+
+  const after = await logLength(current.id);
+  const latest = (await getBooking(current.id)) ?? current;
+
+  if (after !== before + 1 || latest.status !== current.status) {
+    console.warn("[domain] transition lost concurrent claim", {
+      booking: current.id,
+      from: current.status,
+      to,
+      logRows: { before, after },
+      latest: latest.status,
+    });
+    if (latest.status === to) return { ok: true, booking: latest };
+    return fail(
+      409,
+      "transition_conflict",
+      "This appointment was just changed by someone else. Refresh and try again.",
+    );
+  }
+
+  const row = await update(TABLES.bookings, current.id, { status: to });
 
   // A cancelled or rejected visit gives the slot back to everybody.
   if (to === "cancelled" || to === "rejected") {
@@ -323,7 +365,7 @@ export async function appointmentDetail(
   return { booking: await toBookingRow(booking), history };
 }
 
-/** Cancelled and rejected visits are not counted as workload. */
+/** Cancelled, rejected, no-show and completed visits are not current workload. */
 export function isOccupied(booking: Booking): boolean {
-  return booking.status === "pending" || booking.status === "confirmed";
+  return isHolding(booking.status);
 }

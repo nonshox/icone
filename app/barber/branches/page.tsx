@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BarberShell, BarberSkeleton } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 import { Card, CardContent } from "@/components/ui/card";
 import { BranchManager } from "@/components/team/branch-manager";
 import { can, getActor } from "@/lib/domain/access";
 
-export const metadata: Metadata = {
-  title: "Branches",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/barber/branches",
+  titleKey: "nav.branches",
+  descriptionKey: "work.branches.hint",
+  private: true,
+});
 
 async function BranchesPanel() {
   const actor = await getActor();

@@ -30,6 +30,16 @@ checks capabilities before any sensitive domain call.
 product but no code touches them: there are no online payments, commissions,
 ads or promotional campaigns.
 
+## Platform settings
+
+The `settings` document holds only `applicationsOpen`, `autoVerify` and
+`notice` — the fields the product actually reads (applications and the
+sign-in notice). `maintenance`, `horizon` and `lead` were removed because no
+code read them. Booking lead time and horizon are constants in
+`lib/domain/availability.ts` (`LEAD_MINUTES` 30, `HORIZON_DAYS` 60), not
+admin-editable values. Unknown legacy fields are dropped on read and on the
+next write, so the stored document is cleaned without a migration script.
+
 ## Identity and isolation
 
 - One person is one `tg_<telegram_id>` account. The same account is both a
@@ -52,11 +62,30 @@ ads or promotional campaigns.
 - The canonical statuses are `pending`, `confirmed`, `rejected`, `cancelled`,
   `done`, `noshow`. Historical `booked`/`accepted`/`cancel` rows are normalized
   on read by `normalizeStatus()` — never rewrite history.
+- `lib/domain/types.ts` is the one status authority: `HOLDING_STATUSES`
+  (`pending`, `confirmed`) with `isHolding()`, `isCancellable()` and
+  `CANCELLABLE`, plus `VISIT_STATUSES`, `COMPLETED_STATUSES` and
+  `DISMISSED_STATUSES` for history. `done` is **historical**: it counts as a
+  visit and as revenue but never holds a future slot. Availability, booking
+  race checks and upcoming lists use `isHolding()`; CRM visit counts use
+  `isVisit()` so completed visits stay in the customer's history. Never spell
+  out a status group in a route handler or component.
+- Appointment transitions re-read the booking and use the append-only
+  `apptlog` as a best-effort claim: only the writer whose log row is the sole
+  addition since its read may update the row; the other gets `409
+  transition_conflict`. No database transactions are available; conflicts and
+  failed log writes are logged for diagnosis.
 - Appwrite has no transactions. Booking safety is insert-then-verify: every
   competing insert is written, then exactly one deterministic winner (oldest
   `created`, then lowest `$id`) keeps the slot; the rest are cancelled.
 - Walk-ins are real booking rows (`source: walkin`) and block the same slots as
   online bookings. Deactivated staff and retired services are not bookable.
+- `bookings.items` currently stores a JSON array of service ids.
+  `parseItems()` in `lib/domain/booking.ts` reads that legacy shape and a future
+  array of `BookingItemSnapshot` (`service`, `name`, `price`, `time`) into one
+  snapshot list; write paths still store ids. `Offer`, `CustomerRecord` and
+  `ConversationRecord` in `lib/domain/types.ts` are read-side shapes for the
+  next slice of work, not new Appwrite columns.
 
 ## Images
 
@@ -68,6 +97,26 @@ Rows store that id — not a URL — in `photo`, `avatar`, `logo`, `cover`,
 `portfolio.url` or `service.image`. `lib/client/files.ts` resolves an id to a
 public view URL with the public endpoint, project and bucket id; legacy
 absolute URLs still render as before.
+
+## Materialised reads and migrations
+
+- `offers` stores each employee's effective service price/duration. `services`
+  and `empser` remain the source of truth; `offers` is a read-first cache with
+  fallback, so a missing row never breaks booking. No `-1` sentinel is written
+  to `offers`.
+- `customers` is one canonical customer per business (owner = business id or
+  an independent barber id). `clients` is retained for one release; no
+  destructive merge. `bookings.customer` links a visit to that record, and
+  `bookings.items` stores a `{service,name,price,time}` snapshot so renaming a
+  service cannot rewrite history.
+- `conversations` holds canonical participant pairs, last message preview and
+  per-participant unread counters. Opening a thread clears that participant's
+  unread count. Historical messages are untouched.
+- `ratelimit` and `migrations` are shared infrastructure collections. The
+  limiter is Appwrite-backed (per-instance memory is unsafe on serverless).
+- Deploy order: `npm run db:setup` (fresh installs) or `npm run db:migrate`
+  (existing installs), then `npm run db:backfill`, then deploy the app. All
+  backfills are idempotent and report counts; none deletes rows.
 
 ## Setup
 

@@ -515,12 +515,6 @@ function SettingsForm({
             checked={notificationPrefs.business}
             onChange={(value) => setPref("business", value)}
           />
-          <ToggleRow
-            id="pref-marketing"
-            label={t("work.settings.prefMarketing")}
-            checked={notificationPrefs.marketing}
-            onChange={(value) => setPref("marketing", value)}
-          />
         </CardContent>
       </Card>
 

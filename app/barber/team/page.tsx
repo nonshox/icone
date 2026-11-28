@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BarberShell, BarberSkeleton } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 import { Card, CardContent } from "@/components/ui/card";
 import { TeamManager } from "@/components/team/team-manager";
 import { can, getActor, isOwner } from "@/lib/domain/access";
 
-export const metadata: Metadata = {
-  title: "Team",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/barber/team",
+  titleKey: "nav.team",
+  descriptionKey: "work.team.hint",
+  private: true,
+});
 
 async function TeamPanel() {
   const actor = await getActor();

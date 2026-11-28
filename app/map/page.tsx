@@ -1,13 +1,15 @@
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { MapView } from "@/components/map/map-view";
 
-export const metadata = {
-  title: "Map — icone",
-  description: "Find barbers and barbershops near you on the map.",
-};
+export const metadata = routeMetadata({
+  path: "/map",
+  titleKey: "nav.map",
+  descriptionKey: "map.subtitle",
+});
 
 async function MapWithQuery({
   searchParams,

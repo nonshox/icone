@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
   const guarded = await requireWorkspace("service.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:services:${guarded.actor.userId}`, 90);
+  const denied = await writeDenied(request, `barber:services:${guarded.actor.userId}`, 90);
   if (denied) return denied;
 
   const json = await readJson(request);
@@ -157,7 +157,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireWorkspace("service.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:services:${guarded.actor.userId}`, 90);
+  const denied = await writeDenied(request, `barber:services:${guarded.actor.userId}`, 90);
   if (denied) return denied;
 
   const json = await readJson(request);
@@ -194,7 +194,7 @@ export async function DELETE(request: NextRequest) {
   const guarded = await requireWorkspace("service.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:services:${guarded.actor.userId}`, 90);
+  const denied = await writeDenied(request, `barber:services:${guarded.actor.userId}`, 90);
   if (denied) return denied;
 
   const parsed = idSchema.safeParse(request.nextUrl.searchParams.get("id"));

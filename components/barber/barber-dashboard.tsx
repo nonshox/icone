@@ -22,7 +22,14 @@ import { useT } from "@/lib/i18n/use-t";
 import { addDays, formatDate, label, shopClock } from "@/lib/domain/time";
 import type { BookingRow, Status } from "@/lib/domain/types";
 
-import { Empty, LoadingRows, message, StatusBadge } from "./barber-ui";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+  message,
+} from "@/components/ui/app-state";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 const LINKS = [
   { href: "/agenda", key: "nav.agenda" },
@@ -81,19 +88,6 @@ function useShopNow() {
 }
 
 /* -------------------------------------------------------------- building blocks */
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card className="glass">
-      <CardContent className="p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          {label}
-        </p>
-        <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 function actionLabel(target: Status, t: (key: string) => string): string {
   switch (target) {
@@ -214,11 +208,9 @@ function TodayPanel({
         {isPending ? (
           <LoadingRows />
         ) : isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t("work.agenda.loadError")}
-          </p>
+          <ErrorState fallback={t("work.agenda.loadError")} />
         ) : bookings.length === 0 ? (
-          <Empty>{t("work.agenda.noBookings")}</Empty>
+          <EmptyState>{t("work.agenda.noBookings")}</EmptyState>
         ) : (
           <ul className="space-y-2">
             {bookings.map((booking) => (
@@ -265,11 +257,9 @@ function PendingPanel({
         {isPending ? (
           <LoadingRows />
         ) : isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t("work.agenda.loadError")}
-          </p>
+          <ErrorState fallback={t("work.agenda.loadError")} />
         ) : bookings.length === 0 ? (
-          <Empty>{t("work.dashboard.allCaughtUp")}</Empty>
+          <EmptyState>{t("work.dashboard.allCaughtUp")}</EmptyState>
         ) : (
           <ul className="space-y-2">
             {bookings.map((booking) => (
@@ -324,11 +314,9 @@ function NextPanel({
         {isPending ? (
           <LoadingRows />
         ) : isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {t("work.agenda.loadError")}
-          </p>
+          <ErrorState fallback={t("work.agenda.loadError")} />
         ) : !booking ? (
-          <Empty>{t("work.dashboard.nextEmpty")}</Empty>
+          <EmptyState>{t("work.dashboard.nextEmpty")}</EmptyState>
         ) : (
           <div className="space-y-1.5">
             <p className="text-lg font-semibold tabular-nums">
@@ -367,11 +355,12 @@ function WorkspacePanel() {
         {settings.isPending ? (
           <LoadingRows />
         ) : settings.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {message(settings.error, t("work.loadError"))}
-          </p>
+          <ErrorState
+            error={settings.error}
+            fallback={t("work.loadError")}
+          />
         ) : !profile ? (
-          <Empty>{t("work.dashboard.locationEmpty")}</Empty>
+          <EmptyState>{t("work.dashboard.locationEmpty")}</EmptyState>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
@@ -417,8 +406,7 @@ export function BarberDashboard() {
           ),
         onError: (error) =>
           toast.error(t("work.toast.failed"), {
-            description:
-              error instanceof Error ? error.message : t("common.tryAgain"),
+            description: message(error, t("common.tryAgain")),
           }),
       },
     );
@@ -427,14 +415,12 @@ export function BarberDashboard() {
   if (dashboard.isPending) return <LoadingRows />;
   if (dashboard.isError) {
     return (
-      <p role="alert" className="text-sm text-destructive">
-        {message(dashboard.error, t("work.loadError"))}
-      </p>
+      <ErrorState error={dashboard.error} fallback={t("work.loadError")} />
     );
   }
 
   const data = dashboard.data;
-  if (!data) return <Empty>{t("work.loadError")}</Empty>;
+  if (!data) return <EmptyState>{t("work.loadError")}</EmptyState>;
 
   const quiet =
     data.today + data.upcoming + data.pending + data.completed === 0;
@@ -452,20 +438,20 @@ export function BarberDashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label={t("common.today")} value={data.today} />
-        <Stat label={t("common.upcoming")} value={data.upcoming} />
-        <Stat label={t("work.stat.pending")} value={data.pending} />
-        <Stat label={t("common.completed")} value={data.completed} />
-        <Stat label={t("work.stat.clients")} value={data.clients} />
-        <Stat label={t("work.stat.returning")} value={data.returning} />
-        <Stat
+        <StatCard label={t("common.today")} value={data.today} />
+        <StatCard label={t("common.upcoming")} value={data.upcoming} />
+        <StatCard label={t("work.stat.pending")} value={data.pending} />
+        <StatCard label={t("common.completed")} value={data.completed} />
+        <StatCard label={t("work.stat.clients")} value={data.clients} />
+        <StatCard label={t("work.stat.returning")} value={data.returning} />
+        <StatCard
           label={t("work.stat.rating")}
           value={data.rating > 0 ? data.rating.toFixed(1) : "—"}
         />
-        <Stat label={t("work.stat.views")} value={data.views} />
+        <StatCard label={t("work.stat.views")} value={data.views} />
       </div>
 
-      {quiet ? <Empty>{t("work.dashboard.empty")}</Empty> : null}
+      {quiet ? <EmptyState>{t("work.dashboard.empty")}</EmptyState> : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <TodayPanel

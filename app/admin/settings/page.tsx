@@ -1,12 +1,14 @@
-import type { Metadata } from "next";
 
+import { routeMetadata } from "@/lib/metadata";
 import { AdminFrame } from "@/components/admin/admin-frame";
 import { SettingsView } from "@/components/admin/settings-view";
 
-export const metadata: Metadata = {
-  title: "Admin — Settings",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/admin/settings",
+  titleKey: "admin.settings.title",
+  descriptionKey: "admin.settings.description",
+  private: true,
+});
 
 export default function AdminSettingsPage() {
   return (

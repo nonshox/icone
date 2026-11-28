@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "db:setup": "node scripts/setup-appwrite.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:backfill": "node scripts/backfill-offers.mjs && node scripts/backfill-customers.mjs && node scripts/backfill-conversations.mjs",
     "db:staff": "node scripts/staff.mjs",
     "tg:webhook": "node scripts/telegram-webhook.mjs",
     "tg:miniapp": "node scripts/telegram-miniapp.mjs"

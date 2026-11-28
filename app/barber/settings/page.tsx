@@ -1,13 +1,15 @@
-import type { Metadata } from "next";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BarberSettings } from "@/components/barber/barber-settings";
 import { BarberShell } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 
-export const metadata: Metadata = {
-  title: "Business settings",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/barber/settings",
+  titleKey: "nav.settings",
+  descriptionKey: "work.settings.profileHint",
+  private: true,
+});
 
 export default function BarberSettingsPage() {
   return (

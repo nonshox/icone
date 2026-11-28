@@ -30,7 +30,7 @@ both, and at 390px width.
 ## Copy and language
 
 Uzbek is the default; Russian and English are available from the header
-switcher. Static strings go into `lib/i18n/dictionaries.ts` for all three
+switcher. Static strings go into `lib/i18n/locales/<locale>.ts` for all three
 languages and are rendered with `<T k="..." />` or `useT()`. Prices use UZS
 formatting, phones use +998, dates and times use Asia/Tashkent and come from
 `lib/domain/time.ts` or `lib/client/date.ts` — never from `new Date()` during

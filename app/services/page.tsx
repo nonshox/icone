@@ -1,9 +1,9 @@
 import { Query } from "node-appwrite";
 import { ArrowUpRight, Clock3, Scissors } from "lucide-react";
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,10 +16,11 @@ import { getBarbers } from "@/lib/domain/professional";
 import { formatPrice } from "@/lib/domain/time";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Services",
-  description: "Barber services and prices at icone.",
-};
+export const metadata = routeMetadata({
+  path: "/services",
+  titleKey: "services.title",
+  descriptionKey: "services.subtitle",
+});
 
 async function ServiceList() {
   let services;

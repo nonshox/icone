@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { WaitlistView } from "@/components/waitlist/waitlist-view";
@@ -13,10 +13,12 @@ async function WaitlistGate() {
   return <WaitlistView />;
 }
 
-export const metadata: Metadata = {
-  title: "Waitlist — icone",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/waits",
+  titleKey: "waitlist.pageTitle",
+  descriptionKey: "waitlist.pageSubtitle",
+  private: true,
+});
 
 export default function WaitsPage() {
   return (

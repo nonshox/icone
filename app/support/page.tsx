@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SupportTicketForm } from "@/components/support/support-ticket-form";
@@ -12,10 +12,11 @@ import { getActor } from "@/lib/domain/access";
 import { publicConfig } from "@/lib/public-config";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Support",
-  description: "Get help with a booking, an account or a visit at icone.",
-};
+export const metadata = routeMetadata({
+  path: "/support",
+  titleKey: "support.title",
+  descriptionKey: "meta.support.description",
+});
 
 const channels = [
   {

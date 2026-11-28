@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   useAnalytics,
   type AnalyticsKey,
@@ -27,16 +28,7 @@ const RANGES: Array<{ key: AnalyticsKey; label: string }> = [
 ];
 
 function Stat({ label, value }: { label: ReactNode; value: string | number }) {
-  return (
-    <Card className="glass">
-      <CardContent className="p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-          {label}
-        </p>
-        <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
-  );
+  return <StatCard label={label} value={value} />;
 }
 
 function HistogramCard({ title, rows }: { title: ReactNode; rows: HistogramRow[] }) {

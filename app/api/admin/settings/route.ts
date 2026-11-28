@@ -12,9 +12,6 @@ const patchSchema = z
   .object({
     applicationsOpen: z.boolean().optional(),
     autoVerify: z.boolean().optional(),
-    maintenance: z.boolean().optional(),
-    horizon: z.number().int().min(1).max(365).optional(),
-    lead: z.number().int().min(0).max(1440).optional(),
     notice: z.string().trim().max(512).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
@@ -43,7 +40,7 @@ export async function PATCH(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:settings:${guard.actor.userId}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`admin:settings:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;

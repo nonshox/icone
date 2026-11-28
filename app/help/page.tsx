@@ -1,24 +1,18 @@
-import type { Metadata } from "next";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Help & FAQs",
-  description:
-    "How to book, cancel and review a visit at icone. Sign-in with Telegram, live availability, waitlist and team invitations explained.",
-  alternates: { canonical: "/help" },
-  openGraph: {
-    title: "Help & FAQs · icone",
-    description: "Everything about booking, visits and your icone account.",
-    url: "/help",
-  },
-};
+export const metadata = routeMetadata({
+  path: "/help",
+  titleKey: "help.title",
+  descriptionKey: "help.intro",
+});
 
 const steps = [
   { number: "01", title: "help.step1", body: "help.step1Body" },

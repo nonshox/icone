@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:places:${guard.actor.userId}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`admin:places:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -90,7 +90,7 @@ export async function PATCH(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:places:${guard.actor.userId}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`admin:places:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;

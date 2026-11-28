@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { NotificationsView } from "@/components/customer/notifications-view";
@@ -8,10 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getActor } from "@/lib/domain/access";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Notifications",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/notifications",
+  titleKey: "inbox.title",
+  descriptionKey: "inbox.newUpdates",
+  private: true,
+});
 
 async function NotificationsPanel() {
   const actor = await getActor();

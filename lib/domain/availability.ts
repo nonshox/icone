@@ -9,7 +9,7 @@ import { getBarber, isBookable, type BarberRow } from "./professional";
 import { getBranch } from "./business";
 import { getBreaks, getDay, getHours } from "./schedule";
 import { addDays, label, shopClock, today, weekday } from "./time";
-import type { BreakRow, Slot, Window } from "./types";
+import { HOLDING_STATUSES, type BreakRow, type Slot, type Window } from "./types";
 
 /** Bookings are offered on a fixed grid. */
 export const DEFAULT_STEP = 15;
@@ -17,9 +17,6 @@ export const DEFAULT_STEP = 15;
 export const LEAD_MINUTES = 30;
 /** How far ahead the calendar opens. */
 export const HORIZON_DAYS = 60;
-
-/** Statuses that hold a slot. Rejected and cancelled releases it. */
-const HOLDING = ["pending", "confirmed", "done"];
 
 export function isBookableDate(date: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -147,7 +144,12 @@ export async function getWindows(barber: BarberRow, date: string): Promise<Windo
   return windows;
 }
 
-/** Appointments that hold time on one professional's day. */
+/**
+ * Appointments that hold time on one professional's day.
+ *
+ * Only `HOLDING_STATUSES` block the calendar. A `done` visit is history — the
+ * client has left — so it never makes a later slot look taken.
+ */
 export async function busyFor(
   barberId: string,
   date: string,
@@ -160,7 +162,7 @@ export async function busyFor(
     const batch = await list(TABLES.bookings, [
       Query.equal("barber", barberId),
       Query.equal("date", date),
-      Query.equal("status", HOLDING),
+      Query.equal("status", [...HOLDING_STATUSES]),
       Query.limit(page),
       Query.offset(offset),
     ]);

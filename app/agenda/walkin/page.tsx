@@ -1,14 +1,16 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { WalkinForm } from "@/components/walkin/walkin-form";
 
-export const metadata: Metadata = {
-  title: "Walk-in — icone",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/agenda/walkin",
+  titleKey: "walkin.title",
+  descriptionKey: "walkin.subtitle",
+  private: true,
+});
 
 export default function WalkinPage() {
   return (

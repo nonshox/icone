@@ -26,15 +26,58 @@ export const STATUSES = [
 ] as const;
 export type Status = (typeof STATUSES)[number];
 
-/** Statuses that hold a slot open on the calendar. */
-export const BUSY_STATUSES: readonly Status[] = [
-  "pending",
-  "confirmed",
-  "done",
-];
+/**
+ * Statuses that hold a slot open on the calendar. This is the one authority
+ * for "does this appointment occupy a future chair?" — compare with
+ * `isHolding()` rather than spelling out statuses at call sites.
+ *
+ * `done` is deliberately absent: a finished visit is history, the client has
+ * left, and the chair must be bookable again. It still counts as a visit in
+ * the CRM (`isVisit`) and as completed revenue, but it never blocks a slot.
+ * `BUSY_STATUSES` is retained as an alias for any older callers.
+ */
+export const HOLDING_STATUSES: readonly Status[] = ["pending", "confirmed"];
+export const BUSY_STATUSES: readonly Status[] = HOLDING_STATUSES;
+
+export function isHolding(status: Status): boolean {
+  return HOLDING_STATUSES.includes(status);
+}
 
 /** Statuses a customer can still walk away from without a record of blame. */
-export const CANCELLABLE: readonly Status[] = ["pending", "confirmed"];
+export const CANCELLABLE: readonly Status[] = HOLDING_STATUSES;
+
+export function isCancellable(status: Status): boolean {
+  return CANCELLABLE.includes(status);
+}
+
+/**
+ * Statuses that count as a visit in the CRM — the person was seen or is still
+ * expected. Wider than `HOLDING_STATUSES` because completed visits belong in
+ * a customer's history even though they no longer hold a future slot.
+ */
+export const VISIT_STATUSES: readonly Status[] = ["pending", "confirmed", "done"];
+
+export function isVisit(status: Status): boolean {
+  return VISIT_STATUSES.includes(status);
+}
+
+/** A visit that actually finished; historical, but real revenue and history. */
+export const COMPLETED_STATUSES: readonly Status[] = ["done"];
+
+export function isCompleted(status: Status): boolean {
+  return COMPLETED_STATUSES.includes(status);
+}
+
+/** Terminal states where the appointment will not take place. */
+export const DISMISSED_STATUSES: readonly Status[] = [
+  "cancelled",
+  "rejected",
+  "noshow",
+];
+
+export function isDismissed(status: Status): boolean {
+  return DISMISSED_STATUSES.includes(status);
+}
 
 export type StatusLabel = Record<Status, string>;
 
@@ -72,7 +115,6 @@ export const DEFAULT_PREFS = {
   reminder: true,
   waitlist: true,
   business: true,
-  marketing: false,
 } as const;
 
 export type NotificationPrefs = {
@@ -80,7 +122,6 @@ export type NotificationPrefs = {
   reminder: boolean;
   waitlist: boolean;
   business: boolean;
-  marketing: boolean;
 };
 
 export type SessionUser = {
@@ -247,6 +288,18 @@ export type OfferedService = Service & {
   assigned: boolean;
 };
 
+/** Flat offer shape used when a booking item is stored with its own details. */
+export type Offer = {
+  id: string;
+  barber: string;
+  service: string;
+  business: string;
+  price: number;
+  time: number;
+  active: boolean;
+  sort: number;
+};
+
 /* --------------------------------------------------------------- schedule */
 
 /** Who a schedule row belongs to. */
@@ -313,6 +366,17 @@ export type AppointmentLogEntry = {
   at: string;
 };
 
+/**
+ * One service as it looked when the appointment was created. Stored on the
+ * booking so an old visit keeps its name and price after the catalogue changes.
+ */
+export type BookingItemSnapshot = {
+  service: string;
+  name: string;
+  price: number;
+  time: number;
+};
+
 /** A customer without an account — walk-ins and phone bookings. */
 export type Client = {
   id: string;
@@ -323,6 +387,31 @@ export type Client = {
   phone: string;
   note: string;
   active: boolean;
+};
+
+/** CRM view of one customer, with the account ids that resolve to them. */
+export type CustomerRecord = {
+  id: string;
+  business: string;
+  user: string;
+  phone: string;
+  name: string;
+  note: string;
+  active: boolean;
+  aliases: string[];
+};
+
+/** A direct-message thread between two accounts. */
+export type ConversationRecord = {
+  id: string;
+  pair: string;
+  id1: string;
+  id2: string;
+  last: string;
+  /** Epoch milliseconds in Appwrite; ISO string only in the public DTO. */
+  lastAt: string | number;
+  unread1: number;
+  unread2: number;
 };
 
 /* -------------------------------------------------------------- discovery */

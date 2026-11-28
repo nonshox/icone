@@ -41,7 +41,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireWorkspace("settings.profile");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:notifications:${guarded.actor.userId}`,
     60,

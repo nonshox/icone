@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BecomeBarberForm } from "@/components/applications/become-barber-form";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = {
-  title: "Become a barber",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/become-barber",
+  titleKey: "apply.title",
+  descriptionKey: "apply.subtitle",
+  private: true,
+});
 
 async function ApplyGate() {
   await requireUser("/become-barber");

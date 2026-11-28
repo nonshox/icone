@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   const guarded = await requireWorkspace("schedule.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `staff:days:${guarded.actor.userId}`, 60);
+  const denied = await writeDenied(request, `staff:days:${guarded.actor.userId}`, 60);
   if (denied) return denied;
 
   const json = await readJson(request);
@@ -120,7 +120,7 @@ export async function DELETE(request: NextRequest) {
   const guarded = await requireWorkspace("schedule.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `staff:days:${guarded.actor.userId}`, 60);
+  const denied = await writeDenied(request, `staff:days:${guarded.actor.userId}`, 60);
   if (denied) return denied;
 
   const selector: { id?: string; date?: string } = {};

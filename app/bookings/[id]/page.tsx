@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { BookingDetail } from "@/components/bookings/booking-detail";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = {
-  title: "Visit details",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/bookings",
+  titleKey: "visits.details",
+  descriptionKey: "meta.private.description",
+  private: true,
+});
 
 async function DetailGate({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

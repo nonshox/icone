@@ -365,7 +365,6 @@ export async function notify(input: NotifyInput): Promise<boolean> {
     reminder: true,
     waitlist: true,
     business: true,
-    marketing: false,
   };
 
   const allowed = input.force || prefs[PREF_OF[input.key]];

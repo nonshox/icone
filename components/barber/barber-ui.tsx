@@ -1,65 +1,26 @@
 "use client";
 
-import type { ReactNode } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { T } from "@/components/i18n/t";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { Status } from "@/lib/domain/types";
+import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n/use-t";
 
-/** Server errors are already human-readable; keep our own fallback short. */
-export function message(_error: unknown, fallback: string): string {
-  // Server validation copy is English; show the caller's localized fallback.
-  return fallback;
-}
-
-export function FormError({ text }: { text: string | null }) {
-  if (!text) return null;
-  return (
-    <p role="alert" aria-live="polite" className="text-sm text-destructive">
-      {text}
-    </p>
-  );
-}
-
-export function Empty({ children }: { children: ReactNode }) {
-  return (
-    <p className="py-8 text-center text-sm text-muted-foreground">{children}</p>
-  );
-}
-
-export function LoadingRows() {
-  return (
-    <div className="space-y-2 py-2" aria-hidden>
-      <Skeleton className="h-9 w-full" />
-      <Skeleton className="h-9 w-full" />
-      <Skeleton className="h-9 w-full" />
-    </div>
-  );
-}
-
-const statusVariant: Record<
-  Status,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  pending: "outline",
-  confirmed: "default",
-  rejected: "destructive",
-  cancelled: "outline",
-  done: "secondary",
-  noshow: "destructive",
-};
-
-/** One status label everywhere in the professional workspace. */
-export function StatusBadge({ status }: { status: Status }) {
-  return (
-    <Badge variant={statusVariant[status]}>
-      <T k={`status.${status}`} />
-    </Badge>
-  );
-}
+/**
+ * Shared app surfaces live in `components/ui`. Re-exported here so every
+ * professional screen uses the same implementation.
+ */
+export {
+  EmptyState,
+  EmptyState as Empty,
+  ErrorState,
+  FormError,
+  LoadingRows,
+  message,
+} from "@/components/ui/app-state";
+export { StatusBadge } from "@/components/ui/status-badge";
 
 export function ToggleRow({
   label,
@@ -89,5 +50,51 @@ export function ToggleRow({
         {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </div>
     </div>
+  );
+}
+
+const pillClass =
+  "inline-flex items-center rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-brand/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+
+/**
+ * Client-side pills for the professional shell: the server resolves the
+ * capability-scoped links, the browser marks the current one.
+ */
+export function NavPills({
+  links,
+  labelKey,
+}: {
+  links: ReadonlyArray<{ href: string; label: string }>;
+  labelKey: string;
+}) {
+  const pathname = usePathname();
+  const t = useT();
+  const active = links
+    .filter(
+      (link) =>
+        pathname === link.href || pathname.startsWith(`${link.href}/`),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  return (
+    <nav
+      aria-label={t(labelKey)}
+      className="flex flex-wrap gap-2 border-b border-border pb-4"
+    >
+      {links.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          aria-current={active === link.href ? "page" : undefined}
+          className={cn(
+            pillClass,
+            active === link.href &&
+              "border-brand/50 bg-brand/10 text-foreground",
+          )}
+        >
+          {t(link.label)}
+        </Link>
+      ))}
+    </nav>
   );
 }

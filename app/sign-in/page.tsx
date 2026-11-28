@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { AuthOptions } from "@/components/auth/auth-options";
 import { T } from "@/components/i18n/t";
 import { Logo } from "@/components/brand/logo";
@@ -11,11 +11,11 @@ import { publicConfig } from "@/lib/public-config";
 
 const botLink = `https://t.me/${publicConfig.telegramBotUsername}?start=web`;
 
-export const metadata: Metadata = {
-  title: "Sign in",
-  description:
-    "Sign in to icone with Telegram. No password, no email, no SMS.",
-};
+export const metadata = routeMetadata({
+  path: "/sign-in",
+  titleKey: "auth.welcome",
+  descriptionKey: "auth.subtitle",
+});
 
 async function RedirectIfSignedIn({
   searchParams,

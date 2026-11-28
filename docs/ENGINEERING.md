@@ -32,6 +32,28 @@ training data.
   real booking rows and therefore block the same slots as online bookings.
   Concurrent requests are resolved after insert with a deterministic winner.
 
+## Schema changes
+
+- `npm run db:setup` is for **fresh installs**. It creates the whole schema
+  idempotently, seeds reference data and records the current schema version in
+  the `migrations` collection (document `schema`). It never deletes or rewrites
+  rows, so re-running it after a partial failure is safe.
+- `npm run db:migrate` is for **deploys**. `scripts/migrate.mjs` reads the stored
+  version and applies only newer steps, forward-only. Every step adds a missing
+  collection, attribute or index; nothing backfills, deletes or rewrites live
+  rows. The final step is report-only: it counts duplicate `clients` by
+  `(business, phone)` and mismatched `barbers.user` / `memberships.barber`
+  links, printing counts without changing data.
+- When adding a step, append it to `steps` in `scripts/migrate.mjs`, bump
+  `SCHEMA_VERSION` there **and** in `scripts/setup-appwrite.mjs`, and add the
+  same collection/attribute definitions to the setup schema so fresh installs
+  and deploys converge.
+- `ratelimit` holds shared fixed-window counters. Its document id is a hash of
+  the caller's key, so no raw key (or personal data) is stored. `offers`,
+  `customers` and `conversations` are foundations for the next product model and
+  are currently schema-only; `bookings.customer` and `apptlog.at` are additive
+  fields that older rows leave at their defaults.
+
 ## Auth rules
 
 - Session secret: `icone_session` HttpOnly cookie. No Appwrite SDK sessions in
@@ -44,14 +66,27 @@ training data.
 - `APPWRITE_API_KEY`, `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET` are
   server-only. Never prefix them with `NEXT_PUBLIC_`, log them, or send them to
   the client.
+- `lib/rate-limit.ts` is `server-only` and async. Counters live in the shared
+  `ratelimit` collection, not in a per-instance `Map`. Callers pass the key;
+  `rateLimit(key, limit, windowMs)` resolves to `{ ok, remaining, retryAfter }`.
+  Infrastructure failures fail open and are logged; application/configuration
+  failures fail closed. Keys keep their existing meaning — the pre-auth
+  endpoints use the opaque request bucket only as a limiter key, never as an
+  identity decision.
 
 ## Gates
 
-Run both before calling a task done:
+Run these before calling a task done:
 
 ```powershell
-cmd /c "npm run build"
 cmd /c "npm run lint"
+cmd /c "npm run typecheck"
+cmd /c "npm run check:i18n"
+cmd /c "npm run build"
 ```
 
-On this machine npm runs through `cmd /c`; the PowerShell wrapper is blocked.
+`.github/workflows/ci.yml` runs the same four gates on every push and pull
+request with placeholder environment values. `check:i18n` compares the key sets
+of the `uz`, `ru` and `en` dictionaries; every new copy key must exist in all
+three. On this machine npm runs through `cmd /c`; the PowerShell wrapper is
+blocked.

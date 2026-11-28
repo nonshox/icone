@@ -6,10 +6,15 @@ import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
 import { ClientGate } from "@/components/customer/client-gate";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+  message,
+} from "@/components/ui/app-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { useMarkNotificationRead, useNotifications } from "@/lib/api/customer-queries";
 import { useProfile } from "@/lib/api/queries";
 import { useT } from "@/lib/i18n/use-t";
@@ -28,7 +33,7 @@ export function NotificationsView() {
         onSuccess: () => toast.success(t("inbox.marked")),
         onError: (error) =>
           toast.error(t("inbox.failed"), {
-            description: error instanceof Error ? error.message : t("auth.tryAgain"),
+            description: message(error, t("auth.tryAgain")),
           }),
       },
     );
@@ -41,29 +46,18 @@ export function NotificationsView() {
         onSuccess: () => toast.success(t("inbox.cleared")),
         onError: (error) =>
           toast.error(t("inbox.failed"), {
-            description: error instanceof Error ? error.message : t("auth.tryAgain"),
+            description: message(error, t("auth.tryAgain")),
           }),
       },
     );
   }
 
   if (profile.isPending) {
-    return (
-      <div className="space-y-3" aria-hidden>
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
+    return <LoadingRows count={2} rowClassName="h-24 w-full" />;
   }
 
   if (profile.isError || !profile.data) {
-    return (
-      <Card>
-        <CardContent role="alert" className="py-10 text-center text-sm text-destructive">
-          {t("customer.loadError")}
-        </CardContent>
-      </Card>
-    );
+    return <ErrorState fallback={t("customer.loadError")} />;
   }
 
   const items = inbox.data?.notifications ?? [];
@@ -99,27 +93,15 @@ export function NotificationsView() {
         </div>
 
         {inbox.isPending ? (
-          <div className="space-y-3" aria-hidden>
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
+          <LoadingRows count={3} rowClassName="h-24 w-full" />
         ) : inbox.isError ? (
-          <Card>
-            <CardContent role="alert" className="py-10 text-center text-sm text-destructive">
-              <T k="inbox.loadError" />
-            </CardContent>
-          </Card>
+          <ErrorState fallback={t("inbox.loadError")} />
         ) : items.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Inbox className="size-4 text-brand-strong" aria-hidden />
-                <T k="inbox.allCaughtUp" />
-              </CardTitle>
-              <CardDescription><T k="inbox.newUpdates" /></CardDescription>
-            </CardHeader>
-          </Card>
+          <EmptyState
+            icon={<Inbox className="size-5" aria-hidden />}
+            title={<T k="inbox.allCaughtUp" />}
+            description={<T k="inbox.newUpdates" />}
+          />
         ) : (
           <ul className="space-y-3">
             {items.map((item) => {

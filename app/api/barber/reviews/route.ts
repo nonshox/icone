@@ -66,7 +66,7 @@ async function answer(request: NextRequest) {
     return apiError("You cannot reply to this review.", 403, "forbidden");
   }
 
-  const limit = rateLimit(`reviews:reply:${actor.userId}`, 30, 10 * 60_000);
+  const limit = await rateLimit(`reviews:reply:${actor.userId}`, 30, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   try {

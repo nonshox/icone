@@ -1,48 +1,26 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 
+import { routeMetadata } from "@/lib/metadata";
+import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata: Metadata = {
-  title: "Privacy",
-  description: "What icone stores, why it stores it and the choices you have.",
-};
+export const metadata = routeMetadata({
+  path: "/legal/privacy",
+  titleKey: "legal.privacy.title",
+  descriptionKey: "meta.privacy.description",
+});
 
 const sections = [
-  {
-    title: "What we store",
-    body: "Your name, phone and sign-in identifier (email or Telegram id), plus bookings, reviews, saved barbers, notifications and preferences.",
-  },
-  {
-    title: "Why we store it",
-    body: "To reserve chairs, show visits, send reminders and help support. We never use your details for advertising.",
-  },
-  {
-    title: "Where it lives",
-    body: "Data sits in Appwrite (fra region). Your session secret is in an HttpOnly cookie, never in localStorage, and the server API key never reaches the browser.",
-  },
-  {
-    title: "Who can see it",
-    body: "A barber sees your name, service, time and note for a visit. Admin staff manage the catalogue and moderate reviews. We do not sell or rent your data.",
-  },
-  {
-    title: "Your choices",
-    body: "Settings lets you change your details and preferences. Ask support to export or delete your data; we comply unless the law requires a record.",
-  },
-  {
-    title: "Retention",
-    body: "Booking and review records stay for your history. Closing your account removes personal details, except what the law requires.",
-  },
-  {
-    title: "Security",
-    body: "All privileged access runs server-side. There are no passwords — sign-in uses a short-lived code or a signed Telegram payload.",
-  },
-  {
-    title: "Changes",
-    body: "We update this page if the policy changes materially. The date below refers to the current version.",
-  },
-];
+  { titleKey: "legal.privacy.s1.title", bodyKey: "legal.privacy.s1.body" },
+  { titleKey: "legal.privacy.s2.title", bodyKey: "legal.privacy.s2.body" },
+  { titleKey: "legal.privacy.s3.title", bodyKey: "legal.privacy.s3.body" },
+  { titleKey: "legal.privacy.s4.title", bodyKey: "legal.privacy.s4.body" },
+  { titleKey: "legal.privacy.s5.title", bodyKey: "legal.privacy.s5.body" },
+  { titleKey: "legal.privacy.s6.title", bodyKey: "legal.privacy.s6.body" },
+  { titleKey: "legal.privacy.s7.title", bodyKey: "legal.privacy.s7.body" },
+  { titleKey: "legal.privacy.s8.title", bodyKey: "legal.privacy.s8.body" },
+] as const;
 
 export default function PrivacyPage() {
   return (
@@ -52,23 +30,25 @@ export default function PrivacyPage() {
       <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-6 pt-10 pb-10">
         <div className="space-y-2">
           <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-            Legal
+            <T k="legal.eyebrow" />
           </p>
-          <h1 className="text-3xl font-semibold tracking-[-0.04em]">Privacy</h1>
+          <h1 className="text-3xl font-semibold tracking-[-0.04em]">
+            <T k="legal.privacy.title" />
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Updated 1 January 2026 · icone, Tashkent
+            <T k="legal.updated" />
           </p>
         </div>
 
         <div className="mt-8 space-y-4">
           {sections.map((section) => (
-            <Card key={section.title} size="sm">
+            <Card key={section.titleKey} size="sm">
               <CardHeader>
-                <CardTitle>{section.title}</CardTitle>
+                <CardTitle><T k={section.titleKey} /></CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {section.body}
+                  <T k={section.bodyKey} />
                 </p>
               </CardContent>
             </Card>
@@ -77,17 +57,17 @@ export default function PrivacyPage() {
 
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>Questions about your data</CardTitle>
+            <CardTitle><T k="legal.privacy.questions.title" /></CardTitle>
             <CardDescription>
-              Email hello@icone.uz or use the Telegram bot.
+              <T k="legal.privacy.questions.body" />
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
             <Link href="/support" className="font-medium text-brand-strong hover:underline">
-              Contact support →
+              <T k="legal.supportLink" />
             </Link>
             <Link href="/legal/terms" className="font-medium text-brand-strong hover:underline">
-              Terms of use →
+              <T k="legal.termsLink" />
             </Link>
           </CardContent>
         </Card>

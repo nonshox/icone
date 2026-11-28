@@ -39,22 +39,18 @@ export type PlatformSettings = {
   applicationsOpen: boolean;
   /** Publish approved businesses without a manual verification pass. */
   autoVerify: boolean;
-  /** Hide the marketplace behind a maintenance message. */
-  maintenance: boolean;
-  /** Days a customer can book ahead. */
-  horizon: number;
-  /** Minutes of lead time before an appointment can start. */
-  lead: number;
   /** Shown on the sign-in page. */
   notice: string;
 };
 
+/**
+ * Booking lead time and horizon are code constants in `lib/domain/availability.ts`
+ * (LEAD_MINUTES / HORIZON_DAYS), not admin switches: a switch that nothing reads
+ * is not kept in the settings document.
+ */
 export const DEFAULT_SETTINGS: PlatformSettings = {
   applicationsOpen: true,
   autoVerify: false,
-  maintenance: false,
-  horizon: 60,
-  lead: 30,
   notice: "",
 };
 
@@ -65,7 +61,17 @@ export async function getSettings(): Promise<PlatformSettings> {
   if (!row || typeof row.data !== "string") return DEFAULT_SETTINGS;
 
   try {
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(row.data) as Partial<PlatformSettings>) };
+    const stored = JSON.parse(row.data) as Record<string, unknown>;
+    // Drop unused legacy fields so the next write cleans the stored document.
+    return {
+      applicationsOpen:
+        typeof stored.applicationsOpen === "boolean"
+          ? stored.applicationsOpen
+          : DEFAULT_SETTINGS.applicationsOpen,
+      autoVerify:
+        typeof stored.autoVerify === "boolean" ? stored.autoVerify : DEFAULT_SETTINGS.autoVerify,
+      notice: typeof stored.notice === "string" ? stored.notice : DEFAULT_SETTINGS.notice,
+    };
   } catch {
     return DEFAULT_SETTINGS;
   }

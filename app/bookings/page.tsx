@@ -1,15 +1,17 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { BookingsView } from "@/components/bookings/bookings-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = {
-  title: "My visits",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/bookings",
+  titleKey: "visits.title",
+  descriptionKey: "visits.subtitle",
+  private: true,
+});
 
 async function VisitsGate() {
   await requireUser("/bookings");

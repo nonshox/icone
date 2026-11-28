@@ -56,11 +56,11 @@ export async function requireWorkspace(
 }
 
 /** Same-origin check plus a fixed-window limit for write handlers. */
-export function writeDenied(
+export async function writeDenied(
   request: NextRequest,
   key: string,
   limit = 90,
-): NextResponse | null {
+): Promise<NextResponse | null> {
   if (!isSameOrigin(request)) {
     return apiError(
       "This request came from an unexpected origin.",
@@ -68,7 +68,7 @@ export function writeDenied(
       "bad_origin",
     );
   }
-  const check = rateLimit(key, limit, 10 * 60_000);
+  const check = await rateLimit(key, limit, 10 * 60_000);
   if (!check.ok) return tooManyRequests(check.retryAfter);
   return null;
 }

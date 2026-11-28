@@ -21,6 +21,7 @@ import {
   unassignService,
   unassignedServices,
 } from "@/lib/domain/catalog";
+import { deactivateOffer, upsertOffer } from "@/lib/domain/offers";
 import { getBarber } from "@/lib/domain/professional";
 import { apiError, apiOk } from "@/lib/http";
 
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:services:assign:${guarded.actor.userId}`,
     90,
@@ -167,7 +168,23 @@ export async function POST(request: NextRequest) {
     }
 
     if (parsed.data.all) {
+      // Only materialise the services that were actually missing: upserting
+      // the whole catalogue would overwrite existing employee overrides.
+      const missing = await unassignedServices(target.business, target.barber);
       const count = await assignAllServices(target.business, target.barber);
+      await Promise.all(
+        missing.map((service) =>
+          upsertOffer({
+            business: target.business,
+            barber: target.barber,
+            service: service.id,
+            price: service.price,
+            time: service.time,
+            active: true,
+            sort: service.sort,
+          }),
+        ),
+      );
       return apiOk({ count });
     }
 
@@ -182,6 +199,17 @@ export async function POST(request: NextRequest) {
       ...(typeof parsed.data.price === "number" ? { price: parsed.data.price } : {}),
       ...(typeof parsed.data.time === "number" ? { time: parsed.data.time } : {}),
     });
+    // Keep the legacy empser row and the materialised offer in step for one
+    // release. `upsertOffer` resolves -1 to an explicit value before writing.
+    await upsertOffer({
+      business: target.business,
+      barber: target.barber,
+      service: service.id,
+      price: assigned.price,
+      time: assigned.time,
+      active: true,
+      sort: service.sort,
+    });
     return apiOk({ service: assigned });
   } catch (error) {
     return businessFailure(error, "Could not assign the service.", "assign_failed");
@@ -193,7 +221,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:services:assign:${guarded.actor.userId}`,
     90,
@@ -220,12 +248,26 @@ export async function PATCH(request: NextRequest) {
     if (!target || !can(guarded.actor, "service.write", { business: target.business })) {
       return apiError("You cannot change this menu.", 403, "forbidden");
     }
-    const owned = (await listEmployeeServices(target.barber)).some(
+    const owned = (await listEmployeeServices(target.barber)).find(
       (row) => row.id === assignment && row.business === target.business,
     );
     if (!owned) return apiError("That assignment no longer exists.", 404, "not_found");
 
-    return apiOk({ service: await setEmployeeService(assignment, patch) });
+    const updated = await setEmployeeService(assignment, patch);
+    if (patch.active === false) {
+      await deactivateOffer(target.barber, owned.service);
+    } else {
+      await upsertOffer({
+        business: target.business,
+        barber: target.barber,
+        service: owned.service,
+        price: patch.price ?? updated.price,
+        time: patch.time ?? updated.time,
+        active: patch.active ?? updated.active,
+        sort: updated.sort,
+      });
+    }
+    return apiOk({ service: updated });
   } catch (error) {
     return businessFailure(error, "Could not save the override.", "assign_failed");
   }
@@ -236,7 +278,7 @@ export async function DELETE(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(
+  const denied = await writeDenied(
     request,
     `barber:services:assign:${guarded.actor.userId}`,
     90,
@@ -267,13 +309,14 @@ export async function DELETE(request: NextRequest) {
     if (!target || !can(guarded.actor, "service.write", { business: target.business })) {
       return apiError("You cannot change this menu.", 403, "forbidden");
     }
-    const owned = (await listEmployeeServices(target.barber)).some(
+    const owned = (await listEmployeeServices(target.barber)).find(
       (row) =>
         row.id === parsed.data.assignment && row.business === target.business,
     );
     if (!owned) return apiError("That assignment no longer exists.", 404, "not_found");
 
     await unassignService(parsed.data.assignment);
+    await deactivateOffer(target.barber, owned.service);
     return apiOk();
   } catch (error) {
     return businessFailure(error, "Could not unassign the service.", "assign_failed");

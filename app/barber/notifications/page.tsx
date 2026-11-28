@@ -1,13 +1,15 @@
-import type { Metadata } from "next";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BarberNotifications } from "@/components/barber/barber-notifications";
 import { BarberShell } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 
-export const metadata: Metadata = {
-  title: "Inbox",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/barber/notifications",
+  titleKey: "nav.inbox",
+  descriptionKey: "meta.private.description",
+  private: true,
+});
 
 export default function BarberNotificationsPage() {
   return (

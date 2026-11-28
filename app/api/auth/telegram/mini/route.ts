@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     return apiError("This request came from an unexpected origin.", 403, "bad_origin");
   }
 
-  const limit = rateLimit(
+  const limit = await rateLimit(
     `telegram:mini:${clientIp(request)}`,
     20,
     10 * 60_000,

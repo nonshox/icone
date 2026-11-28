@@ -1,12 +1,14 @@
-import type { Metadata } from "next";
 
+import { routeMetadata } from "@/lib/metadata";
 import { AdminFrame } from "@/components/admin/admin-frame";
 import { AppointmentsView } from "@/components/admin/appointments-view";
 
-export const metadata: Metadata = {
-  title: "Admin — Appointments",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/admin/appointments",
+  titleKey: "admin.appointments.title",
+  descriptionKey: "admin.appointments.description",
+  private: true,
+});
 
 export default function AdminAppointmentsPage() {
   return (

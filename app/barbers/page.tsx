@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BarberDirectory } from "@/components/barbers/barber-directory";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -11,10 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { listBarbers } from "@/lib/domain/professional";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Barbers",
-  description: "Meet the barbers behind the chairs at icone in Tashkent.",
-};
+export const metadata = routeMetadata({
+  path: "/barbers",
+  titleKey: "barbers.title",
+  descriptionKey: "barbers.subtitle",
+});
 
 async function BarberList({ initialQuery }: { initialQuery: string }) {
   let barbers;

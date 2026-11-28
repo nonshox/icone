@@ -264,6 +264,23 @@ const schema = {
     ],
   },
 
+  // A barber's personal price/duration for one catalogue service. Distinct
+  // from `empser`, which is an override for one employee of a business.
+  offers: {
+    attributes: [
+      { key: "barber", type: "string", size: 36, required: true },
+      { key: "service", type: "string", size: 36, required: true },
+      { key: "business", type: "string", size: 36, default: "" },
+      { key: "price", type: "integer", min: 0, default: 0 },
+      { key: "time", type: "integer", min: 0, default: 0 },
+      { key: "active", type: "boolean", default: true },
+      { key: "sort", type: "integer", min: 0, max: 999, default: 0 },
+    ],
+    indexes: [
+      { key: "pair", attributes: ["barber", "service"], type: "unique" },
+    ],
+  },
+
   /* ------------------------------------------------------------ schedule */
 
   // Weekly opening windows. `barber` holds the owner id — a professional, or
@@ -330,6 +347,8 @@ const schema = {
       { key: "branch", type: "string", size: 36, default: "" },
       // Walk-in customer record; empty when the customer has an account.
       { key: "client", type: "string", size: 36, default: "" },
+      // Canonical customer row (new model); empty on older bookings.
+      { key: "customer", type: "string", size: 36, default: "" },
       // JSON array of service ids — one visit can hold several services.
       { key: "items", type: "string", size: 2048, default: "[]" },
       // online | walkin | manual
@@ -357,6 +376,8 @@ const schema = {
       { key: "by", type: "string", size: 36, default: "" },
       { key: "note", type: "string", size: 256, default: "" },
       { key: "kind", type: "string", size: 24, default: "status" },
+      // Epoch milliseconds of the change; older trail rows keep the default.
+      { key: "at", type: "integer", min: 0, default: 0 },
     ],
     indexes: [{ key: "thread", attributes: ["booking"] }],
   },
@@ -522,6 +543,42 @@ const schema = {
     indexes: [{ key: "thread", attributes: ["conversation"] }],
   },
 
+  // Canonical customer records, scoped to one business or independent barber.
+  // `aliases` is a JSON array of historical ids/phones for the same person.
+  customers: {
+    attributes: [
+      { key: "business", type: "string", size: 36, default: "" },
+      { key: "user", type: "string", size: 36, default: "" },
+      { key: "phone", type: "string", size: 32, default: "" },
+      { key: "name", type: "string", size: 64, required: true },
+      { key: "note", type: "string", size: 512, default: "" },
+      { key: "active", type: "boolean", default: true },
+      { key: "aliases", type: "string", size: 2048, default: "" },
+    ],
+    indexes: [
+      { key: "business", attributes: ["business"] },
+      { key: "user", attributes: ["user"] },
+      { key: "phone", attributes: ["phone"] },
+    ],
+  },
+
+  // One row per pair of participants. `pair` is the canonical, sorted
+  // `id1:id2` key so the same conversation cannot be opened twice in reverse.
+  conversations: {
+    attributes: [
+      { key: "id1", type: "string", size: 36, required: true },
+      { key: "id2", type: "string", size: 36, required: true },
+      { key: "pair", type: "string", size: 80, required: true },
+      { key: "last", type: "string", size: 1024, default: "" },
+      { key: "lastAt", type: "integer", min: 0, default: 0 },
+      { key: "unread1", type: "integer", min: 0, default: 0 },
+      { key: "unread2", type: "integer", min: 0, default: 0 },
+    ],
+    indexes: [
+      { key: "pair", attributes: ["pair"], type: "unique" },
+    ],
+  },
+
   /* ------------------------------------------------ onboarding & trust */
 
   applications: {
@@ -610,7 +667,32 @@ const schema = {
     ],
     indexes: [],
   },
+
+  // Shared fixed-window counters for `lib/rate-limit.ts`. The document id is
+  // a deterministic hash of the caller's key; no raw key is stored.
+  ratelimit: {
+    attributes: [
+      { key: "count", type: "integer", min: 0, default: 0 },
+      // Epoch milliseconds at which the current window ends.
+      { key: "expires", type: "integer", min: 0, default: 0 },
+    ],
+    indexes: [],
+  },
+
+  // One row, id `schema`, holding the last applied migration version. Used by
+  // `scripts/migrate.mjs` on deploys. Never downgraded.
+  migrations: {
+    attributes: [
+      { key: "version", type: "integer", min: 0, default: 0 },
+      { key: "at", type: "integer", min: 0, default: 0 },
+      { key: "note", type: "string", size: 128, default: "" },
+    ],
+    indexes: [],
+  },
 };
+
+/** Keep in sync with the last step in scripts/migrate.mjs. */
+const SCHEMA_VERSION = 6;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -760,6 +842,48 @@ async function isEmpty(collectionId) {
   return total === 0;
 }
 
+/**
+ * Fresh installs get every collection above, so they start at the newest
+ * migration version. An existing database is never downgraded: a lower stored
+ * version is bumped only because setup has just ensured all of the same
+ * additive schema that the migration steps create.
+ */
+async function recordSchemaVersion() {
+  const documentId = "schema";
+  const data = {
+    version: SCHEMA_VERSION,
+    at: Date.now(),
+    note: "db:setup",
+  };
+
+  try {
+    const current = await db.getDocument({
+      databaseId,
+      collectionId: "migrations",
+      documentId,
+    });
+    if (Number(current.version ?? 0) >= SCHEMA_VERSION) {
+      log(`schema version: ${current.version} (current)`);
+      return;
+    }
+    await db.updateDocument({
+      databaseId,
+      collectionId: "migrations",
+      documentId,
+      data,
+    });
+  } catch (error) {
+    if (error.code !== 404) throw error;
+    await db.createDocument({
+      databaseId,
+      collectionId: "migrations",
+      documentId,
+      data,
+    });
+  }
+  log(`schema version: ${SCHEMA_VERSION}`);
+}
+
 /** Uzbekistan reference data: 14 regions are folded into the 12 largest cities. */
 const CITIES = [
   { id: "toshkent", name: "Toshkent", ru: "Ташкент", en: "Tashkent", lat: 41.311, lng: 69.24 },
@@ -899,6 +1023,8 @@ async function main() {
       await ensureIndex(collectionId, index);
     }
   }
+
+  await recordSchemaVersion();
 
   log(`bucket ${bucketId}`);
   await ensureBucket();

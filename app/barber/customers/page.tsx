@@ -1,13 +1,15 @@
-import type { Metadata } from "next";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BarberCustomers } from "@/components/barber/barber-customers";
 import { BarberShell } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 
-export const metadata: Metadata = {
-  title: "Customers",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/barber/customers",
+  titleKey: "work.customers.title",
+  descriptionKey: "work.customers.hint",
+  private: true,
+});
 
 export default function BarberCustomersPage() {
   return (

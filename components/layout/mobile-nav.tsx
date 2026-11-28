@@ -29,8 +29,8 @@ import { becomeBarberCta, visibleNavSections } from "@/lib/navigation";
 import { useLocaleStore, type Locale } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
 
-// Five recognisable destinations. Help and the full link list live in More,
-// so the bar stays clean instead of stacking tiny labels under every icon.
+// Five recognisable destinations with a visible localized label each. Help and
+// the full link list live in More, so the bar stays scannable at 390px.
 const tabs = [
   { href: "/", key: "nav.home", Icon: House },
   { href: "/barbers", key: "nav.barbers", Icon: Compass },
@@ -153,7 +153,7 @@ function MobileNavInner() {
             role="dialog"
             aria-modal="true"
             aria-label={t("nav.menu")}
-            className="fixed inset-x-2 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-[60] max-h-[70dvh] overflow-y-auto rounded-2xl border border-border/70 bg-popover p-3 text-popover-foreground shadow-lg"
+            className="fixed inset-x-2 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[60] max-h-[70dvh] overflow-y-auto rounded-2xl border border-border/70 bg-popover p-3 text-popover-foreground shadow-lg"
           >
             <div className="flex items-center justify-between gap-2 px-1 pb-2">
               <p className="text-sm font-medium">{t("nav.menu")}</p>
@@ -228,7 +228,7 @@ function MobileNavInner() {
                   title={t(key)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex h-12 flex-col items-center justify-center gap-1 rounded-xl transition-colors",
+                    "flex h-14 flex-col items-center justify-center gap-1 rounded-xl px-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                     active ? "text-brand-strong" : "text-muted-foreground",
                   )}
                 >
@@ -240,6 +240,9 @@ function MobileNavInner() {
                     )}
                   />
                   <Icon className="size-5" aria-hidden />
+                  <span className="w-full truncate text-center text-[0.625rem] leading-none">
+                    {t(key)}
+                  </span>
                 </Link>
               );
             })}
@@ -250,7 +253,7 @@ function MobileNavInner() {
               aria-expanded={moreOpen}
               onClick={() => setMoreOpen(!moreOpen)}
               className={cn(
-                "flex h-12 flex-col items-center justify-center gap-1 rounded-xl transition-colors",
+                "flex h-14 flex-col items-center justify-center gap-1 rounded-xl px-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                 moreOpen ? "text-brand-strong" : "text-muted-foreground",
               )}
             >
@@ -262,6 +265,9 @@ function MobileNavInner() {
                 )}
               />
               <MoreHorizontal className="size-5" aria-hidden />
+              <span className="w-full truncate text-center text-[0.625rem] leading-none">
+                {t("nav.more")}
+              </span>
             </button>
           </div>
         </div>

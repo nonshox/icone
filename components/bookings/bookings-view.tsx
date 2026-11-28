@@ -7,7 +7,12 @@ import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
-import { Badge } from "@/components/ui/badge";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+  message,
+} from "@/components/ui/app-state";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -24,23 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useBookings, useCreateReview } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { formatDate, formatPrice, label } from "@/lib/domain/time";
 import type { BookingRow, Status } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 import { useServiceNames } from "./use-service-names";
-
-const badgeVariant: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
-  pending: "outline",
-  confirmed: "default",
-  rejected: "destructive",
-  cancelled: "outline",
-  done: "secondary",
-  noshow: "destructive",
-};
 
 function BookingCard({ booking }: { booking: BookingRow }) {
   const t = useT();
@@ -57,9 +53,7 @@ function BookingCard({ booking }: { booking: BookingRow }) {
               <Link href={`/bookings/${booking.id}`} className="font-medium hover:underline">
                 {serviceNames(booking)}
               </Link>
-              <Badge variant={badgeVariant[booking.status]}>
-                <T k={`status.${booking.status}`} />
-              </Badge>
+              <StatusBadge status={booking.status} />
             </div>
             <p className="text-sm text-muted-foreground">
               {booking.barberName} · {formatDate(booking.date)} ·{" "}
@@ -99,8 +93,7 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
         onSuccess: () => toast.success(t("visits.reviewThanks")),
         onError: (error) =>
           toast.error(t("visits.reviewFailed"), {
-            description:
-              error instanceof Error ? error.message : t("visits.tryShort"),
+            description: message(error, t("visits.tryShort")),
           }),
       },
     );
@@ -158,25 +151,6 @@ function ReviewForm({ booking }: { booking: BookingRow }) {
   );
 }
 
-function EmptyState() {
-  return (
-    <Card>
-      <CardContent className="flex flex-col items-start gap-3 py-6">
-        <span className="grid size-10 place-items-center rounded-full bg-muted">
-          <CalendarDays className="size-5" aria-hidden />
-        </span>
-        <p className="font-medium"><T k="visits.empty" /></p>
-        <Link
-          href="/book"
-          className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
-        >
-          <T k="nav.book" />
-        </Link>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function BookingsView() {
   const t = useT();
   const bookings = useBookings();
@@ -184,28 +158,32 @@ export function BookingsView() {
   const [reviewFor, setReviewFor] = useState<string | null>(null);
 
   if (bookings.isPending || !todayDate) {
-    return (
-      <div className="space-y-3" aria-hidden>
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
+    return <LoadingRows count={2} rowClassName="h-24 w-full" />;
   }
 
   if (bookings.isError) {
     return (
-      <Card>
-        <CardContent role="alert" className="py-6 text-sm text-destructive">
-          {bookings.error instanceof Error
-            ? bookings.error.message
-            : t("visits.loadError")}
-        </CardContent>
-      </Card>
+      <ErrorState error={bookings.error} fallback={t("visits.loadError")} />
     );
   }
 
   const all = bookings.data ?? [];
-  if (all.length === 0) return <EmptyState />;
+  if (all.length === 0) {
+    return (
+      <EmptyState
+        icon={<CalendarDays className="size-5" aria-hidden />}
+        title={<T k="visits.empty" />}
+        action={
+          <Link
+            href="/book"
+            className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
+          >
+            <T k="nav.book" />
+          </Link>
+        }
+      />
+    );
+  }
 
   const active: Status[] = ["pending", "confirmed"];
   const byDate = (a: BookingRow, b: BookingRow) =>
@@ -241,11 +219,7 @@ export function BookingsView() {
         </div>
 
         {upcoming.length === 0 ? (
-          <Card size="sm">
-            <CardContent className="py-5 text-sm text-muted-foreground">
-              {t("visits.bookService")}
-            </CardContent>
-          </Card>
+          <EmptyState>{t("visits.bookService")}</EmptyState>
         ) : (
           <div className="space-y-3">
             {upcoming.map((booking) => (
@@ -265,11 +239,7 @@ export function BookingsView() {
         </div>
 
         {history.length === 0 ? (
-          <Card size="sm">
-            <CardContent className="py-5 text-sm text-muted-foreground">
-              {t("visits.noPast")}
-            </CardContent>
-          </Card>
+          <EmptyState>{t("visits.noPast")}</EmptyState>
         ) : (
           <div className="space-y-3">
             {history.map((booking) => (

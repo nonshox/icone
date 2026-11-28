@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { StaffView } from "@/components/staff/staff-view";
 import { getActor } from "@/lib/domain/access";
 
-export const metadata: Metadata = {
-  title: "My chair",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/agenda/me",
+  titleKey: "work.staff.chair",
+  descriptionKey: "work.staff.chairHint",
+  private: true,
+});
 
 async function StaffGate() {
   const actor = await getActor();

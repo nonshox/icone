@@ -94,7 +94,7 @@ export async function PATCH(request: NextRequest) {
     return apiError("Only client accounts can apply.", 403, "forbidden");
   }
 
-  const limit = rateLimit(`application-drafts:${guarded.actor.userId}`, 30, 60 * 60_000);
+  const limit = await rateLimit(`application-drafts:${guarded.actor.userId}`, 30, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
     return apiError("Only client accounts can apply.", 403, "forbidden");
   }
 
-  const limit = rateLimit(`applications:${guarded.actor.userId}`, 10, 60 * 60_000);
+  const limit = await rateLimit(`applications:${guarded.actor.userId}`, 10, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;

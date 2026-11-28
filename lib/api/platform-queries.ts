@@ -162,7 +162,8 @@ export function useReplyReview() {
 
 /* ------------------------------------------------------------- admin reads */
 
-export function useAdminReports(state?: ReportState) {
+/** Moderation queue reports — distinct from the analytics `useAdminReportAnalytics`. */
+export function useModerationReports(state?: ReportState) {
   const suffix = state ? `?state=${encodeURIComponent(state)}` : "";
 
   return useQuery({
@@ -173,6 +174,9 @@ export function useAdminReports(state?: ReportState) {
       ),
   });
 }
+
+/** Backwards-compatible alias until every caller uses the canonical name. */
+export const useAdminReports = useModerationReports;
 
 export function useAdminTickets(state?: TicketState) {
   const suffix = state ? `?state=${encodeURIComponent(state)}` : "";

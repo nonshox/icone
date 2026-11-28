@@ -444,9 +444,6 @@ function TicketQueue() {
 type SettingsDraft = {
   applicationsOpen: boolean;
   autoVerify: boolean;
-  maintenance: boolean;
-  horizon: string;
-  lead: string;
   notice: string;
 };
 
@@ -454,9 +451,6 @@ function draftFor(settings: PlatformSettings): SettingsDraft {
   return {
     applicationsOpen: settings.applicationsOpen,
     autoVerify: settings.autoVerify,
-    maintenance: settings.maintenance,
-    horizon: String(settings.horizon),
-    lead: String(settings.lead),
     notice: settings.notice,
   };
 }
@@ -473,25 +467,12 @@ function SettingsFields({ settings }: { settings: PlatformSettings }) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    const horizon = Number(draft.horizon);
-    const lead = Number(draft.lead);
-    if (
-      !Number.isInteger(horizon) || horizon < 1 || horizon > 365 ||
-      !Number.isInteger(lead) || lead < 0 || lead > 1440
-    ) {
-      setFormError(t("padmin.settings.invalidNumbers"));
-      return;
-    }
     setFormError(null);
 
     update.mutate(
       {
         applicationsOpen: draft.applicationsOpen,
         autoVerify: draft.autoVerify,
-        maintenance: draft.maintenance,
-        horizon,
-        lead,
         notice: draft.notice,
       },
       {
@@ -527,41 +508,6 @@ function SettingsFields({ settings }: { settings: PlatformSettings }) {
           <Label htmlFor="settings-autoverify" className="cursor-pointer">
             <T k="padmin.settings.autoVerify" />
           </Label>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
-          <Checkbox
-            id="settings-maintenance"
-            checked={draft.maintenance}
-            onCheckedChange={(value) => patch("maintenance", value === true)}
-          />
-          <Label htmlFor="settings-maintenance" className="cursor-pointer">
-            <T k="padmin.settings.maintenance" />
-          </Label>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="settings-horizon"><T k="padmin.settings.horizon" /></Label>
-          <Input
-            id="settings-horizon"
-            type="number"
-            min={1}
-            max={365}
-            value={draft.horizon}
-            onChange={(event) => patch("horizon", event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="settings-lead"><T k="padmin.settings.lead" /></Label>
-          <Input
-            id="settings-lead"
-            type="number"
-            min={0}
-            max={1440}
-            value={draft.lead}
-            onChange={(event) => patch("lead", event.target.value)}
-          />
         </div>
       </div>
 

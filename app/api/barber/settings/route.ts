@@ -54,7 +54,6 @@ const prefsSchema = z.object({
   reminder: z.boolean().optional(),
   waitlist: z.boolean().optional(),
   business: z.boolean().optional(),
-  marketing: z.boolean().optional(),
   // Older hooks still send these names; keep accepting them for one release.
   newBookings: z.boolean().optional(),
   cancellations: z.boolean().optional(),
@@ -79,7 +78,6 @@ function mergedPrefs(current: NotificationPrefs, patch: PrefsPatch): Notificatio
   if (typeof patch.waitlist === "boolean") next.waitlist = patch.waitlist;
   if (typeof patch.business === "boolean") next.business = patch.business;
   if (typeof patch.reviews === "boolean") next.business = patch.reviews;
-  if (typeof patch.marketing === "boolean") next.marketing = patch.marketing;
   return next;
 }
 
@@ -175,7 +173,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireWorkspace("settings.profile");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `barber:settings:${guarded.actor.userId}`, 60);
+  const denied = await writeDenied(request, `barber:settings:${guarded.actor.userId}`, 60);
   if (denied) return denied;
 
   const json = await readJson(request);

@@ -4,7 +4,7 @@ import { Query } from "node-appwrite";
 
 import { TABLES } from "@/lib/appwrite/db";
 
-import { count, create, first, list, num, str, update, type Row } from "./crud";
+import { count, create, first, get, list, num, str, update, type Row } from "./crud";
 import {
   HORIZON_DAYS,
   LEAD_MINUTES,
@@ -16,9 +16,18 @@ import {
 import { resolveOffer, servicesFor } from "./catalog";
 import { getBarber, isBookable } from "./professional";
 import { getBranch, getBusiness } from "./business";
+import { attachCustomer, customerFor, upsertCustomer } from "./customers";
 import { shopClock, today } from "./time";
 import { visitPrice } from "./pricing";
-import type { Booking, OfferedService, Source, Status } from "./types";
+import {
+  HOLDING_STATUSES,
+  isHolding,
+  type Booking,
+  type BookingItemSnapshot,
+  type OfferedService,
+  type Source,
+  type Status,
+} from "./types";
 
 export type BookFailure = {
   ok: false;
@@ -53,7 +62,7 @@ function toBooking(row: Row): Booking {
     client: str(row.client),
     barber: str(row.barber),
     service: str(row.service),
-    items: parseItems(row.items),
+    items: parseItems(row.items).map((item) => item.service),
     business: str(row.business),
     branch: str(row.branch),
     date: str(row.date),
@@ -69,14 +78,51 @@ function toBooking(row: Row): Booking {
   };
 }
 
-function parseItems(value: unknown): string[] {
-  if (typeof value !== "string" || value.length === 0) return [];
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
+/**
+ * Read a booking's `items` column as item snapshots.
+ *
+ * Old rows hold a JSON array of service ids (or a single comma-separated id
+ * string); new rows may hold a JSON array of `{ service, name, price, time }`.
+ * Both become `BookingItemSnapshot[]`: unknown details degrade to the id as
+ * the name and zero price/time. Nothing is written here — this is a read
+ * foundation for the snapshot-based booking flow.
+ */
+export function parseItems(value: unknown): BookingItemSnapshot[] {
+  let raw: unknown = value;
+  if (typeof raw === "string") {
+    const text = raw;
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      // A bare id or a comma-separated list is still a valid legacy value.
+      raw = text.split(",");
+    }
   }
+
+  const entries = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const out: BookingItemSnapshot[] = [];
+  for (const entry of entries) {
+    if (typeof entry === "string") {
+      const id = entry.trim();
+      if (!id) continue;
+      out.push({ service: id, name: id, price: 0, time: 0 });
+      continue;
+    }
+    if (entry && typeof entry === "object") {
+      const row = entry as Record<string, unknown>;
+      const service = (
+        typeof row.service === "string" ? row.service : typeof row.id === "string" ? row.id : ""
+      ).trim();
+      if (!service) continue;
+      out.push({
+        service,
+        name: typeof row.name === "string" && row.name.trim() ? row.name : service,
+        price: typeof row.price === "number" && Number.isFinite(row.price) ? row.price : 0,
+        time: typeof row.time === "number" && Number.isFinite(row.time) ? row.time : 0,
+      });
+    }
+  }
+  return out;
 }
 
 /**
@@ -112,7 +158,7 @@ async function holding(barberId: string, date: string): Promise<Booking[]> {
   const rows = await list(TABLES.bookings, [
     Query.equal("barber", barberId),
     Query.equal("date", date),
-    Query.equal("status", ["pending", "confirmed", "done"]),
+    Query.equal("status", [...HOLDING_STATUSES]),
     Query.limit(200),
   ]);
   return rows.map(toBooking);
@@ -226,7 +272,7 @@ export async function book(input: BookInput): Promise<BookResult> {
     const mine = await list(TABLES.bookings, [
       Query.equal("user", input.user),
       Query.equal("date", input.date),
-      Query.equal("status", ["pending", "confirmed", "done"]),
+      Query.equal("status", [...HOLDING_STATUSES]),
       Query.limit(100),
     ]);
     const clash = mine.some((row) => {
@@ -246,7 +292,9 @@ export async function book(input: BookInput): Promise<BookResult> {
     client: input.client ?? "",
     barber: barber.id,
     service: offers[0].id,
-    items: JSON.stringify(offers.map((offer) => offer.id)),
+    items: JSON.stringify(
+      (await import("./booking-items")).snapshotOffers(offers),
+    ),
     business: barber.business,
     branch: barber.branch,
     date: input.date,
@@ -280,7 +328,7 @@ export async function book(input: BookInput): Promise<BookResult> {
     const mine = await list(TABLES.bookings, [
       Query.equal("user", input.user),
       Query.equal("date", input.date),
-      Query.equal("status", ["pending", "confirmed", "done"]),
+      Query.equal("status", [...HOLDING_STATUSES]),
       Query.limit(100),
     ]);
     const rivals = mine
@@ -294,6 +342,35 @@ export async function book(input: BookInput): Promise<BookResult> {
   }
 
   await logStatus(booking.id, "", status, input.createdby ?? input.user, "created");
+
+  // Link the canonical per-business customer record. Best effort: a storage
+  // hiccup must never undo a confirmed booking.
+  try {
+    if (input.user || input.client) {
+      const scope = barber.business || barber.id;
+      const legacy = input.client
+        ? await get(TABLES.clients, input.client).catch(() => null)
+        : null;
+      const phone = str(legacy?.phone);
+      const name = str(legacy?.name, "Walk-in");
+      const found = await customerFor({
+        business: scope,
+        user: input.user || undefined,
+        phone,
+      });
+      const customer =
+        found ??
+        (await upsertCustomer({
+          business: scope,
+          user: input.user || undefined,
+          name,
+          phone,
+        }));
+      if (customer) await attachCustomer(booking.id, customer.id);
+    }
+  } catch (error) {
+    console.error("[booking] customer link failed", error instanceof Error ? error.message : "unknown");
+  }
 
   return { ok: true, booking };
 }
@@ -309,7 +386,12 @@ async function cancelBooking(
   await logStatus(id, from, "cancelled", by, "conflict", reason);
 }
 
-/** Append one row to an appointment's status history. Best effort. */
+/**
+ * Append one row to an appointment's status history. Best effort.
+ *
+ * Returns the new row id so a caller can verify it won an append-only race;
+ * `null` means the log write failed and the caller must degrade gracefully.
+ */
 export async function logStatus(
   booking: string,
   from: Status | "",
@@ -317,9 +399,9 @@ export async function logStatus(
   by: string,
   kind = "status",
   note = "",
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await create(TABLES.apptlog, {
+    const row = await create(TABLES.apptlog, {
       booking,
       from,
       to,
@@ -327,8 +409,10 @@ export async function logStatus(
       note: note.slice(0, 256),
       kind,
     });
+    return row.$id;
   } catch (error) {
     console.error("[domain] appointment log failed", error);
+    return null;
   }
 }
 
@@ -354,7 +438,7 @@ export async function reconcileBookings(): Promise<number> {
   const groups = new Map<string, Booking[]>();
   for (const row of rows) {
     const booking = toBooking(row);
-    if (!["pending", "confirmed", "done"].includes(booking.status)) continue;
+    if (!isHolding(booking.status)) continue;
     const key = `${booking.barber}|${booking.date}`;
     const list = groups.get(key) ?? [];
     list.push(booking);

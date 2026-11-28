@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { ArrowRight, ArrowUpRight, Building2, CircleHelp, Map, Scissors } from "lucide-react";
 import Link from "next/link";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { LandingSearch } from "@/components/landing/landing-search";
 import { ProfessionalRail } from "@/components/landing/professional-rail";
@@ -10,23 +10,12 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: { absolute: "icone — barber booking in Tashkent" },
-  description:
-    "Find and book real barbers and barbershops in Tashkent. Live availability, honest prices and one-tap Telegram sign-in. No calls, no queues, no passwords.",
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "icone — your chair is waiting",
-    description:
-      "Book Tashkent's sharpest barbers in seconds. Live times, real profiles, no passwords.",
-    url: "/",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "icone — your chair is waiting",
-    description: "Book Tashkent's sharpest barbers in seconds. No calls, no queues, no passwords.",
-  },
-};
+export const metadata = routeMetadata({
+  path: "/",
+  titleKey: "meta.home.title",
+  descriptionKey: "meta.home.description",
+  absolute: true,
+});
 
 const steps = [
   { number: "01", titleKey: "landing.step1", bodyKey: "landing.step1Body" },

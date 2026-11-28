@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:days:${guard.actor.userId}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`admin:days:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -151,7 +151,7 @@ export async function DELETE(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(`admin:days:${guard.actor.userId}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`admin:days:${guard.actor.userId}`, 60, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   const parsed = deleteSchema.safeParse({

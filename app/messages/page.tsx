@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { MessagesView } from "@/components/messages/messages-view";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -10,10 +10,12 @@ import { redirect } from "next/navigation";
 import { getActor } from "@/lib/domain/access";
 import { getBarber } from "@/lib/domain/professional";
 
-export const metadata: Metadata = {
-  title: "Messages",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/messages",
+  titleKey: "msg.title",
+  descriptionKey: "msg.subtitle",
+  private: true,
+});
 
 type Search = { searchParams: Promise<{ with?: string; barber?: string }> };
 

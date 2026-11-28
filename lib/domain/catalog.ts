@@ -18,6 +18,7 @@ import {
   update,
   type Row,
 } from "./crud";
+import { applyOffer, listOffers, offerFor } from "./offers";
 import type { EmployeeService, OfferedService, Service } from "./types";
 
 const SIZES = { name: 64, note: 256, image: 512, category: 32 };
@@ -100,7 +101,7 @@ export async function listEmployeeServices(barberId: string): Promise<EmployeeSe
  * Shop employee → the shared catalogue filtered by assignment, with any
  * per-employee price or duration override applied.
  */
-export async function servicesFor(barberId: string): Promise<OfferedService[]> {
+export async function servicesForBase(barberId: string): Promise<OfferedService[]> {
   const sample = await first(TABLES.barbers, [Query.equal("$id", barberId)]);
   if (!sample) return [];
 
@@ -145,6 +146,30 @@ export async function servicesFor(barberId: string): Promise<OfferedService[]> {
     .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
 }
 
+/**
+ * The public read path. Materialised `offers` rows win on price, duration and
+ * assignment; the calculation above still supplies the catalogue metadata and
+ * covers every service that has not been backfilled yet. The returned shape is
+ * identical to `servicesForBase`, so callers need no changes.
+ */
+export async function servicesFor(barberId: string): Promise<OfferedService[]> {
+  const [base, offers] = await Promise.all([
+    servicesForBase(barberId),
+    listOffers(barberId),
+  ]);
+  if (offers.length === 0) return base;
+
+  const active = new Map(offers.filter((row) => row.active).map((row) => [row.service, row]));
+  const inactive = new Set(offers.filter((row) => !row.active).map((row) => row.service));
+
+  return base
+    .filter((service) => !inactive.has(service.id))
+    .map((service) => {
+      const offer = active.get(service.id);
+      return offer ? applyOffer(offer, service) : service;
+    });
+}
+
 /** The catalogue services one employee is missing — used by the assign UI. */
 export async function unassignedServices(
   businessId: string,
@@ -169,13 +194,24 @@ export async function canPerform(barberId: string, serviceId: string): Promise<b
   return offered.some((service) => service.id === serviceId && service.active);
 }
 
+/**
+ * The legacy calculation for one service, used as the fallback when no offer
+ * row exists. Kept separate so `offers.ts` can fall back without recursing.
+ */
+export async function resolveOfferBase(
+  barberId: string,
+  serviceId: string,
+): Promise<OfferedService | null> {
+  const offered = await servicesForBase(barberId);
+  return offered.find((service) => service.id === serviceId) ?? null;
+}
+
 /** The row a booking should charge, resolved for one employee. */
 export async function resolveOffer(
   barberId: string,
   serviceId: string,
 ): Promise<OfferedService | null> {
-  const offered = await servicesFor(barberId);
-  return offered.find((service) => service.id === serviceId) ?? null;
+  return offerFor(barberId, serviceId);
 }
 
 /** Every service id an employee can perform, for the availability engine. */

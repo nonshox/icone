@@ -1,17 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { BookingForm } from "@/components/booking/booking-form";
 import { DraftSync } from "@/components/booking/draft-sync";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = {
-  title: "Book a chair",
-  description: "Pick a service, a barber and a time at icone in Tashkent.",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/book",
+  titleKey: "booking.title",
+  descriptionKey: "booking.subtitle",
+  private: true,
+});
 
 async function BookGate({
   searchParams,

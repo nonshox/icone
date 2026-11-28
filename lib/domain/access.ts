@@ -158,7 +158,7 @@ export const getActor = cache(async (): Promise<Actor | null> => {
   if (profile.state === "suspended") return null;
 
   const [barberRows, membershipRows] = await Promise.all([
-    list(TABLES.barbers, [Query.equal("user", user.id), Query.limit(1)]),
+    list(TABLES.barbers, [Query.equal("user", user.id), Query.limit(100)]),
     list(TABLES.memberships, [Query.equal("user", user.id), Query.limit(50)]),
   ]);
 
@@ -166,13 +166,38 @@ export const getActor = cache(async (): Promise<Actor | null> => {
     .map(toMembership)
     .filter((row) => row.state === "active" && row.active);
 
+  const barbers = barberRows.map(toBarber);
+  const namedBarbers = new Set(
+    memberships.map((row) => row.barber).filter(Boolean),
+  );
+
+  // An account can have more than one barber row (legacy duplicates, or a
+  // member reassigned to a different chair). A membership that names a chair
+  // is the explicit statement of identity; the first row returned by Appwrite
+  // is not authoritative. Fall back to the first row only when no active
+  // membership names one of ours.
+  const named = memberships.find(
+    (row) => row.barber && barbers.some((barber) => barber.id === row.barber),
+  );
+  const barber = named
+    ? (barbers.find((row) => row.id === named.barber) ?? barbers[0] ?? null)
+    : (barbers[0] ?? null);
+
+  if (barbers.length > 1 && (!named || namedBarbers.size > 1)) {
+    // Counts only: no user ids, tokens or other account details in logs.
+    console.error("[access] ambiguous barber identity", {
+      barberRows: barbers.length,
+      namedMemberships: namedBarbers.size,
+    });
+  }
+
   const owns = businessIds(memberships.filter((row) => row.role === "owner"));
   const belongs = businessIds(memberships);
 
   return {
     userId: user.id,
     profile,
-    barber: barberRows.length > 0 ? toBarber(barberRows[0]) : null,
+    barber,
     memberships,
     owns,
     summary: {

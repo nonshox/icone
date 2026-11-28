@@ -108,8 +108,6 @@ export type AnalyticsParams = {
   service?: string;
 };
 
-export type ReplyInput = { id: string; reply: string };
-
 /* ------------------------------------------------------------------- keys */
 
 export const teamKeys = {
@@ -320,19 +318,6 @@ export function useDeclineInvite() {
       api<{ ok: true }>(`/api/invites?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       }),
-    onSuccess: () => refresh(client),
-  });
-}
-
-/** A professional's answer to a review; invalidates both review views. */
-export function useReplyReview() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (input: ReplyInput) =>
-      api<{ review: Review }>("/api/barber/reviews", {
-        method: "PATCH",
-        body: JSON.stringify(input),
-      }).then((r) => r.review),
     onSuccess: () => refresh(client),
   });
 }

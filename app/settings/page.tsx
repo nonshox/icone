@@ -1,17 +1,19 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { SettingsView } from "@/components/customer/settings-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getActor } from "@/lib/domain/access";
 
-export const metadata: Metadata = {
-  title: "Settings",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/settings",
+  titleKey: "nav.settings",
+  descriptionKey: "meta.private.description",
+  private: true,
+});
 
 async function SettingsPanel() {
   const actor = await getActor();

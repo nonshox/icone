@@ -1,7 +1,10 @@
 "use client";
 
-import Link from "next/link";
-
+import {
+  EmptyState,
+  ErrorState,
+} from "@/components/ui/app-state";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Table,
   TableBody,
@@ -14,14 +17,7 @@ import { useAdminDashboard } from "@/lib/api/admin-queries";
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
 
-import {
-  Bars,
-  Empty,
-  FormError,
-  Section,
-  StatCard,
-  message,
-} from "./admin-ui";
+import { Bars, Section } from "./admin-ui";
 
 type HistogramPoint = { label: string; value: number };
 type Activity = {
@@ -76,7 +72,7 @@ export function DashboardView() {
   if (query.isPending) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-hidden>
-        {Array.from({ length: 8 }, (_, index) => (
+        {Array.from({ length: 4 }, (_, index) => (
           <div key={index} className="h-28 animate-pulse rounded-xl bg-muted" />
         ))}
       </div>
@@ -86,7 +82,7 @@ export function DashboardView() {
   if (query.isError || !query.data) {
     return (
       <Section title={<T k="nav.admin" />}>
-        <FormError text={message(query.error, t("admin.loadError"))} />
+        <ErrorState error={query.error} fallback={t("admin.loadError")} />
       </Section>
     );
   }
@@ -99,52 +95,18 @@ export function DashboardView() {
 
   return (
     <div className="space-y-6">
+      {/* Four primary KPIs. The rest live in their own admin sections. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={<T k="admin.usersTotal" />} value={count(stats.users)} />
         <StatCard label={<T k="admin.barbersTotal" />} value={count(stats.barbers)} />
         <StatCard label={<T k="admin.businessesTotal" />} value={count(stats.businesses)} />
-        <StatCard label={<T k="admin.branchesTotal" />} value={count(stats.branches)} />
-        <StatCard label={<T k="admin.todayVisits" />} value={count(stats.todayBookings)} />
         <StatCard label={<T k="admin.bookingsTotal" />} value={count(stats.bookings)} />
-        <StatCard
-          label={<T k="admin.bookingsInRange" />}
-          value={count(stats.bookingsInRange)}
-        />
-        <StatCard
-          label={<T k="admin.pendingApps" />}
-          value={count(stats.pendingApplications)}
-        />
-        <StatCard label={<T k="admin.reviewsTotal" />} value={count(stats.reviews)} />
-        <StatCard label={<T k="admin.flagged" />} value={count(stats.flaggedReviews)} />
-        <Link href="/admin/moderation#reports" className="block rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
-          <StatCard
-            label={<T k="admin.openReports" />}
-            value={count(stats.openReports)}
-            note={<T k="admin.viewQueue" />}
-          />
-        </Link>
-        <Link href="/admin/moderation#tickets" className="block rounded-xl focus-visible:ring-2 focus-visible:ring-ring">
-          <StatCard
-            label={<T k="admin.openTickets" />}
-            value={count(stats.openTickets)}
-            note={<T k="admin.viewQueue" />}
-          />
-        </Link>
-        <StatCard label={<T k="admin.invites" />} value={count(stats.pendingInvites)} />
-        <StatCard
-          label={<T k="admin.cancellationRate" />}
-          value={`${stats.cancellationRate ?? 0}%`}
-        />
-        <StatCard
-          label={<T k="admin.retention" />}
-          value={`${stats.retention ?? 0}%`}
-        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Section title={<T k="admin.byStatus" />}>
           {statusRows.length === 0 ? (
-            <Empty><T k="common.noData" /></Empty>
+            <EmptyState><T k="common.noData" /></EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -169,7 +131,7 @@ export function DashboardView() {
 
         <Section title={<T k="admin.recentActivity" />}>
           {recent.length === 0 ? (
-            <Empty><T k="admin.noActivity" /></Empty>
+            <EmptyState><T k="admin.noActivity" /></EmptyState>
           ) : (
             <ul className="divide-y">
               {recent.map((item) => (
@@ -191,14 +153,14 @@ export function DashboardView() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Section title={<T k="admin.popularServices" />}>
           {services.length === 0 ? (
-            <Empty><T k="common.noData" /></Empty>
+            <EmptyState><T k="common.noData" /></EmptyState>
           ) : (
             <Bars points={services} />
           )}
         </Section>
         <Section title={<T k="admin.bookingsByDay" />}>
           {days.length === 0 ? (
-            <Empty><T k="common.noData" /></Empty>
+            <EmptyState><T k="common.noData" /></EmptyState>
           ) : (
             <Bars points={days} />
           )}

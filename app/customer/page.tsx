@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { CustomerView } from "@/components/customer/customer-view";
 import { SiteHeader } from "@/components/layout/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = {
-  title: "Your space",
-  robots: { index: false, follow: false },
-};
+export const metadata = routeMetadata({
+  path: "/customer",
+  titleKey: "customer.eyebrow",
+  descriptionKey: "meta.private.description",
+  private: true,
+});
 
 async function CustomerPanel() {
   await requireUser("/customer");

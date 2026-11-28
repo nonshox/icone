@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,18 +45,6 @@ import { useAgenda, useBarbers, useSetStatus } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { addDays, formatDate, label, weekday } from "@/lib/domain/time";
 import type { Role, Status } from "@/lib/domain/types";
-
-const badgeVariant: Record<
-  Status,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  pending: "outline",
-  confirmed: "default",
-  rejected: "destructive",
-  cancelled: "outline",
-  done: "secondary",
-  noshow: "destructive",
-};
 
 /** Only the transitions the domain actually accepts. */
 const NEXT: Record<Status, Status[]> = {
@@ -559,9 +548,7 @@ export function AgendaView({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={badgeVariant[booking.status]}>
-                        <T k={`status.${booking.status}`} />
-                      </Badge>
+                      <StatusBadge status={booking.status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-wrap justify-end gap-1">

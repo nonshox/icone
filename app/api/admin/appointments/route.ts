@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(
+  const limit = await rateLimit(
     `admin:appointments:${guard.actor.userId}`,
     60,
     10 * 60_000,

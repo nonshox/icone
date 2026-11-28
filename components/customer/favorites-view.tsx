@@ -6,10 +6,15 @@ import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
 import { ClientGate } from "@/components/customer/client-gate";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+  message,
+} from "@/components/ui/app-state";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useFavorites, useRemoveFavorite } from "@/lib/api/customer-queries";
 import { useBarbers, useProfile } from "@/lib/api/queries";
 import { imageUrl } from "@/lib/client/files";
@@ -35,28 +40,23 @@ export function FavoritesView() {
       onSuccess: () => toast.success(t("favorites.removed")),
       onError: (error) =>
         toast.error(t("favorites.removeFailed"), {
-          description: error instanceof Error ? error.message : t("auth.tryAgain"),
+          description: message(error, t("auth.tryAgain")),
         }),
     });
   }
 
   if (profile.isPending) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2" aria-hidden>
-        <Skeleton className="h-56 w-full" />
-        <Skeleton className="h-56 w-full" />
-      </div>
+      <LoadingRows
+        count={2}
+        className="grid gap-4 space-y-0 sm:grid-cols-2"
+        rowClassName="h-56 w-full"
+      />
     );
   }
 
   if (profile.isError || !profile.data) {
-    return (
-      <Card>
-        <CardContent role="alert" className="py-10 text-center text-sm text-destructive">
-          {t("customer.loadError")}
-        </CardContent>
-      </Card>
-    );
+    return <ErrorState fallback={t("customer.loadError")} />;
   }
 
   const barberById = new Map((barbers.data ?? []).map((barber) => [barber.id, barber]));
@@ -78,34 +78,27 @@ export function FavoritesView() {
         </div>
 
         {favorites.isPending ? (
-          <div className="grid gap-4 sm:grid-cols-2" aria-hidden>
-            <Skeleton className="h-56 w-full" />
-            <Skeleton className="h-56 w-full" />
-          </div>
+          <LoadingRows
+            count={2}
+            className="grid gap-4 space-y-0 sm:grid-cols-2"
+            rowClassName="h-56 w-full"
+          />
         ) : favorites.isError ? (
-          <Card>
-            <CardContent role="alert" className="py-10 text-center text-sm text-destructive">
-              <T k="favorites.loadError" />
-            </CardContent>
-          </Card>
+          <ErrorState fallback={t("favorites.loadError")} />
         ) : favorites.data.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="size-4 text-brand-strong" aria-hidden />
-                <T k="favorites.emptyTitle" />
-              </CardTitle>
-              <CardDescription><T k="favorites.emptyBody" /></CardDescription>
-            </CardHeader>
-            <CardContent>
+          <EmptyState
+            icon={<Heart className="size-5" aria-hidden />}
+            title={<T k="favorites.emptyTitle" />}
+            description={<T k="favorites.emptyBody" />}
+            action={
               <Link
                 href="/barbers"
                 className={cn(buttonVariants({ size: "sm" }), "h-9 rounded-xl")}
               >
                 <T k="favorites.browse" />
               </Link>
-            </CardContent>
-          </Card>
+            }
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             {favorites.data.map((item) => {

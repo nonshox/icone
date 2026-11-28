@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
   if (!guarded.ok) return guarded.response;
 
   const actor = guarded.actor;
-  const limit = rateLimit(`book:${actor.userId}`, 12, 60 * 60_000);
+  const limit = await rateLimit(`book:${actor.userId}`, 12, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;

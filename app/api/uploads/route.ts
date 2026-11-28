@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
 
-  const limit = rateLimit(`upload:${guarded.actor.userId}`, 20, 10 * 60_000);
+  const limit = await rateLimit(`upload:${guarded.actor.userId}`, 20, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   // Cheap guard before the body is parsed; the domain still checks the real

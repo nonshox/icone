@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { imageUrl } from "@/lib/client/files";
+import { metaText } from "@/lib/metadata";
 import { servicesFor } from "@/lib/domain/catalog";
 import { publicPortfolio } from "@/lib/domain/portfolio";
 import { getBarber } from "@/lib/domain/professional";
@@ -49,16 +50,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const barber = await getBarber(id).catch(() => null);
+  const fallback = metaText("barber.bioFallback");
   return {
-    title: barber ? `${barber.name} · barber` : "Barber",
-    description:
-      barber?.bio ||
-      "Meet the barber, see the menu and reserve a chair at icone in Tashkent.",
+    title: barber
+      ? `${barber.name} · ${metaText("meta.barber.suffix")}`
+      : metaText("meta.barber.title"),
+    description: barber?.bio || fallback,
     robots: { index: true, follow: true },
     openGraph: barber
       ? {
           title: `${barber.name} · icone`,
-          description: barber.bio || "Book a barber in Tashkent on icone.",
+          description: barber.bio || fallback,
           images: imageUrl(barber.photo) ? [imageUrl(barber.photo)] : undefined,
         }
       : undefined,

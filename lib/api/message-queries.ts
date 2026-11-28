@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { Conversation, Message } from "@/lib/domain/messages";
+import type { Message } from "@/lib/domain/messages";
 
 import { api } from "./client";
 
@@ -11,20 +11,29 @@ export const messageKeys = {
   thread: (withId: string) => ["messages", withId] as const,
 };
 
-/** The route returns both canonical and legacy-friendly keys. */
-export type Thread = Conversation & {
-  conversation?: string;
-  name?: string;
-  withName?: string;
+/**
+ * The inbox DTO. `id` and `with` are the counterpart's account id;
+ * `conversation` is the stable pair key used by the conversation entity.
+ */
+export type Thread = {
+  id: string;
+  with: string;
+  withName: string;
+  withAvatar?: string;
+  name: string;
+  conversation: string;
+  last: string;
+  preview: string;
+  lastAt: string;
   at?: string;
-  lastAt?: string;
-  preview?: string;
-  last?: string;
+  unread: number;
 };
 
 export type ThreadData = {
-  participant: Thread;
+  participant: { id: string; name: string };
   messages: Message[];
+  conversation?: string;
+  unread?: number;
 };
 
 export function useThreads() {

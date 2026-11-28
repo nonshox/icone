@@ -58,9 +58,17 @@ primary tabs plus "More"; there is no separate mini-app navigation.
 | Client queries/state | `lib/api/`, `lib/store/` |
 | Authorization | `lib/domain/access.ts`, `lib/api/guard.ts` |
 | Auth | `lib/auth/`, `app/api/auth/`, `lib/domain/account.ts` |
-| Translations | `lib/i18n/dictionaries.ts`, `components/i18n/t.tsx` |
+| Translations | `lib/i18n/locales/*.ts` (copy), `lib/i18n/dictionaries.ts` (server map), `lib/i18n/translate.ts` (runtime), `components/i18n/t.tsx` |
 | Schema setup | `scripts/setup-appwrite.mjs` |
 | Telegram scripts | `scripts/telegram-*.mjs` |
+
+## Metadata and language
+
+Static metadata is resolved at build time and cannot see the visitor's stored
+locale, so `lib/metadata.ts` and the root layout always use the Uzbek
+dictionary. Page bodies switch language at runtime through `<T>`/`useT()`.
+The browser bundle only contains the default locale; Russian and English load
+as separate chunks on demand.
 
 ## Done means
 

@@ -37,7 +37,6 @@ const bodySchema = z.object({
       reminder: z.boolean().optional(),
       waitlist: z.boolean().optional(),
       business: z.boolean().optional(),
-      marketing: z.boolean().optional(),
       // Legacy aliases kept so old clients can still save.
       bookings: z.boolean().optional(),
       reminders: z.boolean().optional(),
@@ -71,7 +70,7 @@ export async function PATCH(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
   
-  const limit = rateLimit(`settings:${guarded.actor.userId}`, 30, 10 * 60_000);
+  const limit = await rateLimit(`settings:${guarded.actor.userId}`, 30, 10 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -110,7 +109,6 @@ export async function PATCH(request: NextRequest) {
         reminder: input.reminder ?? input.reminders ?? current.reminder,
         waitlist: input.waitlist ?? current.waitlist,
         business: input.business ?? current.business,
-        marketing: input.marketing ?? input.offers ?? current.marketing,
       };
       profile = await setPrefs(userId, next);
     }

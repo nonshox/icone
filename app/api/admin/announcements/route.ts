@@ -71,7 +71,7 @@ async function write(request: NextRequest) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.response;
 
-  const limit = rateLimit(
+  const limit = await rateLimit(
     `admin:announcements:${guard.actor.userId}`,
     20,
     10 * 60_000,

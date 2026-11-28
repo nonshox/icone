@@ -11,7 +11,12 @@ import type {
   Profile,
   Status,
 } from "@/lib/domain/types";
-import { STATUS_LABEL } from "@/lib/domain/types";
+import {
+  DISMISSED_STATUSES,
+  HOLDING_STATUSES,
+  STATUS_LABEL,
+  isCompleted,
+} from "@/lib/domain/types";
 
 import { api } from "./client";
 import { keys } from "./queries";
@@ -152,8 +157,9 @@ export function useUpdateSettings() {
   });
 }
 
-const UPCOMING: Status[] = ["pending", "confirmed"];
-const PAST: Status[] = ["cancelled", "noshow", "rejected"];
+/** One status authority: holding = upcoming, dismissed = never happened. */
+const UPCOMING: readonly Status[] = HOLDING_STATUSES;
+const PAST: readonly Status[] = DISMISSED_STATUSES;
 
 /**
  * Derive the dashboard numbers from data TanStack already owns. `today` comes
@@ -216,7 +222,7 @@ export function useCustomerOverview(input: {
 
     const stats: CustomerStats = {
       upcoming: upcoming.length,
-      completed: bookings.filter((booking) => booking.status === "done").length,
+      completed: bookings.filter((booking) => isCompleted(booking.status)).length,
       cancelled: bookings.filter((booking) => PAST.includes(booking.status)).length,
       favorites: favorites.length,
       reviews: bookings.filter((booking) => booking.reviewed).length,

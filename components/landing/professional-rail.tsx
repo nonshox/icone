@@ -6,8 +6,12 @@ import Link from "next/link";
 
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingRows,
+} from "@/components/ui/app-state";
 import { buttonVariants } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
 import { useShopDate } from "@/lib/client/date";
 import { imageUrl } from "@/lib/client/files";
@@ -81,26 +85,19 @@ export function ProfessionalRail({
 
       <div aria-live="polite" className="mt-6">
         {query.isLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-hidden>
-            {[0, 1, 2, 3].map((index) => (
-              <Skeleton key={index} className="h-40 w-full rounded-2xl" />
-            ))}
-          </div>
+          <LoadingRows
+            count={4}
+            className="grid gap-3 space-y-0 sm:grid-cols-2 lg:grid-cols-4"
+            rowClassName="h-40 w-full rounded-2xl"
+          />
         ) : query.isError ? (
-          <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 p-5 text-sm">
-            <p className="text-destructive"><T k="landing.cardsError" /></p>
-            <button
-              type="button"
-              onClick={() => void query.refetch()}
-              className="mt-2 font-medium text-foreground underline underline-offset-4"
-            >
-              <T k="common.tryAgain" />
-            </button>
-          </div>
+          <ErrorState
+            error={query.error}
+            fallback={t("landing.cardsError")}
+            onRetry={() => void query.refetch()}
+          />
         ) : rows.length === 0 ? (
-          <p className="rounded-2xl border border-border/70 p-5 text-sm text-muted-foreground">
-            <T k="landing.cardsEmpty" />
-          </p>
+          <EmptyState><T k="landing.cardsEmpty" /></EmptyState>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {rows.map((row) => (

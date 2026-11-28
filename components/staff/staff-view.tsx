@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingRows, message } from "@/components/ui/app-state";
+
 import { CalendarDays, Copy, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -66,9 +68,6 @@ type ChairState = {
   errorMessage: string;
 };
 
-function message(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
 
 /** Map the clone endpoint's stable codes to the visitor's language. */
 function cloneMessage(error: unknown, t: (key: string) => string): string {
@@ -85,16 +84,6 @@ function FormError({ text }: { text: string | null }) {
     <p role="alert" aria-live="polite" className="text-sm text-destructive">
       {text}
     </p>
-  );
-}
-
-function LoadingRows() {
-  return (
-    <div className="space-y-2 py-2" aria-hidden>
-      <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
-      <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
-      <div className="h-9 w-full animate-pulse rounded-lg bg-muted" />
-    </div>
   );
 }
 

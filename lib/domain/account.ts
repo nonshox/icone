@@ -124,7 +124,6 @@ export async function setPrefs(
     reminder: !!prefs.reminder,
     waitlist: !!prefs.waitlist,
     business: !!prefs.business,
-    marketing: !!prefs.marketing,
   };
   const row = await update(TABLES.users, userId, {
     prefs: JSON.stringify(normalized),

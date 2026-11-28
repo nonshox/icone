@@ -7,16 +7,23 @@ import { z } from "zod";
 import { requireUser } from "@/lib/api/guard";
 import { TABLES } from "@/lib/appwrite/db";
 import type { Actor } from "@/lib/domain/access";
-import { list, str, type Row } from "@/lib/domain/crud";
+import { list, str } from "@/lib/domain/crud";
 import {
-  conversationId,
-  conversationsFor,
-  counterpartNames,
+  appendMessage,
+  conversationForPair,
+  getOrCreateConversation,
   isParticipant,
+  listConversations,
+  markRead,
+  messagesFor,
   otherParty,
-  send,
-  thread,
-  type Message,
+  pairKey,
+  unreadFor,
+  type ConversationRecord,
+} from "@/lib/domain/conversations";
+import {
+  counterpartNames,
+  otherParty as otherPartyFromPair,
 } from "@/lib/domain/messages";
 import {
   barberForUser,
@@ -93,25 +100,19 @@ async function mayMessage(
   return (await publicBarber(target).catch(() => null)) !== null;
 }
 
-function toMessage(row: Row): Message {
-  return {
-    id: row.$id,
-    conversation: str(row.conversation),
-    sender: str(row.sender),
-    body: str(row.body),
-    created: row.$createdAt,
-  };
-}
-
 /**
  * GET /api/messages — the caller's threads.
  * GET /api/messages?with=<userId> — one thread and its history.
+ * GET /api/messages?conversation=<pair> — the same by stable pair key.
+ *
+ * Opening a thread clears the caller's unread counter for that pair.
  */
 export async function GET(request: NextRequest) {
   const guarded = await requireUser();
   if (!guarded.ok) return guarded.response;
 
   const actor = guarded.actor;
+  const admin = actor.profile.role === "admin";
   const params = request.nextUrl.searchParams;
   const requestedWith = params.get("with");
   const requestedConversation = params.get("conversation");
@@ -130,79 +131,123 @@ export async function GET(request: NextRequest) {
         return apiError("That conversation is not available.", 403, "forbidden");
       }
 
-      const other = requestedWith
-        ? await resolveTarget(requestedWith, allowed)
-        : requestedConversation
-          ? otherParty(requestedConversation, actor.userId)
-          : null;
-      const conversation =
-        requestedConversation ??
-        (other ? conversationId(actor.userId, other) : "");
+      let record: ConversationRecord | null = null;
+      let other = "";
+      let pair = "";
 
-      if (!other || other === actor.userId || !conversation) {
+      if (requestedWith) {
+        other = await resolveTarget(requestedWith, allowed);
+        pair = pairKey(actor.userId, other);
+        record = await conversationForPair(pair);
+
+        if (!admin) {
+          // An existing thread stays readable only to its participants. A new
+          // one needs a booking-derived partner or an active public profile.
+          if (record) {
+            if (!isParticipant(record, actor.userId)) {
+              return apiError("That conversation is not available.", 403, "forbidden");
+            }
+          } else if (!(await mayMessage(actor, allowed, other))) {
+            return apiError(
+              "You cannot open a conversation with this member.",
+              403,
+              "forbidden",
+            );
+          }
+          record = record ?? (await getOrCreateConversation(actor.userId, other));
+        }
+      } else if (requestedConversation) {
+        pair = requestedConversation;
+        record = await conversationForPair(pair);
+        other = record
+          ? otherParty(record, actor.userId) ?? ""
+          : otherPartyFromPair(pair, actor.userId) ?? "";
+
+        if (!admin) {
+          if (record) {
+            if (!isParticipant(record, actor.userId)) {
+              return apiError("That conversation is not available.", 403, "forbidden");
+            }
+          } else {
+            // A thread written before the conversation table existed: the
+            // legacy pair must still resolve to this account before it can be
+            // adopted as a conversation row.
+            const canonical = other ? pairKey(actor.userId, other) : "";
+            if (canonical !== pair || !(await mayMessage(actor, allowed, other))) {
+              return apiError("That conversation is not available.", 403, "forbidden");
+            }
+            record = await getOrCreateConversation(actor.userId, other);
+          }
+        }
+      }
+
+      if (!pair || !other || other === actor.userId) {
         return apiError("That conversation is not available.", 403, "forbidden");
       }
-      // An existing thread stays readable; a brand-new one needs either a
-      // booking-derived partner or an active professional's public profile.
-      if (
-        actor.profile.role !== "admin" &&
-        !isParticipant(conversation, actor.userId) &&
-        !(await mayMessage(actor, allowed, other))
-      ) {
-        return apiError(
-          "You cannot open a conversation with this member.",
-          403,
-          "forbidden",
-        );
-      }
 
-      // Admins are not participants in every thread, so they read by
-      // conversation id instead of filtering through the participant check.
+      if (!admin && record) {
+        await markRead(record, actor.userId);
+      }
+      const unread = !admin && record ? 0 : record ? unreadFor(record, actor.userId) : 0;
+
+      // Admins read by conversation id rather than through the participant
+      // check; they are never a party to a member-to-member thread.
       const messages =
-        actor.profile.role === "admin"
-          ? (await list(TABLES.messages, [
-              Query.equal("conversation", conversation),
-              Query.orderAsc("$createdAt"),
-              Query.limit(100),
-            ])).map(toMessage)
-          : await thread(conversation, actor.userId);
+        record && (admin ? true : isParticipant(record, actor.userId))
+          ? await messagesFor(record, admin ? null : actor.userId)
+          : await messagesFor(pair, null);
 
       const names = await counterpartNames([other]);
       return apiOk({
         with: other,
-        conversation,
+        conversation: pair,
         participant: { id: other, name: names.get(other) || "Member" },
         messages,
+        unread,
       });
     }
 
-    const threads = await conversationsFor(actor.userId, new Map());
-    let visibleIds: string[] | null = null;
+    const records = await listConversations(actor.userId);
+    const pairs = [
+      ...new Set(
+        records.map((row) => otherParty(row, actor.userId)).filter(Boolean),
+      ),
+    ] as string[];
+
+    let visible = records;
     if (allowed) {
+      const permitted = new Set(allowed);
       const fromProfiles = new Set<string>();
-      for (const row of threads) {
-        if (allowed.includes(row.with)) continue;
-        if (await publicBarber(row.with)) fromProfiles.add(row.with);
-      }
-      visibleIds = [...new Set([...allowed, ...fromProfiles])];
+      await Promise.all(
+        pairs.map(async (id) => {
+          if (!permitted.has(id) && (await publicBarber(id))) fromProfiles.add(id);
+        }),
+      );
+      const ids = new Set([...permitted, ...fromProfiles]);
+      visible = records.filter((row) =>
+        ids.has(otherParty(row, actor.userId) ?? ""),
+      );
     }
 
-    const names = await counterpartNames(visibleIds ?? threads.map((row) => row.with));
-    const ids = visibleIds;
-    const visible = ids
-      ? threads.filter((row) => ids.includes(row.with))
-      : threads;
-
+    const names = await counterpartNames(pairs);
     // Keep the original DTO keys while carrying the richer domain fields.
     return apiOk({
-      threads: visible.map((row) => ({
-        ...row,
-        id: row.with,
-        name: names.get(row.with) || row.withName || "Member",
-        preview: row.last,
-        at: row.lastAt,
-        conversation: row.id,
-      })),
+      threads: visible.map((row) => {
+        const withId = otherParty(row, actor.userId) ?? "";
+        return {
+          id: withId,
+          with: withId,
+          withName: names.get(withId) ?? "",
+          withAvatar: "",
+          name: names.get(withId) || withId || "Member",
+          last: row.last,
+          preview: row.last,
+          lastAt: row.lastAt,
+          at: row.lastAt,
+          unread: unreadFor(row, actor.userId),
+          conversation: row.pair,
+        };
+      }),
     });
   } catch (error) {
     console.error("[api] messages read failed", error);
@@ -224,7 +269,7 @@ export async function POST(request: NextRequest) {
   if (!guarded.ok) return guarded.response;
 
   const actor = guarded.actor;
-  const limit = rateLimit(`message:${actor.userId}`, 40, 60 * 60_000);
+  const limit = await rateLimit(`message:${actor.userId}`, 40, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: unknown;
@@ -251,8 +296,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const message = await send({
-      conversation: conversationId(actor.userId, to),
+    const conversation = await getOrCreateConversation(actor.userId, to);
+    if (!conversation) {
+      return apiError("Could not open the conversation.", 400, "bad_message");
+    }
+
+    const message = await appendMessage({
+      conversation,
       sender: actor.userId,
       body: parsed.data.body,
     });

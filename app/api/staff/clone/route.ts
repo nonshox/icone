@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   const guarded = await requireWorkspace("schedule.write");
   if (!guarded.ok) return guarded.response;
 
-  const denied = writeDenied(request, `staff:clone:${guarded.actor.userId}`, 12);
+  const denied = await writeDenied(request, `staff:clone:${guarded.actor.userId}`, 12);
   if (denied) return denied;
 
   let target: Target | null;

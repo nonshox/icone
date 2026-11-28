@@ -34,7 +34,6 @@ const prefRows: Array<{
   { key: "reminder", labelKey: "settings.pref.reminder", hintKey: "settings.pref.reminderHint" },
   { key: "waitlist", labelKey: "settings.pref.waitlist", hintKey: "settings.pref.waitlistHint" },
   { key: "business", labelKey: "settings.pref.business", hintKey: "settings.pref.businessHint" },
-  { key: "marketing", labelKey: "settings.pref.marketing", hintKey: "settings.pref.marketingHint" },
 ];
 
 function Toggle({

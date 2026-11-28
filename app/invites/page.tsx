@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { routeMetadata } from "@/lib/metadata";
 import { T } from "@/components/i18n/t";
 import { Invitations } from "@/components/team/invitations";
 import { getActor } from "@/lib/domain/access";
@@ -11,10 +12,12 @@ async function InvitesGate() {
   return <Invitations />;
 }
 
-export const metadata = {
-  title: "Invitations — icone",
-  description: "Team invitations for your account.",
-};
+export const metadata = routeMetadata({
+  path: "/invites",
+  titleKey: "invites.title",
+  descriptionKey: "invites.subtitle",
+  private: true,
+});
 
 export default function InvitesPage() {
   return (

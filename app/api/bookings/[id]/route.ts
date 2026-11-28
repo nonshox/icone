@@ -100,7 +100,7 @@ export async function POST(request: NextRequest, context: Context) {
   if (!guarded.ok) return guarded.response;
 
   const actor = guarded.actor;
-  const limit = rateLimit(`reschedule:${actor.userId}`, 12, 60 * 60_000);
+  const limit = await rateLimit(`reschedule:${actor.userId}`, 12, 60 * 60_000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   const { id } = await context.params;
