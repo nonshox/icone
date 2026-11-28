@@ -158,6 +158,7 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
 
   const [hours, reviews, menu, portfolio] = loaded;
   const previewService = menu.find((service) => service.featured) ?? menu[0] ?? null;
+  const bookingSlug = barber.slug || barber.id;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
@@ -210,11 +211,12 @@ async function BarberDetail({ params }: { params: Promise<{ id: string }> }) {
                 <FavoriteButton barber={barber.id} />
                 <MessageProfileLink barber={barber.id} user={barber.user} />
                 <ShareProfile
-                  path={`/barbers/${barber.slug || barber.id}`}
+                  path={`/barbers/${bookingSlug}`}
                   title={barber.name}
+                  bookingSlug={bookingSlug}
                 />
                 <Link
-                  href={`/book?barber=${barber.id}`}
+                  href={`/b/${encodeURIComponent(bookingSlug)}`}
                   className={cn(
                     buttonVariants({ size: "sm" }),
                     "brand-glow h-9 rounded-xl",

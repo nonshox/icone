@@ -15,8 +15,8 @@ export const metadata = routeMetadata({
 export default function BarberPage() {
   return (
     <BarberShell
-      title={<T k="nav.account" />}
-      description={<T k="work.dashboard.quickHint" />}
+      title={<T k="nav.workspace" />}
+      description={<T k="work.dashboard.todayHint" />}
     >
       <BarberDashboard />
       <WaitlistManager />

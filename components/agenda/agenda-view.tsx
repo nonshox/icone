@@ -6,11 +6,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Plus,
   Settings2,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { AppointmentEditor, type AppointmentDraft } from "./appointment-editor";
 
 import { T } from "@/components/i18n/t";
 import { useT } from "@/lib/i18n/use-t";
@@ -111,6 +115,7 @@ function DayCell({
   outside,
   compact,
   onSelect,
+  onAdd,
 }: {
   date: string;
   barber: string;
@@ -119,6 +124,7 @@ function DayCell({
   outside: boolean;
   compact: boolean;
   onSelect: (date: string) => void;
+  onAdd: (date: string) => void;
 }) {
   const agenda = useAgenda(outside ? "" : date, barber);
   const t = useT();
@@ -126,10 +132,6 @@ function DayCell({
   const count = bookings.length;
   const pending = bookings.filter((row) => row.status === "pending").length;
   const day = Number(date.slice(8, 10));
-
-  const ariaLabel = outside
-    ? ""
-    : `${t("work.agenda.selectDay")} ${formatDate(date)}. ${t("work.agenda.bookings")}: ${count}`;
 
   if (outside) {
     return (
@@ -144,8 +146,11 @@ function DayCell({
     );
   }
 
-  if (compact) {
-    return (
+  const ariaLabel = `${t("work.agenda.selectDay")} ${formatDate(date)}. ${t("work.agenda.bookings")}: ${count}`;
+  const addLabel = `${t("common.add")} ${t("nav.appointments")} · ${formatDate(date)}`;
+
+  return (
+    <div className="relative min-w-0">
       <button
         type="button"
         aria-label={ariaLabel}
@@ -153,68 +158,78 @@ function DayCell({
         aria-pressed={selected}
         onClick={() => onSelect(date)}
         className={cn(
-          "relative aspect-square rounded-lg border border-border text-left transition-colors hover:bg-brand/10",
+          "w-full text-left transition-colors hover:bg-brand/10",
+          compact
+            ? "relative aspect-square rounded-lg border border-border"
+            : "flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-border p-2 text-center",
           selected && "border-brand/60 bg-brand/10",
           date === today && "ring-1 ring-brand/40",
         )}
       >
-        <span className="absolute left-1 top-0.5 text-xs tabular-nums">{day}</span>
+        {compact ? (
+          <span className="absolute left-1 top-0.5 text-xs tabular-nums">{day}</span>
+        ) : (
+          <>
+            <span className="w-full truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+              <T k={`day.${weekday(date)}`} />
+            </span>
+            <span className="text-lg font-semibold tabular-nums">{day}</span>
+          </>
+        )}
         {agenda.isPending ? (
           <Loader2
-            className="absolute bottom-1 right-1 size-3 animate-spin text-muted-foreground"
+            className={cn(
+              "animate-spin text-muted-foreground",
+              compact ? "absolute bottom-1 right-1 size-3" : "size-3",
+            )}
             aria-hidden
           />
         ) : agenda.isError ? (
           <span
             title={t("work.agenda.dayError")}
-            className="absolute bottom-1 right-1 text-xs text-destructive"
+            className={cn(
+              "text-xs text-destructive",
+              compact ? "absolute bottom-1 right-1" : "",
+            )}
           >
             !
           </span>
-        ) : count > 0 ? (
-          <span className="absolute bottom-1 right-1 min-w-4 rounded bg-brand/15 px-0.5 text-center text-[10px] font-medium tabular-nums text-brand-strong">
-            {count}
+        ) : compact ? (
+          count > 0 ? (
+            <span className="absolute bottom-1 right-1 min-w-4 rounded bg-brand/15 px-0.5 text-center text-[10px] font-medium tabular-nums text-brand-strong">
+              {count}
+            </span>
+          ) : null
+        ) : (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {count > 0 ? count : "—"}
           </span>
-        ) : null}
+        )}
         {pending > 0 ? (
           <span
             aria-hidden
-            className="absolute bottom-1 left-1 size-1.5 rounded-full bg-brand"
+            className={cn(
+              "rounded-full bg-brand",
+              compact
+                ? "absolute bottom-1 left-1 size-1.5"
+                : "size-1.5",
+            )}
           />
         ) : null}
       </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      title={ariaLabel}
-      aria-pressed={selected}
-      onClick={() => onSelect(date)}
-      className={cn(
-        "flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-border p-2 text-center transition-colors hover:bg-brand/10",
-        selected && "border-brand/60 bg-brand/10",
-        date === today && "ring-1 ring-brand/40",
-      )}
-    >
-      <span className="w-full truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-        <T k={`day.${weekday(date)}`} />
-      </span>
-      <span className="text-lg font-semibold tabular-nums">{day}</span>
-      {agenda.isPending ? (
-        <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />
-      ) : agenda.isError ? (
-        <span title={t("work.agenda.dayError")} className="text-xs text-destructive">
-          !
-        </span>
-      ) : (
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {count > 0 ? count : "—"}
-        </span>
-      )}
-    </button>
+      <button
+        type="button"
+        aria-label={addLabel}
+        title={addLabel}
+        onClick={() => onAdd(date)}
+        className={cn(
+          "absolute right-0.5 top-0.5 z-10 grid place-items-center rounded-md border border-border bg-background/90 text-muted-foreground transition-colors hover:bg-brand hover:text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          compact ? "size-4" : "size-5",
+        )}
+      >
+        <Plus className={compact ? "size-2.5" : "size-3"} aria-hidden />
+      </button>
+    </div>
   );
 }
 
@@ -230,10 +245,20 @@ export function AgendaView({
   ownBarberId?: string;
 }) {
   const shopDate = useShopDate();
-  const [chosenDate, setChosenDate] = useState("");
+  const params = useSearchParams();
+  const linkDate = params.get("date") ?? "";
+  const linkBarber = params.get("barber") ?? "";
+  const linkStart = params.get("start");
+  const linkService = params.get("service") ?? "";
+  const linkBooking = params.get("booking") ?? "";
+  const linkSource = params.get("source") ?? "";
+
+  const [chosenDate, setChosenDate] = useState(linkDate);
   const date = chosenDate || shopDate;
   const [view, setView] = useState<View>("day");
-  const [barber, setBarber] = useState("");
+  const [barber, setBarber] = useState(linkBarber);
+  const [draft, setDraft] = useState<AppointmentDraft | null>(null);
+  const openedLink = useRef("");
   const barbers = useBarbers();
   const setStatus = useSetStatus();
   const t = useT();
@@ -249,6 +274,31 @@ export function AgendaView({
   const needsBarberFilter = role !== "admin" && canPickBarber && !ownBarberId;
   // Don't ask for an unscoped calendar before we can name a real barber.
   const agendaDate = needsBarberFilter && barbers.isPending ? "" : date;
+
+  // Deep links from the waitlist and from booking notices open the same editor.
+  // The ref keeps a closed editor closed even while the URL still holds params.
+  useEffect(() => {
+    const key = `${linkDate}|${linkBarber}|${linkStart ?? ""}|${linkService}|${linkSource}`;
+    if (!linkDate && !linkBarber && linkStart === null && !linkService && !linkSource) {
+      return;
+    }
+    if (openedLink.current === key) return;
+    openedLink.current = key;
+    const parsedStart =
+      linkStart !== null && /^\d+$/.test(linkStart) ? Number(linkStart) : undefined;
+    setDraft({
+      barber: linkBarber || barberFilter || undefined,
+      date: linkDate || shopDate || undefined,
+      start: parsedStart,
+      service: linkService || undefined,
+      source:
+        linkSource === "phone" ||
+        linkSource === "manual" ||
+        linkSource === "walkin"
+          ? linkSource
+          : undefined,
+    });
+  }, [linkDate, linkBarber, linkStart, linkService, linkSource, barberFilter, shopDate]);
 
   const agenda = useAgenda(agendaDate, barberFilter);
   const bookings = agenda.data ?? [];
@@ -274,6 +324,14 @@ export function AgendaView({
   function selectDay(value: string) {
     setChosenDate(value);
     setView("day");
+  }
+
+  function openEditor(input: { date?: string; start?: number } = {}) {
+    setDraft({
+      barber: barberFilter || undefined,
+      date: input.date || date || shopDate || undefined,
+      start: input.start,
+    });
   }
 
   function shift(delta: number) {
@@ -404,7 +462,16 @@ export function AgendaView({
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => openEditor()}
+            aria-label={`${t("common.add")} ${t("nav.appointments")}`}
+          >
+            <Plus className="size-4" aria-hidden />
+            <T k="walkin.submit" />
+          </Button>
           <Badge variant="outline">
             {pending} <T k="status.pending" />
           </Badge>
@@ -416,6 +483,14 @@ export function AgendaView({
           </Badge>
         </div>
       </div>
+
+      {draft ? (
+        <AppointmentEditor
+          key={`${draft.barber ?? ""}|${draft.date ?? ""}|${draft.start ?? ""}|${draft.service ?? ""}`}
+          draft={draft}
+          onClose={() => setDraft(null)}
+        />
+      ) : null}
 
       <Card className="glass">
         <CardHeader>
@@ -430,12 +505,6 @@ export function AgendaView({
               <T k="work.agenda.chairSettings" />
             </Link>
           ) : null}
-          <Link
-            href="/agenda/walkin"
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-          >
-            <T k="nav.appointments" /> · <T k="common.add" />
-          </Link>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {!date || agenda.isPending ? (
@@ -456,6 +525,7 @@ export function AgendaView({
                   outside={false}
                   compact={false}
                   onSelect={selectDay}
+                  onAdd={(value) => openEditor({ date: value })}
                 />
               ))}
             </div>
@@ -486,6 +556,7 @@ export function AgendaView({
                     outside={day.slice(0, 7) !== date.slice(0, 7)}
                     compact
                     onSelect={selectDay}
+                    onAdd={(value) => openEditor({ date: value })}
                   />
                 ))}
               </div>
@@ -505,6 +576,15 @@ export function AgendaView({
               <p className="text-sm text-muted-foreground">
                 <T k="work.agenda.dayOpen" />
               </p>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => openEditor()}
+                className="mt-2"
+              >
+                <Plus className="size-3.5" aria-hidden />
+                <T k="walkin.submit" />
+              </Button>
             </div>
           ) : (
             <Table>
@@ -529,7 +609,13 @@ export function AgendaView({
               </TableHeader>
               <TableBody>
                 {bookings.map((booking) => (
-                  <TableRow key={booking.id}>
+                  <TableRow
+                    key={booking.id}
+                    aria-current={linkBooking === booking.id ? "true" : undefined}
+                    className={cn(
+                      linkBooking === booking.id && "bg-brand/10 ring-1 ring-brand/40",
+                    )}
+                  >
                     <TableCell className="font-medium tabular-nums">
                       {label(booking.start)}–{label(booking.end)}
                     </TableCell>

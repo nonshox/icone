@@ -10,7 +10,7 @@ import { redirect } from "next/navigation";
 
 export const metadata = routeMetadata({
   path: "/notifications",
-  titleKey: "inbox.title",
+  titleKey: "nav.inbox",
   descriptionKey: "inbox.newUpdates",
   private: true,
 });

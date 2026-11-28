@@ -10,6 +10,9 @@ const SESSION_COOKIE = "icone_session";
  * plus a streamed client redirect. The page itself still validates the session
  * against Appwrite (`requireUser`), which handles revoked and expired cookies.
  *
+ * `/book` is intentionally absent: browsing services and availability is
+ * public, and only the final submit asks for a session.
+ *
  * Kept dependency-free on purpose: proxy runs before the app and must not
  * import server-only modules or the Appwrite SDK.
  */
@@ -31,7 +34,6 @@ export const config = {
   matcher: [
     "/account",
     "/account/:path*",
-    "/book",
     "/bookings",
     "/bookings/:path*",
     "/agenda",

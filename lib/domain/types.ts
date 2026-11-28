@@ -92,7 +92,7 @@ export const STATUS_LABEL: StatusLabel = {
 };
 
 /** Where an appointment came from. */
-export type Source = "online" | "walkin" | "manual";
+export type Source = "online" | "walkin" | "phone" | "manual";
 
 /* --------------------------------------------------------------- accounts */
 

@@ -2,6 +2,7 @@
 
 import {
   BriefcaseBusiness,
+  CalendarClock,
   CalendarDays,
   CircleHelp,
   Compass,
@@ -10,11 +11,13 @@ import {
   Languages,
   Moon,
   MoreHorizontal,
-  Send,
+  Scissors,
   Scale,
+  Send,
   ShieldCheck,
   Sun,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,6 +40,14 @@ const tabs = [
   { href: "/book", key: "nav.book", Icon: CalendarDays },
   { href: "/favorites", key: "nav.saved", Icon: Heart },
   { href: "/account", key: "nav.account", Icon: UserRound },
+] as const;
+
+/** A professional's chair comes first; discovery stays in the More sheet. */
+const professionalTabs = [
+  { href: "/agenda", key: "nav.calendar", Icon: CalendarDays },
+  { href: "/bookings", key: "nav.bookings", Icon: CalendarClock },
+  { href: "/barber/customers", key: "work.customers.title", Icon: Users },
+  { href: "/barber/services", key: "nav.services", Icon: Scissors },
 ] as const;
 
 const sectionIcons = {
@@ -124,6 +135,9 @@ function MoreSections({ onNavigate }: { onNavigate: () => void }) {
 function MobileNavInner() {
   const pathname = usePathname();
   const t = useT();
+  const me = useMe();
+  const professional = Boolean(me.data?.professional);
+  const bottomTabs = professional ? professionalTabs : tabs;
   const [moreOpen, setMoreOpen] = useState(false);
   const locale = useLocaleStore((state) => state.locale);
   const setLocale = useLocaleStore((state) => state.setLocale);
@@ -218,7 +232,7 @@ function MobileNavInner() {
       >
         <div className="border-t border-border/70 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
           <div className="mx-auto grid max-w-md grid-cols-6 gap-0.5 px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-            {tabs.map(({ href, key, Icon }) => {
+            {bottomTabs.map(({ href, key, Icon }) => {
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link

@@ -69,7 +69,7 @@ export function NotificationsView() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-medium tracking-[0.18em] text-brand-strong uppercase">
-              <T k="inbox.title" />
+              <T k="nav.inbox" />
             </p>
           </div>
           <div className="flex items-center gap-3">

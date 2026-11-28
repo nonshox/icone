@@ -27,9 +27,9 @@ const linkClass =
   "inline-flex items-center rounded-xl border border-brand/40 bg-brand/10 px-3 py-1.5 text-sm text-brand-strong transition-colors hover:bg-brand/15";
 
 /**
- * Real wait requests for this workspace. The only action is a link to the
- * availability the customer is asking for — the professional still books or
- * messages them through the normal flow.
+ * Real wait requests for this workspace. The only action opens the staff
+ * appointment editor prefilled with the requested chair, date and time. Staff
+ * are never sent into the customer booking form.
  */
 export function WaitlistManager() {
   const t = useT();
@@ -64,7 +64,9 @@ export function WaitlistManager() {
           <ul className="space-y-2">
             {rows.map((wait) => {
               const params = new URLSearchParams({ barber: wait.barber });
+              if (wait.from) params.set("date", wait.from);
               if (wait.service) params.set("service", wait.service);
+              if (wait.before < 1439) params.set("start", String(wait.before));
               return (
                 <li
                   key={wait.id}
@@ -90,7 +92,7 @@ export function WaitlistManager() {
                     ) : null}
                   </div>
                   <Link
-                    href={`/book?${params.toString()}`}
+                    href={`/agenda?${params.toString()}`}
                     className={linkClass}
                   >
                     <T k="work.waitlist.openAvailability" />

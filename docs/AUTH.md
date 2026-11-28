@@ -22,6 +22,22 @@ customer and can become a professional without signing in again.
 `?next=` preserves a protected deep link through sign-in. `lib/next-path.ts`
 allows local paths only and rejects sign-in loops and protocol-relative URLs.
 
+## Public booking until confirm
+
+`/book` is intentionally not a protected route: guests can browse services,
+choose a professional and read live availability. `proxy.ts` does not match
+`/book`, and the page renders without a session lookup. Authentication is
+required only at the final submit:
+
+- The form checks the cached `/api/me` read. A guest's confirm button signs in
+  with `/sign-in?next=<encoded current booking URL>`; an expired session is
+  caught from the `/api/bookings` 401 and takes the same path.
+- `next` is the canonical draft URL (`business`, `branch`, `any`, repeated
+  `services`, `date`, `start`, optional `note`), so the Zustand draft is
+  restored even after a full reload. No session state is put in the URL.
+- Writes remain server-guarded by `requireUser` in `/api/bookings`; browsing
+  never grants booking rights, and prices are always resolved on the server.
+
 ## Session and threat model
 
 - Session secret: `icone_session`, HttpOnly, server-set. No client SDK sessions

@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { T } from "@/components/i18n/t";
-import { api } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import { useT } from "@/lib/i18n/use-t";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,10 +39,13 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  availabilityQuery,
   useAvailabilityQuote,
   useBarbers,
   useCreateBooking,
+  useMe,
   useServices,
+  type AvailabilityQuote,
 } from "@/lib/api/queries";
 import { useShopDate } from "@/lib/client/date";
 import { priceOf, visitPrice } from "@/lib/domain/pricing";
@@ -65,6 +68,10 @@ function compatible(service: Service, barber: Barber | undefined): boolean {
   return service.barber === barber.id;
 }
 
+/** How far the no-slot recovery looks. Same horizon as the domain helper. */
+const RECOVERY_DAYS = 14;
+const ALL_PROFESSIONALS_DAYS = 7;
+
 export function BookingForm() {
   const router = useRouter();
   const t = useT();
@@ -83,6 +90,11 @@ export function BookingForm() {
   const setDate = useBookingDraft((state) => state.setDate);
   const setStart = useBookingDraft((state) => state.setStart);
   const setNote = useBookingDraft((state) => state.setNote);
+
+  const me = useMe();
+  const guest = me.isError || (me.isSuccess && !me.data?.user);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recovery, setRecovery] = useState("");
 
   const shopDate = useShopDate();
   const maxDate = useMemo(
@@ -111,6 +123,9 @@ export function BookingForm() {
   const services = useServices();
   const barbers = useBarbers();
   const barber = barbers.data?.find((item) => item.id === barberId);
+  // `any` needs a real shop scope on the server; without one the visitor picks
+  // a person from the full catalogue instead.
+  const useAny = anyBarber && Boolean(business);
   const visibleServices = useMemo(
     () =>
       (services.data ?? []).filter((item) =>
@@ -152,10 +167,10 @@ export function BookingForm() {
   // One availability call covers the whole visit: the server resolves every
   // service for this barber and returns slots for the combined duration.
   const quote = useAvailabilityQuote({
-    barber: anyBarber ? "any" : barberId,
+    barber: useAny ? "any" : barberId,
     date,
     services: servicesInDraft,
-    any: anyBarber,
+    any: useAny,
     business,
     branch,
   });
@@ -175,11 +190,17 @@ export function BookingForm() {
       setWaitFeedback(t("booking.waitlistJoined"));
       toast.success(t("booking.waitlistJoined"));
     },
-    onError: () => toast.error(t("booking.waitlistFailed")),
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        router.push(signInHref());
+        return;
+      }
+      toast.error(t("booking.waitlistFailed"));
+    },
   });
 
   function matchedBarberForWait(): string {
-    return anyBarber ? quote.data?.barber ?? "" : barberId;
+    return useAny ? quote.data?.barber ?? "" : barberId;
   }
 
   const resolved = quote.data?.services ?? [];
@@ -196,13 +217,146 @@ export function BookingForm() {
         .map((id) => services.data?.find((item) => item.id === id))
         .filter((item): item is Service => !!item),
     );
-  const matchedBarber = anyBarber ? quote.data?.barber ?? "" : barberId;
+  const matchedBarber = useAny ? quote.data?.barber ?? "" : barberId;
   const ready =
     servicesInDraft.length > 0 &&
     Boolean(matchedBarber && date && start !== null);
 
+  // The draft survives sign-in as canonical URL params (note included) even
+  // when the round trip reloads the page; the store keeps it during SPA hops.
+  function bookingHref(): string {
+    const params = new URLSearchParams();
+    if (business) params.set("business", business);
+    if (branch) params.set("branch", branch);
+    if (useAny) params.set("any", "1");
+    else if (barberId) params.set("barber", barberId);
+    servicesInDraft.forEach((id) => params.append("services", id));
+    if (date) params.set("date", date);
+    if (start !== null) params.set("start", String(start));
+    if (note.trim()) params.set("note", note.trim());
+    const query = params.toString();
+    return query ? `/book?${query}` : "/book";
+  }
+
+  function signInHref(): string {
+    return `/sign-in?next=${encodeURIComponent(bookingHref())}`;
+  }
+
+  /** One day of real availability, using the same query as the live quote. */
+  async function slotsOn(input: {
+    barber: string;
+    any: boolean;
+    business: string;
+    branch: string;
+    date: string;
+  }): Promise<AvailabilityQuote | null> {
+    const query = availabilityQuery(
+      {
+        barber: input.barber,
+        date: input.date,
+        services: servicesInDraft,
+        any: input.any,
+        business: input.business,
+        branch: input.branch,
+      },
+      servicesInDraft,
+    );
+    try {
+      return await api<AvailabilityQuote>(`/api/availability?${query}`);
+    } catch {
+      return null;
+    }
+  }
+
+  function recoveryFrom(): string {
+    if (shopDate && date && date >= shopDate) return addDays(date, 1);
+    return shopDate ?? (date || "");
+  }
+
+  /** `firstAvailable` semantics over the existing endpoint, scoped as today. */
+  async function findNextDate() {
+    const from = recoveryFrom();
+    if (!from || servicesInDraft.length === 0) return;
+    setRecoveryBusy(true);
+    setRecovery("");
+    try {
+      for (let offset = 0; offset < RECOVERY_DAYS; offset += 1) {
+        const day = addDays(from, offset);
+        if (maxDate && day > maxDate) break;
+        const found = await slotsOn({
+          barber: useAny ? "any" : barberId,
+          any: useAny,
+          business,
+          branch,
+          date: day,
+        });
+        if (found && found.slots.length > 0) {
+          setDate(day);
+          setStart(found.slots[0].start);
+          return;
+        }
+      }
+      setRecovery(t("booking.noOpeningFound"));
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
+  /** Drop the shop scope and find a real professional with a free slot. */
+  async function checkAllProfessionals() {
+    const from = recoveryFrom();
+    const candidates = barbers.data ?? [];
+    if (!from || servicesInDraft.length === 0 || candidates.length === 0) return;
+    setRecoveryBusy(true);
+    setRecovery("");
+    try {
+      for (let offset = 0; offset < ALL_PROFESSIONALS_DAYS; offset += 1) {
+        const day = addDays(from, offset);
+        if (maxDate && day > maxDate) break;
+        const matches = await Promise.all(
+          candidates.map(async (candidate) => {
+            const found = await slotsOn({
+              barber: candidate.id,
+              any: false,
+              business: "",
+              branch: "",
+              date: day,
+            });
+            return found && found.slots.length > 0
+              ? { barber: candidate.id, start: found.slots[0].start }
+              : null;
+          }),
+        );
+        const hit = matches.find(
+          (row): row is { barber: string; start: number } => row !== null,
+        );
+        if (hit) {
+          useBookingDraft.setState({
+            business: "",
+            branch: "",
+            anyBarber: false,
+            barber: hit.barber,
+            date: day,
+            start: hit.start,
+          });
+          return;
+        }
+      }
+      // Nothing free nearby: still drop the shop scope so every professional
+      // can be browsed, and say why no times appeared.
+      useBookingDraft.setState({ business: "", branch: "", anyBarber: false });
+      setRecovery(t("booking.noOpeningFound"));
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
+
   async function submit() {
     if (!matchedBarber || !date || start === null || servicesInDraft.length === 0) return;
+    if (guest) {
+      router.push(signInHref());
+      return;
+    }
 
     try {
       const booking = await create.mutateAsync({
@@ -220,6 +374,12 @@ export function BookingForm() {
       useBookingDraft.getState().reset();
       router.push("/bookings");
     } catch (error) {
+      // A session can expire between render and submit; fall back to the same
+      // sign-in round trip instead of showing a misleading booking error.
+      if (error instanceof ApiError && error.status === 401) {
+        router.push(signInHref());
+        return;
+      }
       toast.error(t("booking.failed"), {
         description:
           error instanceof Error ? error.message : t("auth.tryAgain"),
@@ -314,7 +474,7 @@ export function BookingForm() {
         <div className="space-y-2">
           <Label htmlFor="barber"><T k="booking.barber" /></Label>
           <Select
-            value={anyBarber ? "any" : barberId || null}
+            value={useAny ? "any" : barberId || null}
             onValueChange={(value) => {
               if (value) chooseBarber(value);
             }}
@@ -333,12 +493,12 @@ export function BookingForm() {
               ))}
             </SelectContent>
           </Select>
-          {anyBarber && quote.data?.barberName ? (
+          {useAny && quote.data?.barberName ? (
             <p role="status" className="text-xs text-muted-foreground">
               {t("booking.matchedBarber")}: {quote.data.barberName}
             </p>
           ) : null}
-          {anyBarber && quote.data && !quote.data.barber ? (
+          {useAny && quote.data && !quote.data.barber ? (
             <p className="text-xs text-muted-foreground">
               {t("booking.noBarberAvailable")}
             </p>
@@ -476,8 +636,29 @@ export function BookingForm() {
                     type="button"
                     size="sm"
                     variant="outline"
+                    disabled={recoveryBusy}
+                    onClick={() => void findNextDate()}
+                  >
+                    {recoveryBusy ? t("common.loading") : t("booking.nextAvailable")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={recoveryBusy}
+                    onClick={() => void checkAllProfessionals()}
+                  >
+                    {t("booking.checkAllProfessionals")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
                     disabled={joinWait.isPending}
-                    onClick={() => joinWait.mutate()}
+                    onClick={() => {
+                      if (guest) router.push(signInHref());
+                      else joinWait.mutate();
+                    }}
                   >
                     {joinWait.isPending
                       ? t("common.loading")
@@ -487,6 +668,11 @@ export function BookingForm() {
                     <T k="nav.waitlist" />
                   </Link>
                 </div>
+              ) : null}
+              {recovery ? (
+                <p role="status" className="text-xs text-muted-foreground">
+                  {recovery}
+                </p>
               ) : null}
               {waitFeedback ? (
                 <p role="status" className="text-xs text-brand-strong">
@@ -542,7 +728,13 @@ export function BookingForm() {
           {create.isPending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
           ) : null}
-          {create.isPending ? <T k="common.loading" /> : <T k="booking.confirm" />}
+          {create.isPending ? (
+            <T k="common.loading" />
+          ) : guest ? (
+            <T k="booking.signInToConfirm" />
+          ) : (
+            <T k="booking.confirm" />
+          )}
         </Button>
       </CardContent>
     </Card>

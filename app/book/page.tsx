@@ -5,45 +5,19 @@ import { BookingForm } from "@/components/booking/booking-form";
 import { DraftSync } from "@/components/booking/draft-sync";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
-import { requireUser } from "@/lib/auth/session";
 
 export const metadata = routeMetadata({
   path: "/book",
   titleKey: "booking.title",
   descriptionKey: "booking.subtitle",
-  private: true,
 });
 
-async function BookGate({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string") query.set(key, value);
-    else if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
-  }
-  const search = query.toString();
-  await requireUser(search ? `/book?${search}` : "/book");
-  return <BookingForm />;
-}
-
-function FormSkeleton() {
-  return (
-    <div className="space-y-4" aria-hidden>
-      <div className="h-24 animate-pulse rounded-xl bg-muted" />
-      <div className="h-64 animate-pulse rounded-xl bg-muted" />
-    </div>
-  );
-}
-
-export default function BookPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+/**
+ * Public until confirm: services and live availability are open to everyone.
+ * The only authenticated step is final submit, guarded in /api/bookings and
+ * redirected from the form itself with the draft preserved in the URL.
+ */
+export default function BookPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
@@ -56,9 +30,7 @@ export default function BookPage({
           <Suspense fallback={null}>
             <DraftSync />
           </Suspense>
-          <Suspense fallback={<FormSkeleton />}>
-            <BookGate searchParams={searchParams} />
-          </Suspense>
+          <BookingForm />
         </div>
       </main>
 

@@ -129,8 +129,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           <T k="nav.skip" />
         </a>
-        <Providers>{children}</Providers>
-        <MobileNav />
+        <Providers>
+          {children}
+          {/* Role-aware tabs read useMe(), so they must sit inside Providers. */}
+          <MobileNav />
+        </Providers>
         <Analytics />
       </body>
     </html>

@@ -45,8 +45,23 @@ is subscription-ready but the product works fully without billing.
 the desktop bar; `navSections` drive the desktop menu, the mobile "More" sheet
 and the footer, so all three expose the same destinations (discovery,
 professionals, help/waitlist, legal and the Telegram bot). Labels are
-dictionary keys, never hard-coded copy. The mobile bottom bar keeps five
-primary tabs plus "More"; there is no separate mini-app navigation.
+dictionary keys, never hard-coded copy. `isWorkspacePath()` hides the
+marketplace links and the global Book button inside `/barber`, `/agenda`,
+`/admin` and `/b`; public and customer pages keep them.
+
+The mobile bottom bar keeps five primary tabs plus "More"; there is no separate
+mini-app navigation. Clients see discovery, Book, Saved and Account. A
+professional (`useMe().professional`) sees Calendar, Bookings, Clients and
+Services instead. The professional workspace itself uses `BarberShell`: its
+pills run Calendar, Appointments, Services, Clients, Settings, then Team and
+Branches for business owners and Analytics for owners or independents with
+`analytics.read`. The calendar is the professional home (`homeForRole`).
+
+Profiles share one canonical booking link, `/b/<slug>`: a business slug opens
+the "any qualified employee" booking draft, a professional slug opens that
+chair's draft. `lib/domain/booking-link.ts` resolves both; public profile pages
+use `/b/<slug>` as the primary Book action and keep per-service or per-barber
+links as secondary.
 
 ## Source map
 

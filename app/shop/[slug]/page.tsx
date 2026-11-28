@@ -115,7 +115,11 @@ async function ShopPanel({ slug }: { slug: string }) {
             </div>
             {business.verified ? <Badge><T k="shop.verified" /></Badge> : null}
             <div className="ml-auto shrink-0">
-              <ShareProfile path={`/shop/${slug}`} title={business.name} />
+              <ShareProfile
+                path={`/shop/${slug}`}
+                title={business.name}
+                bookingSlug={slug}
+              />
             </div>
           </div>
           {business.about ? <p className="text-sm">{business.about}</p> : null}
@@ -133,7 +137,7 @@ async function ShopPanel({ slug }: { slug: string }) {
               </span>
               {bookingBarber || ctaService ? (
                 <Link
-                  href={bookHref(ctaService)}
+                  href={`/b/${slug}`}
                   className={cn(buttonVariants({ size: "sm" }), "h-8 rounded-lg")}
                 >
                   <T k="common.book" />

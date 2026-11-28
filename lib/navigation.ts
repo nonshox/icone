@@ -31,6 +31,18 @@ export const primaryLinks: readonly NavLink[] = [
   { href: "/services", label: "nav.services" },
 ];
 
+/**
+ * Marketplace links and the global Book button are hidden inside the private
+ * workspaces. Matching is segment-aware so `/barbers` and `/book` stay public.
+ */
+const WORKSPACE_PREFIXES = ["/barber", "/agenda", "/admin", "/b"] as const;
+
+export function isWorkspacePath(pathname: string): boolean {
+  return WORKSPACE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 /** The Telegram bot is the one external destination in the shared menu. */
 const telegramLink: NavLink = {
   href: `https://t.me/${publicConfig.telegramBotUsername}`,

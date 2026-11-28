@@ -250,7 +250,7 @@ export function CustomerView() {
 
           <Card>
             <CardHeader>
-              <CardTitle><T k="msg.title" /></CardTitle>
+              <CardTitle><T k="nav.messages" /></CardTitle>
               <CardDescription><T k="customer.messagesBody" /></CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

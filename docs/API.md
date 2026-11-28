@@ -59,9 +59,28 @@ repeated run cannot send it twice.
 
 ## Booking deep links
 
-`/book?barber=<id>&service=<id>&date=<YYYY-MM-DD>&start=<minutes>` seeds the
-draft. Anonymous visitors are redirected to
-`/sign-in?next=<encoded path>` and return to the exact link after sign-in.
+`/b/<slug>` is the one canonical, shareable booking link. `resolveBookingTarget()`
+in `lib/domain/booking-link.ts` resolves a published business by slug (or a
+bookable professional by slug, with a legacy document-id fallback) and the
+page redirects to `/book?business=<id>&any=1` for a shop — adding `branch` when
+a real primary branch exists — or `/book?barber=<id>` for an independent chair.
+Unknown, draft or suspended targets return 404. Public profile pages use this
+link for their primary Book action and keep specific service/employee links as
+secondary.
+
+The canonical draft URL is
+`/book?business=<id>&branch=<id>&any=1&services=<id>&services=<id>&date=<YYYY-MM-DD>&start=<minutes>`.
+A shop opens with `any=1` so availability works as soon as a service is picked;
+an explicit `barber=<id>` link still opens that chair. The older single
+`service=<id>` form is still accepted. `note=<text>` is optional and carries
+the whole draft through sign-in.
+
+`/book` is public until confirm: anyone can browse services and live
+availability. Only the final submit needs a session — a guest is sent to
+`/sign-in?next=<encoded booking URL>` and returns with the draft restored from
+the URL params (the store keeps it during client-side hops). All booking writes
+stay behind `requireUser` in `/api/bookings`; the endpoint never trusts the
+draft for prices.
 
 ## Moderation, support and platform operations
 

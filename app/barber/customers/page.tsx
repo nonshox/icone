@@ -14,7 +14,7 @@ export const metadata = routeMetadata({
 export default function BarberCustomersPage() {
   return (
     <BarberShell
-      title={<T k="nav.myVisits" />}
+      title={<T k="work.customers.title" />}
       description={<T k="work.customers.hint" />}
     >
       <BarberCustomers />

@@ -1,12 +1,15 @@
 "use client";
 
-import { Check, Copy, Loader2, Send, Share2, X } from "lucide-react";
+import { CalendarDays, Check, Copy, Loader2, Send, Share2, X } from "lucide-react";
+import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { T } from "@/components/i18n/t";
+import { buttonVariants } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/use-t";
+import { cn } from "@/lib/utils";
 
 type QrState = "loading" | "ready" | "error";
 type CopyState = "idle" | "done" | "error";
@@ -29,11 +32,14 @@ const serverOrigin = () => "";
 export function ShareProfile({
   path,
   title,
+  bookingSlug,
 }: {
   /** Canonical site path, e.g. `/barbers/<slug>` or `/shop/<slug>`. */
   path: string;
   /** Profile name, used as the share title. */
   title: string;
+  /** When present, offer the one canonical short booking link. */
+  bookingSlug?: string;
 }) {
   const t = useT();
   const mounted = useSyncExternalStore(subscribe, isClient, isServer);
@@ -168,6 +174,7 @@ export function ShareProfile({
   }
 
   const telegramHref = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(t("share.text"))}`;
+  const bookingHref = bookingSlug ? `/b/${encodeURIComponent(bookingSlug)}` : "";
 
   return (
     <>
@@ -239,6 +246,20 @@ export function ShareProfile({
                     {url}
                   </p>
                 </div>
+
+                {bookingHref ? (
+                  <Link
+                    href={bookingHref}
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      buttonVariants({ size: "sm" }),
+                      "mt-3 flex w-full items-center justify-center gap-2 rounded-xl",
+                    )}
+                  >
+                    <CalendarDays className="size-4" aria-hidden />
+                    <T k="common.book" />
+                  </Link>
+                ) : null}
 
                 <div className="mt-4 space-y-2">
                   <button

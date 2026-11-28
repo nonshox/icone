@@ -85,7 +85,11 @@ function availabilityIds(input: AvailabilityInput): string[] {
   return [...new Set(ids.filter(Boolean))];
 }
 
-function availabilityQuery(input: AvailabilityInput, ids: string[]): string {
+/**
+ * One canonical query string for every availability read. Exported so the
+ * booking form's recovery searches use exactly the same grammar as the hooks.
+ */
+export function availabilityQuery(input: AvailabilityInput, ids: string[]): string {
   const query = new URLSearchParams({ barber: input.barber, date: input.date });
   if (input.any) {
     query.set("barber", "any");

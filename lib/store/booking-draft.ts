@@ -10,6 +10,9 @@ import { create } from "zustand";
  *
  * `date` starts empty on purpose — the page fills it on mount, so a
  * prerendered shell never bakes in the build day.
+ *
+ * Setting a business or branch selects "any professional" by default; an
+ * explicit `setBarber` call clears that default and keeps the deep link exact.
  */
 type BookingDraft = {
   services: string[];
@@ -68,8 +71,20 @@ export const useBookingDraft = create<BookingDraft>((set) => ({
   setService: (service) => set({ services: clean(service ? [service] : []), start: null }),
   setBarber: (barber) =>
     set({ barber, anyBarber: barber === "any", start: null }),
-  setBusiness: (business) => set({ business, start: null }),
-  setBranch: (branch) => set({ branch, start: null }),
+  // A shop context means "any qualified employee" until a person is chosen.
+  // An explicit barber always wins, including on deep links and rebooking.
+  setBusiness: (business) =>
+    set((state) => ({
+      business,
+      anyBarber: business && !state.barber ? true : state.anyBarber,
+      start: null,
+    })),
+  setBranch: (branch) =>
+    set((state) => ({
+      branch,
+      anyBarber: branch && !state.barber ? true : state.anyBarber,
+      start: null,
+    })),
   setAnyBarber: (anyBarber) => set({ anyBarber, barber: "", start: null }),
   setDate: (date) => set({ date, start: null }),
   setStart: (start) => set({ start }),

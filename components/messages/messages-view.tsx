@@ -148,7 +148,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
         <CardHeader className="border-b pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageCircle className="size-4 text-brand-strong" aria-hidden />
-            <T k="msg.title" />
+            <T k="nav.messages" />
           </CardTitle>
           <CardDescription><T k="msg.subtitle" /></CardDescription>
         </CardHeader>
@@ -242,7 +242,7 @@ export function MessagesView({ initialWith }: { initialWith: string | null }) {
                 </Button>
                 <div>
                   <CardTitle className="text-base">
-                    {thread.data?.participant.name ?? t("msg.title")}
+                    {thread.data?.participant.name ?? t("nav.messages")}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     {thread.isPending

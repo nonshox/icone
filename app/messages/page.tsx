@@ -12,7 +12,7 @@ import { getBarber } from "@/lib/domain/professional";
 
 export const metadata = routeMetadata({
   path: "/messages",
-  titleKey: "msg.title",
+  titleKey: "nav.messages",
   descriptionKey: "msg.subtitle",
   private: true,
 });
@@ -58,7 +58,7 @@ export default function MessagesPage({ searchParams }: Search) {
       <SiteHeader />
 
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight"><T k="msg.title" /></h1>
+        <h1 className="text-2xl font-semibold tracking-tight"><T k="nav.messages" /></h1>
         <p className="mt-1 text-sm text-muted-foreground">
           <T k="msg.subtitle" />
         </p>

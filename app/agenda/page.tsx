@@ -3,13 +3,13 @@ import { Suspense } from "react";
 
 import { routeMetadata } from "@/lib/metadata";
 import { AgendaView } from "@/components/agenda/agenda-view";
+import { BarberShell } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
-import { SiteHeader } from "@/components/layout/site-header";
 import { can, getActor } from "@/lib/domain/access";
 
 export const metadata = routeMetadata({
   path: "/agenda",
-  titleKey: "nav.agenda",
+  titleKey: "nav.calendar",
   descriptionKey: "work.agenda.hint",
   private: true,
 });
@@ -47,23 +47,14 @@ function AgendaSkeleton() {
 
 export default function AgendaPage() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
-
-      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          <T k="nav.agenda" />
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <T k="work.agenda.hint" />
-        </p>
-
-        <div className="mt-6">
-          <Suspense fallback={<AgendaSkeleton />}>
-            <AgendaGate />
-          </Suspense>
-        </div>
-      </main>
-    </div>
+    <BarberShell
+      title={<T k="nav.calendar" />}
+      description={<T k="work.agenda.hint" />}
+      signInNext="/agenda"
+    >
+      <Suspense fallback={<AgendaSkeleton />}>
+        <AgendaGate />
+      </Suspense>
+    </BarberShell>
   );
 }

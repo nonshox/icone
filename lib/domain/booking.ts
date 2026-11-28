@@ -488,6 +488,7 @@ export async function bookWalkin(input: {
   start: number;
   note?: string;
   innote?: string;
+  source?: "walkin" | "phone" | "manual";
 }): Promise<BookResult> {
   const result = await book({
     user: input.user ?? "",
@@ -497,7 +498,7 @@ export async function bookWalkin(input: {
     date: input.date,
     start: input.start,
     note: input.note,
-    source: "walkin",
+    source: input.source ?? "walkin",
     createdby: input.staff,
     forceStatus: "confirmed",
   });

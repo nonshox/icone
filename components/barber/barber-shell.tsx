@@ -3,51 +3,81 @@ import { Suspense, type ReactNode } from "react";
 
 import { SiteHeader } from "@/components/layout/site-header";
 import { NavPills } from "@/components/barber/barber-ui";
-import { getActor, hasTeam, can, type Capability } from "@/lib/domain/access";
+import {
+  can,
+  getActor,
+  hasTeam,
+  isOwner,
+  type Capability,
+} from "@/lib/domain/access";
 
-/** Links shown to every professional, independent barbers included. */
-// Minimal top-level navigation, following Fresha's pattern: the work tools
-// are primary; portfolio and inbox live in the overview quick links.
+/** Work tools every professional gets, independent barbers included. */
 const BASE_LINKS: ReadonlyArray<{ href: string; label: string }> = [
-  { href: "/barber", label: "nav.home" },
-  { href: "/agenda", label: "nav.agenda" },
+  { href: "/agenda", label: "nav.calendar" },
+  { href: "/bookings", label: "nav.appointments" },
   { href: "/barber/services", label: "nav.services" },
   { href: "/barber/customers", label: "work.customers.title" },
-  { href: "/agenda/me", label: "work.staff.hours" },
   { href: "/barber/settings", label: "nav.settings" },
 ];
 
-/** Shown only inside a business with a team. */
-const TEAM_LINKS: ReadonlyArray<{ href: string; label: string; cap: Capability }> = [
+/** Business-level tools: only for an owner inside a real workspace. */
+const OWNER_LINKS: ReadonlyArray<{ href: string; label: string; cap: Capability }> = [
   { href: "/barber/team", label: "nav.team", cap: "team.read" },
   { href: "/barber/branches", label: "nav.branches", cap: "branch.read" },
-  { href: "/barber/analytics", label: "nav.analytics", cap: "analytics.read" },
 ];
+
+/** Owners see shop analytics; independents see their own with the capability. */
+const ANALYTICS_LINK = {
+  href: "/barber/analytics",
+  label: "nav.analytics",
+  cap: "analytics.read",
+} as const satisfies { href: string; label: string; cap: Capability };
 
 export async function BarberNav() {
   const actor = await getActor();
-  const team = !!actor && hasTeam(actor);
   const business =
     actor?.owns[0] ?? actor?.memberships[0]?.business ?? "";
-  const links = [
-    ...BASE_LINKS,
-    ...(team
-      ? TEAM_LINKS.filter(
-          (link) => !!actor && can(actor, link.cap, { business }),
-        )
-      : []),
-  ];
+  const team = !!actor && hasTeam(actor) && !!business;
+  const owner = !!actor && team && isOwner(actor, business);
+  const independent = !!actor && !team && !!actor.barber;
 
-  return <NavPills links={links} labelKey="nav.business" />;
+  const ownerLinks = owner
+    ? OWNER_LINKS.filter((link) => !!actor && can(actor, link.cap, { business }))
+    : [];
+  const analytics =
+    !!actor &&
+    (owner
+      ? can(actor, ANALYTICS_LINK.cap, { business })
+      : independent &&
+        can(actor, ANALYTICS_LINK.cap, { barber: actor.barber?.id }))
+      ? [ANALYTICS_LINK]
+      : [];
+
+  return (
+    <NavPills
+      links={[...BASE_LINKS, ...ownerLinks, ...analytics]}
+      labelKey="nav.business"
+    />
+  );
 }
 
 /** Session check happens inside Suspense so the page shell stays static. */
-export async function BarberGate({ children }: { children: ReactNode }) {
+export async function BarberGate({
+  children,
+  signInNext = "/barber",
+}: {
+  children: ReactNode;
+  signInNext?: string;
+}) {
   const actor = await getActor();
 
-  if (!actor) redirect("/sign-in?next=%2Fbarber");
+  if (!actor) {
+    redirect(`/sign-in?next=${encodeURIComponent(signInNext)}`);
+  }
   if (actor.profile.role === "admin") redirect("/admin");
-  if (!actor.barber && actor.memberships.length === 0) redirect("/account");
+  // A promoted account can still book as a customer: only a chair or an
+  // active membership makes this account a professional.
+  if (!actor.summary.professional) redirect("/account");
 
   return <>{children}</>;
 }
@@ -70,10 +100,13 @@ export function BarberShell({
   title,
   description,
   children,
+  signInNext = "/barber",
 }: {
   title: ReactNode;
   description?: ReactNode;
   children: ReactNode;
+  /** Preserves each workspace page's own sign-in destination. */
+  signInNext?: string;
 }) {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -90,7 +123,7 @@ export function BarberShell({
             <BarberNav />
           </Suspense>
           <Suspense fallback={<BarberSkeleton />}>
-            <BarberGate>{children}</BarberGate>
+            <BarberGate signInNext={signInNext}>{children}</BarberGate>
           </Suspense>
         </div>
       </main>

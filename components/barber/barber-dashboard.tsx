@@ -31,16 +31,6 @@ import {
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 
-const LINKS = [
-  { href: "/agenda", key: "nav.agenda" },
-  { href: "/barber/services", key: "nav.services" },
-  { href: "/barber/customers", key: "nav.myVisits" },
-  { href: "/barber/portfolio", key: "nav.profile" },
-  { href: "/barber/notifications", key: "nav.inbox" },
-  { href: "/agenda/me", key: "work.staff.toDashboard" },
-  { href: "/api/barber/export?range=month", key: "work.export" },
-];
-
 /** Only the transitions the domain actually accepts. */
 const NEXT: Record<Status, Status[]> = {
   pending: ["confirmed", "rejected", "cancelled"],
@@ -479,31 +469,6 @@ export function BarberDashboard() {
         busy={setStatus.isPending}
         onChange={change}
       />
-
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle>
-            <T k="work.dashboard.quick" />
-          </CardTitle>
-          <CardDescription>
-            <T k="work.dashboard.quickHint" />
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {LINKS.map((item) => {
-            // API downloads need a real navigation, not a client-side route push.
-            return item.href.startsWith("/api/") ? (
-              <a key={item.href} href={item.href} download className={linkClass}>
-                <T k={item.key} />
-              </a>
-            ) : (
-              <Link key={item.href} href={item.href} className={linkClass}>
-                <T k={item.key} />
-              </Link>
-            );
-          })}
-        </CardContent>
-      </Card>
     </div>
   );
 }

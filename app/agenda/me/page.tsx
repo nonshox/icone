@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { routeMetadata } from "@/lib/metadata";
+import { BarberShell } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
-import { SiteHeader } from "@/components/layout/site-header";
 import { StaffView } from "@/components/staff/staff-view";
 import { getActor } from "@/lib/domain/access";
 
@@ -46,23 +46,14 @@ function StaffSkeleton() {
 
 export default function MyChairPage() {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
-
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          <T k="work.staff.chair" />
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <T k="work.staff.chairHint" />
-        </p>
-
-        <div className="mt-6">
-          <Suspense fallback={<StaffSkeleton />}>
-            <StaffGate />
-          </Suspense>
-        </div>
-      </main>
-    </div>
+    <BarberShell
+      title={<T k="work.staff.chair" />}
+      description={<T k="work.staff.chairHint" />}
+      signInNext="/agenda/me"
+    >
+      <Suspense fallback={<StaffSkeleton />}>
+        <StaffGate />
+      </Suspense>
+    </BarberShell>
   );
 }
