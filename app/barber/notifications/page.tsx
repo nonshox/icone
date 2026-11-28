@@ -1,8 +1,7 @@
+import { RedirectType, redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { routeMetadata } from "@/lib/metadata";
-import { BarberNotifications } from "@/components/barber/barber-notifications";
-import { BarberShell } from "@/components/barber/barber-shell";
-import { T } from "@/components/i18n/t";
 
 export const metadata = routeMetadata({
   path: "/barber/notifications",
@@ -11,13 +10,39 @@ export const metadata = routeMetadata({
   private: true,
 });
 
-export default function BarberNotificationsPage() {
+/**
+ * Legacy professional inbox. Every signed-in account now uses the one inbox at
+ * `/notifications`; forward the old workspace URL without losing its query.
+ */
+async function NotificationsRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      for (const item of value) query.append(key, item);
+    } else if (value !== undefined) {
+      query.set(key, value);
+    }
+  }
+  const suffix = query.toString();
+  return redirect(
+    `/notifications${suffix ? `?${suffix}` : ""}`,
+    RedirectType.replace,
+  );
+}
+
+export default function BarberNotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
-    <BarberShell
-      title={<T k="nav.inbox" />}
-      description={<T k="work.dashboard.quickHint" />}
-    >
-      <BarberNotifications />
-    </BarberShell>
+    <Suspense fallback={null}>
+      <NotificationsRedirect searchParams={searchParams} />
+    </Suspense>
   );
 }

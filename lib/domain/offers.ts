@@ -206,6 +206,21 @@ export async function upsertOffer(input: OfferInput): Promise<Offer | null> {
   }
 }
 
+/**
+ * Optional write for paths that must not fail before the `offers` collection
+ * exists. A missing collection leaves the legacy rows untouched and in charge.
+ */
+export async function upsertOfferBestEffort(
+  input: OfferInput,
+): Promise<Offer | null> {
+  try {
+    return await upsertOffer(input);
+  } catch (error) {
+    if (collectionMissing(error)) return null;
+    throw error;
+  }
+}
+
 /** Mark one assignment inactive; the historical row stays in place. */
 export async function deactivateOffer(barber: string, service: string): Promise<Offer | null> {
   const current = await findOffer(barber, service);

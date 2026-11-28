@@ -53,6 +53,30 @@ next write, so the stored document is cleaned without a migration script.
   data is isolated: a professional only sees records attached to their own
   bookings, and a team member only sees records allowed by their role.
 
+## Business root
+
+The business, not the chair, is the default root of a professional workspace.
+`activeBusiness(actor)` in `lib/domain/access.ts` is the single resolver: an
+owned business (an active owner membership) wins, then an owner/manager
+membership, then the first remaining membership. Every tier is sorted
+explicitly, so Appwrite's list order cannot change the answer. It returns
+`{ id, name, branch? }` and is exposed as `getActor().summary.active`; the
+synchronous `activeBusinessId(actor)` helper is for pages and route handlers
+that only need the id. An independent barber has no business root (`null`) and
+keeps their own chair as the root.
+
+`BusinessSwitcher` in the workspace header lets owners and managers choose
+among their businesses and branches. The choice is UI-only: it lives in plain
+`icone_business` / `icone_branch` cookies, never in a server row, and never
+changes authorization, membership, booking context or prices. A saved cookie
+that no longer matches an available option is ignored.
+
+The report-only step in `scripts/migrate.mjs` prints how many businesses have
+no active owner membership and how many barber rows have a business or branch
+that disagrees with their memberships. It modifies nothing. Ownership is
+inferred from active owner memberships, so the report is where legacy rows
+whose `businesses.owner` field disagrees with memberships surface.
+
 ## Time, price and statuses
 
 - Dates are `YYYY-MM-DD`; times are minutes from midnight in Asia/Tashkent
@@ -100,10 +124,16 @@ absolute URLs still render as before.
 
 ## Materialised reads and migrations
 
-- `offers` stores each employee's effective service price/duration. `services`
-  and `empser` remain the source of truth; `offers` is a read-first cache with
-  fallback, so a missing row never breaks booking. No `-1` sentinel is written
-  to `offers`.
+- `offers` is the authoritative employee-service read model: it owns
+  assignment, price and duration. `services` supplies the catalogue metadata
+  and `empser` is kept only as the legacy mirror. `lib/domain/offers.ts`
+  resolves one pair from `offers` first with a legacy fallback, and
+  `lib/domain/catalog.ts` builds the full menu from `offers` with a
+  per-service legacy fallback for rows not yet materialised. An inactive offer
+  is an explicit unassignment, even if a legacy `empser` row still says active.
+  Write paths (`/api/barber/services` and `/api/barber/services/assign`)
+  materialise the offer first and mirror to `empser` afterwards; response
+  shapes are unchanged. No `-1` sentinel is written to `offers`.
 - `customers` is one canonical customer per business (owner = business id or
   an independent barber id). `clients` is retained for one release; no
   destructive merge. `bookings.customer` links a visit to that record, and

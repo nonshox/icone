@@ -70,7 +70,7 @@ link keeps its `?next=` through sign-in and returns to the exact booking link.
 | `/services` | service catalogue |
 | `/sign-in` | Telegram only |
 | `/start` | role-based entry after sign-in |
-| `/customer` | customer dashboard |
+| `/account` | customer account (former `/customer`) |
 | `/become-barber` | apply to run a chair |
 | `/account` | shared profile |
 | `/bookings` · `/bookings/:id` | visits and detail |

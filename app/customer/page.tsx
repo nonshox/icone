@@ -1,53 +1,45 @@
+import { RedirectType, redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { routeMetadata } from "@/lib/metadata";
-import { T } from "@/components/i18n/t";
-import { CustomerView } from "@/components/customer/customer-view";
-import { SiteHeader } from "@/components/layout/site-header";
-import { Skeleton } from "@/components/ui/skeleton";
-import { requireUser } from "@/lib/auth/session";
 
 export const metadata = routeMetadata({
   path: "/customer",
-  titleKey: "customer.eyebrow",
+  titleKey: "nav.account",
   descriptionKey: "meta.private.description",
   private: true,
 });
 
-async function CustomerPanel() {
-  await requireUser("/customer");
-  return <CustomerView />;
+/**
+ * Legacy customer home. `/account` is now the one account home, so preserve
+ * every query parameter (including `?next=` deep links) and forward visitors.
+ */
+async function CustomerRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      for (const item of value) query.append(key, item);
+    } else if (value !== undefined) {
+      query.set(key, value);
+    }
+  }
+  const suffix = query.toString();
+  return redirect(`/account${suffix ? `?${suffix}` : ""}`, RedirectType.replace);
 }
 
-function CustomerSkeleton() {
+export default function CustomerPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
-    <div className="space-y-4" aria-hidden>
-      <Skeleton className="h-8 w-52" />
-      <Skeleton className="h-36 w-full" />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-20 w-full" />
-        ))}
-      </div>
-      <Skeleton className="h-56 w-full" />
-    </div>
-  );
-}
-
-export default function CustomerPage() {
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
-
-      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 pt-10 pb-10 sm:px-6">
-        <h1 className="text-2xl font-semibold tracking-tight"><T k="customer.eyebrow" /></h1>
-
-        <div className="mt-6">
-          <Suspense fallback={<CustomerSkeleton />}>
-            <CustomerPanel />
-          </Suspense>
-        </div>
-      </main>
-    </div>
+    <Suspense fallback={null}>
+      <CustomerRedirect searchParams={searchParams} />
+    </Suspense>
   );
 }

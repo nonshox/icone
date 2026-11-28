@@ -1,29 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Loader2, MapPin, Search, Star, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import { T } from "@/components/i18n/t";
-import { api } from "@/lib/api/client";
-import { imageUrl } from "@/lib/client/files";
 import { useT } from "@/lib/i18n/use-t";
 
-/** The fields the compact result rows use. The API returns a superset. */
-type SearchHit = {
-  kind: "barber" | "shop";
-  id: string;
-  slug: string;
-  name: string;
-  subtitle: string;
-  city: string;
-  rating: number;
-  reviews: number;
-  photo: string;
-  verified: boolean;
-};
+import { allResultsHref, SearchResults } from "./search-results";
 
 const DEBOUNCE_MS = 250;
 const MIN_CHARS = 2;
@@ -36,8 +21,8 @@ const isServer = () => false;
 
 /**
  * Header search. A single icon opens a dialog on every viewport, so the mobile
- * bar keeps its five tabs and the desktop bar stays uncluttered. Results come
- * from the real /api/search endpoint through TanStack Query.
+ * bar keeps its five tabs and the desktop bar stays uncluttered. The query and
+ * result rows are the same ones the landing page and `/barbers` use.
  */
 export function GlobalSearch() {
   const t = useT();
@@ -53,19 +38,6 @@ export function GlobalSearch() {
     const timer = setTimeout(() => setDebounced(text.trim()), DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [text]);
-
-  const query = debounced;
-  const enabled = open && query.length >= MIN_CHARS;
-
-  const results = useQuery({
-    queryKey: ["search", query, LIMIT],
-    queryFn: () =>
-      api<{ results: SearchHit[] }>(
-        `/api/search?q=${encodeURIComponent(query)}&limit=${LIMIT}`,
-      ).then((response) => response.results),
-    enabled,
-    staleTime: 60_000,
-  });
 
   useEffect(() => {
     if (!open) return;
@@ -106,8 +78,7 @@ export function GlobalSearch() {
     };
   }, [open]);
 
-  const allHref = `/map?q=${encodeURIComponent(text.trim())}`;
-  const hits = results.data ?? [];
+  const close = () => setOpen(false);
 
   return (
     <>
@@ -129,7 +100,7 @@ export function GlobalSearch() {
               <button
                 type="button"
                 aria-label={t("common.close")}
-                onClick={() => setOpen(false)}
+                onClick={close}
                 className="absolute inset-0 bg-background/70 backdrop-blur-sm"
               />
               <div
@@ -157,7 +128,7 @@ export function GlobalSearch() {
                   <button
                     type="button"
                     aria-label={t("common.close")}
-                    onClick={() => setOpen(false)}
+                    onClick={close}
                     className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
                   >
                     <X className="size-4" aria-hidden />
@@ -165,98 +136,35 @@ export function GlobalSearch() {
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                  {!enabled ? (
+                  {text.trim().length < MIN_CHARS ? (
                     <p className="px-2 py-8 text-center text-sm text-muted-foreground">
                       <T k="search.hint" />
                     </p>
-                  ) : results.isPending ? (
-                    <p className="flex items-center justify-center gap-2 px-2 py-8 text-sm text-muted-foreground">
-                      <Loader2 className="size-4 animate-spin" aria-hidden />
-                      <T k="search.loading" />
-                    </p>
-                  ) : results.isError ? (
-                    <div className="px-2 py-8 text-center" role="alert">
-                      <p className="text-sm text-muted-foreground"><T k="search.error" /></p>
-                      <button
-                        type="button"
-                        onClick={() => void results.refetch()}
-                        className="mt-2 rounded-lg px-3 py-1.5 text-sm font-medium text-brand-strong hover:bg-brand/10"
-                      >
-                        <T k="common.tryAgain" />
-                      </button>
-                    </div>
-                  ) : hits.length === 0 ? (
-                    <p className="px-2 py-8 text-center text-sm text-muted-foreground">
-                      <T k="search.empty" />
-                    </p>
                   ) : (
-                    <ul className="space-y-0.5" aria-label={t("search.title")}>
-                      {hits.map((hit) => {
-                        const photo = imageUrl(hit.photo);
-                        return (
-                          <li key={`${hit.kind}-${hit.id}`}>
-                            <Link
-                              href={
-                                hit.kind === "shop"
-                                  ? `/shop/${hit.slug || hit.id}`
-                                  : `/barbers/${hit.slug || hit.id}`
-                              }
-                              onClick={() => setOpen(false)}
-                              className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-foreground/[0.05]"
-                            >
-                              <span
-                                aria-hidden
-                                className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-xs font-medium text-muted-foreground"
-                              >
-                                {photo ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={photo} alt="" className="size-full object-cover" />
-                                ) : (
-                                  hit.name.slice(0, 1).toUpperCase()
-                                )}
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="flex items-center gap-1.5">
-                                  <span className="truncate text-sm font-medium">{hit.name}</span>
-                                  {hit.verified ? (
-                                    <span role="img" className="size-1.5 shrink-0 rounded-full bg-brand-strong" aria-label={t("shop.verified")} />
-                                  ) : null}
-                                </span>
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {hit.kind === "shop"
-                                    ? t("shop.title")
-                                    : t("nav.barbers")}
-                                  {hit.city ? ` · ${hit.city}` : ""}
-                                </span>
-                              </span>
-                              {hit.rating > 0 ? (
-                                <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
-                                  <Star className="size-3 fill-brand text-brand" aria-hidden />
-                                  {hit.rating.toFixed(1)}
-                                </span>
-                              ) : null}
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    <SearchResults
+                      query={debounced}
+                      limit={LIMIT}
+                      minChars={MIN_CHARS}
+                      compact
+                      hideFooter
+                      onNavigate={close}
+                    />
                   )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2 border-t border-border/70 px-3 py-2">
                   <Link
-                    href={allHref}
-                    onClick={() => setOpen(false)}
+                    href={allResultsHref(text)}
+                    onClick={close}
                     className="rounded-lg px-2 py-1.5 text-sm font-medium text-brand-strong hover:bg-brand/10"
                   >
                     <T k="search.all" />
                   </Link>
                   <Link
                     href="/map"
-                    onClick={() => setOpen(false)}
+                    onClick={close}
                     className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
                   >
-                    <MapPin className="size-3.5" aria-hidden />
                     <T k="search.map" />
                   </Link>
                 </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { Bell, Loader2, ShieldCheck } from "lucide-react";
-import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -221,22 +220,6 @@ function SettingsForm({
             </CardContent>
           </Card>
 
-          <Card size="sm">
-            <CardContent className="space-y-2">
-              <Link href="/customer" className="block text-sm font-medium hover:underline">
-                {t("settings.homeLink")} →
-              </Link>
-              <Link href="/bookings" className="block text-sm font-medium hover:underline">
-                {t("settings.visitsLink")} →
-              </Link>
-              <Link href="/help" className="block text-sm font-medium hover:underline">
-                {t("settings.helpLink")} →
-              </Link>
-              <Link href="/become-barber" className="block text-sm font-medium hover:underline">
-                {t("settings.applyLink")} →
-              </Link>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </ClientGate>

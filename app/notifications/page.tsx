@@ -5,8 +5,7 @@ import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
 import { NotificationsView } from "@/components/customer/notifications-view";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getActor } from "@/lib/domain/access";
-import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth/session";
 
 export const metadata = routeMetadata({
   path: "/notifications",
@@ -16,9 +15,9 @@ export const metadata = routeMetadata({
 });
 
 async function NotificationsPanel() {
-  const actor = await getActor();
-  if (!actor) redirect(`/sign-in?next=${encodeURIComponent("/notifications")}`);
-  // Professionals also receive customer-facing booking notifications.
+  // The inbox works for every signed-in account; professionals and customers
+  // share the same component, which adapts its copy to the account's role.
+  await requireUser("/notifications");
   return <NotificationsView />;
 }
 

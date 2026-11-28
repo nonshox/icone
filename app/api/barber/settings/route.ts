@@ -10,7 +10,7 @@ import {
   requireWorkspace,
   writeDenied,
 } from "@/app/api/barber/_auth";
-import { can, type Actor } from "@/lib/domain/access";
+import { activeBusinessId, can, type Actor } from "@/lib/domain/access";
 import { setPrefs } from "@/lib/domain/account";
 import { audit } from "@/lib/domain/audit";
 import { getBusiness, updateBusiness } from "@/lib/domain/business";
@@ -125,11 +125,7 @@ async function targetOf(
   scope: string,
 ): Promise<Target | null> {
   if (scope === "business") {
-    const id =
-      actor.owns[0] ??
-      actor.memberships.find((row) => row.role === "owner" || row.role === "manager")
-        ?.business ??
-      workspace.business;
+    const id = activeBusinessId(actor) || workspace.business;
     if (!id || !can(actor, "settings.business", { business: id })) return null;
     return { kind: "business", id, chair: await getBusiness(id) };
   }

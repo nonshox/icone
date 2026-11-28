@@ -5,7 +5,7 @@ import { BarberShell, BarberSkeleton } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 import { Card, CardContent } from "@/components/ui/card";
 import { BranchManager } from "@/components/team/branch-manager";
-import { can, getActor } from "@/lib/domain/access";
+import { activeBusinessId, can, getActor } from "@/lib/domain/access";
 
 export const metadata = routeMetadata({
   path: "/barber/branches",
@@ -18,8 +18,7 @@ async function BranchesPanel() {
   const actor = await getActor();
   if (!actor) return null;
 
-  const business =
-    actor.owns[0] ?? actor.memberships[0]?.business ?? "";
+  const business = activeBusinessId(actor);
 
   if (!business) {
     return (

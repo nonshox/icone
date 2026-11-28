@@ -4,7 +4,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireCap, requireUser, type Guarded } from "@/lib/api/guard";
-import type { Actor, Capability, Scope } from "@/lib/domain/access";
+import { activeBusinessId, type Actor, type Capability, type Scope } from "@/lib/domain/access";
 import { apiError, isSameOrigin, tooManyRequests } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -26,11 +26,7 @@ export function workspaceOf(actor: Actor): Workspace {
   }
   return {
     barber: "",
-    business:
-      actor.owns[0] ??
-      actor.memberships.find((row) => row.barber)?.business ??
-      actor.memberships[0]?.business ??
-      "",
+    business: activeBusinessId(actor),
   };
 }
 

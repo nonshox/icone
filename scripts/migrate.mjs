@@ -172,6 +172,87 @@ async function allDocuments(collectionId, keys) {
 }
 
 /**
+ * Business-root report, also observation-only. It counts businesses without
+ * an active owner membership and barber rows whose business or branch does not
+ * agree with their memberships. Only counts are printed; no row is touched.
+ */
+async function businessRootReport() {
+  const text = (value) => (typeof value === "string" ? value : "");
+
+  const businesses = await allDocuments("businesses", ["owner"]);
+  const memberships = await allDocuments("memberships", [
+    "user",
+    "barber",
+    "business",
+    "branch",
+    "role",
+    "state",
+    "active",
+  ]);
+  const active = memberships.filter(
+    (row) => text(row.state) === "active" && row.active !== false,
+  );
+  const owned = new Set(
+    active
+      .filter((row) => text(row.role) === "owner")
+      .map((row) => text(row.business)),
+  );
+  const noOwner = businesses.filter((row) => !owned.has(row.$id)).length;
+  log(
+    `  report: businesses — ${businesses.length} rows, ` +
+      `${noOwner} with no active owner membership`,
+  );
+
+  const barbers = await allDocuments("barbers", ["user", "business", "branch"]);
+  const byBarber = new Map();
+  const byUser = new Map();
+  for (const row of active) {
+    const barberId = text(row.barber);
+    const userId = text(row.user);
+    if (barberId) {
+      byBarber.set(barberId, [...(byBarber.get(barberId) ?? []), row]);
+    }
+    if (userId) {
+      byUser.set(userId, [...(byUser.get(userId) ?? []), row]);
+    }
+  }
+
+  let businessMismatch = 0;
+  let branchMismatch = 0;
+  let noMembership = 0;
+  for (const row of barbers) {
+    const business = text(row.business);
+    if (!business) continue; // an independent chair has no business to compare
+    const links = [
+      ...(byBarber.get(row.$id) ?? []),
+      ...(byUser.get(text(row.user)) ?? []),
+    ];
+    if (links.length === 0) {
+      noMembership += 1;
+      continue;
+    }
+    if (links.some((member) => text(member.business) !== business)) {
+      businessMismatch += 1;
+    }
+    const branch = text(row.branch);
+    if (
+      links.some((member) => {
+        const assigned = text(member.branch);
+        return assigned !== "" && assigned !== branch;
+      })
+    ) {
+      branchMismatch += 1;
+    }
+  }
+  log(
+    `  report: barbers — ${barbers.length} rows, ` +
+      `${businessMismatch} whose business disagrees with a membership, ` +
+      `${branchMismatch} whose branch disagrees, ` +
+      `${noMembership} with a business but no matching membership`,
+  );
+}
+
+/**
  * Version 6 is intentionally observation-only. It prints counts for the
  * relationships the next product model will need to reconcile, and writes
  * nothing. Duplicate `clients` (business, phone) are reported with both the
@@ -324,8 +405,11 @@ const steps = [
   },
   {
     version: 6,
-    name: "relationship report (read only)",
-    apply: relationshipReport,
+    name: "relationship and business-root report (read only)",
+    apply: async () => {
+      await relationshipReport();
+      await businessRootReport();
+    },
   },
 ];
 

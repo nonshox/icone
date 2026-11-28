@@ -10,7 +10,7 @@ const privatePaths = [
   "/barber",
   "/book",
   "/bookings",
-  "/customer",
+  "/account",
   "/favorites",
   "/invites",
   "/messages",

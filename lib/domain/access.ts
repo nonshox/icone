@@ -8,8 +8,9 @@ import { getCurrentUser } from "@/lib/auth/session";
 
 import { bool, list, str, type Row } from "./crud";
 import { getProfile, type MembershipSummary } from "./account";
+import { getBusiness, listBranches } from "./business";
 import { toBarber, type BarberRow } from "./professional";
-import { toMembership } from "./team";
+import { roleRank, toMembership } from "./team";
 import type { Membership, Profile, TeamRole } from "./types";
 
 /**
@@ -133,6 +134,30 @@ const ROLE_GRANTS: Record<TeamRole, readonly Capability[]> = {
 
 /* ------------------------------------------------------------------- actor */
 
+/** A business root with the display names the workspace header needs. */
+export type ActiveBusiness = {
+  id: string;
+  name: string;
+  /** The location shown beside the business name, when one is selected. */
+  branch?: { id: string; name: string };
+};
+
+/** One selectable business and its locations, used by the workspace switcher. */
+export type BusinessOption = {
+  id: string;
+  name: string;
+  branches: { id: string; name: string }[];
+};
+
+/**
+ * `MembershipSummary` lives in `account.ts`; the workspace layer adds the
+ * resolved business root without changing that shared shape.
+ */
+export type ActorSummary = MembershipSummary & {
+  /** Business selected by the stable rule below, or null for a chair only. */
+  active: ActiveBusiness | null;
+};
+
 export type Actor = {
   userId: string;
   profile: Profile;
@@ -141,11 +166,109 @@ export type Actor = {
   memberships: Membership[];
   /** Businesses this account created. */
   owns: string[];
-  summary: MembershipSummary;
+  summary: ActorSummary;
 };
 
 function businessIds(memberships: Membership[]): string[] {
   return [...new Set(memberships.map((row) => row.business).filter(Boolean))];
+}
+
+/**
+ * The one stable business-root rule. Appwrite list order is not guaranteed, so
+ * every tier is sorted explicitly and the same answer is returned on every
+ * render and in every route handler.
+ *
+ *   1. an owned business (an active owner membership);
+ *   2. an owner or manager membership;
+ *   3. the first remaining membership.
+ *
+ * An independent barber has none of these and gets an empty id.
+ */
+export function activeBusinessId(actor: Actor): string {
+  const byRank = (a: Membership, b: Membership) =>
+    roleRank(a.role) - roleRank(b.role) || a.business.localeCompare(b.business);
+
+  const owned = [...actor.owns].sort((a, b) => a.localeCompare(b));
+  if (owned.length > 0) return owned[0];
+
+  const leads = actor.memberships
+    .filter((row) => row.role === "owner" || row.role === "manager")
+    .sort(byRank);
+  if (leads.length > 0) return leads[0].business;
+
+  return actor.memberships.slice().sort(byRank)[0]?.business ?? "";
+}
+
+/** Resolve the root to display names and the member's default location. */
+export async function activeBusiness(actor: Actor): Promise<ActiveBusiness | null> {
+  const id = activeBusinessId(actor);
+  if (!id) return null;
+
+  const business = await getBusiness(id);
+  // A deleted business is not a root; never invent a name for a stale id.
+  if (!business) return null;
+
+  const branches = await listBranches(id);
+  const mine = actor.memberships
+    .filter((row) => row.business === id)
+    .sort((a, b) => roleRank(a.role) - roleRank(b.role));
+  const ownBranch = actor.barber?.business === id ? actor.barber.branch : "";
+
+  const branchId =
+    mine.map((row) => row.branch).find(Boolean) ??
+    (ownBranch ||
+      branches.find((row) => row.primary)?.id ||
+      branches[0]?.id ||
+      "");
+  const branch = branches.find((row) => row.id === branchId);
+
+  return {
+    id: business.id,
+    name: business.name || business.slug || business.id,
+    ...(branch
+      ? { branch: { id: branch.id, name: branch.name || branch.id } }
+      : {}),
+  };
+}
+
+/** Owners and managers may switch the workspace they are looking at. */
+export function canSwitchBusiness(actor: Actor): boolean {
+  return actor.memberships.some(
+    (row) => row.role === "owner" || row.role === "manager",
+  );
+}
+
+/** Every business the actor belongs to, with its branches, for the switcher. */
+export async function businessOptions(actor: Actor): Promise<BusinessOption[]> {
+  const ids = [
+    ...new Set([
+      ...actor.owns,
+      ...actor.memberships.map((row) => row.business),
+    ]),
+  ].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  if (ids.length === 0) return [];
+
+  const businesses = await Promise.all(ids.map((id) => getBusiness(id)));
+  const options: BusinessOption[] = [];
+  for (const business of businesses) {
+    if (!business) continue;
+    const branches = await listBranches(business.id);
+    options.push({
+      id: business.id,
+      name: business.name || business.slug || business.id,
+      branches: branches.map((row) => ({
+        id: row.id,
+        name: row.name || row.id,
+      })),
+    });
+  }
+
+  const first = activeBusinessId(actor);
+  return options.sort((a, b) => {
+    if (a.id === first) return -1;
+    if (b.id === first) return 1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 /** Everything we need to authorize one request, resolved once per render. */
@@ -194,7 +317,7 @@ export const getActor = cache(async (): Promise<Actor | null> => {
   const owns = businessIds(memberships.filter((row) => row.role === "owner"));
   const belongs = businessIds(memberships);
 
-  return {
+  const actor: Actor = {
     userId: user.id,
     profile,
     barber,
@@ -205,8 +328,14 @@ export const getActor = cache(async (): Promise<Actor | null> => {
       belongs,
       professional: barberRows.length > 0 || memberships.length > 0,
       staff: barberRows.length > 0 || memberships.length > 0,
+      active: null,
     },
   };
+
+  // The business root is part of the actor contract, so pages and route
+  // handlers can read `summary.active` without repeating the resolution rule.
+  const active = await activeBusiness(actor);
+  return { ...actor, summary: { ...actor.summary, active } };
 });
 
 /* ------------------------------------------------------------ capability */

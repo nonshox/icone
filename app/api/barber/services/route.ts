@@ -12,7 +12,7 @@ import {
   writeDenied,
   type Workspace,
 } from "@/app/api/barber/_auth";
-import { can, type Actor } from "@/lib/domain/access";
+import { activeBusinessId, can, type Actor } from "@/lib/domain/access";
 import {
   createService,
   getService,
@@ -22,6 +22,7 @@ import {
   servicesFor,
   updateService,
 } from "@/lib/domain/catalog";
+import { deactivateOffer, upsertOfferBestEffort } from "@/lib/domain/offers";
 import type { Service } from "@/lib/domain/types";
 import { apiError, apiOk } from "@/lib/http";
 
@@ -55,7 +56,7 @@ function owns(service: Service, workspace: Workspace, actor: Actor): boolean {
 
 /** Owners manage the shared catalogue; a barber manages their own menu. */
 function managed(actor: Actor, workspace: Workspace): Workspace {
-  const business = workspace.business || actor.owns[0] || "";
+  const business = workspace.business || activeBusinessId(actor);
   return actor.owns.length > 0 || !workspace.barber
     ? { barber: "", business }
     : { barber: workspace.barber, business: "" };
@@ -146,6 +147,21 @@ export async function POST(request: NextRequest) {
         ...(!parsed.data.active ? { active: false } : {}),
       });
     }
+    // An independent chair's own menu is materialised as an offer straight
+    // away, so reads never have to reconstruct its price from legacy rows.
+    // Shared-catalogue services stay unassigned until explicitly given to an
+    // employee by the assign route.
+    if (service.barber) {
+      await upsertOfferBestEffort({
+        barber: service.barber,
+        service: service.id,
+        business: "",
+        price: service.price,
+        time: service.time,
+        active: service.active,
+        sort: service.sort,
+      });
+    }
     return apiOk({ service });
   } catch (error) {
     return businessFailure(error, "Could not add the service.", "service_failed");
@@ -180,7 +196,25 @@ export async function PATCH(request: NextRequest) {
     if (!existing || !owns(existing, guarded.workspace, guarded.actor)) {
       return apiError("That service is not yours.", 404, "not_found");
     }
-    return apiOk({ service: await updateService(id, patch) });
+    const updated = await updateService(id, patch);
+    if (
+      updated.barber &&
+      (typeof patch.price === "number" ||
+        typeof patch.time === "number" ||
+        typeof patch.active === "boolean")
+    ) {
+      // Keep the authoritative offer in step with an own-menu price change.
+      await upsertOfferBestEffort({
+        barber: updated.barber,
+        service: updated.id,
+        business: "",
+        price: updated.price,
+        time: updated.time,
+        active: updated.active,
+        sort: updated.sort,
+      });
+    }
+    return apiOk({ service: updated });
   } catch (error) {
     return businessFailure(error, "Could not update the service.", "service_failed");
   }
@@ -208,6 +242,9 @@ export async function DELETE(request: NextRequest) {
       return apiError("That service is not yours.", 404, "not_found");
     }
     await retireService(parsed.data);
+    if (existing.barber) {
+      await deactivateOffer(existing.barber, parsed.data);
+    }
     return apiOk();
   } catch (error) {
     return businessFailure(error, "Could not remove the service.", "service_failed");

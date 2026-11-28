@@ -22,6 +22,15 @@ customer and can become a professional without signing in again.
 `?next=` preserves a protected deep link through sign-in. `lib/next-path.ts`
 allows local paths only and rejects sign-in loops and protocol-relative URLs.
 
+## Account surfaces after sign-in
+
+The same account owns every surface. Clients land through `/customer`, which
+now redirects to `/account` (the single account home) with its query string
+preserved; profile editing lives only at `/settings`. The inbox at
+`/notifications` accepts any signed-in account — the legacy
+`/barber/notifications` URL redirects there with its query string instead of
+rendering a second inbox.
+
 ## Public booking until confirm
 
 `/book` is intentionally not a protected route: guests can browse services,

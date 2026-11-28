@@ -10,7 +10,7 @@ import {
   writeDenied,
 } from "@/app/api/barber/_auth";
 import { requireUser } from "@/lib/api/guard";
-import { can, inBusiness, type Actor } from "@/lib/domain/access";
+import { activeBusinessId, can, inBusiness, type Actor } from "@/lib/domain/access";
 import {
   assignAllServices,
   assignService,
@@ -66,12 +66,7 @@ async function targetOf(
   barber?: string,
 ): Promise<Target | null> {
   const resolved =
-    business ||
-    actor.barber?.business ||
-    actor.owns[0] ||
-    actor.memberships.find((row) => row.barber)?.business ||
-    actor.memberships[0]?.business ||
-    "";
+    business || actor.barber?.business || activeBusinessId(actor);
   if (!resolved || !inBusiness(actor, resolved)) return null;
 
   if (barber) {
@@ -171,7 +166,8 @@ export async function POST(request: NextRequest) {
       // Only materialise the services that were actually missing: upserting
       // the whole catalogue would overwrite existing employee overrides.
       const missing = await unassignedServices(target.business, target.barber);
-      const count = await assignAllServices(target.business, target.barber);
+      // Offers are the authoritative assignment; empser is written afterwards
+      // only as the legacy mirror.
       await Promise.all(
         missing.map((service) =>
           upsertOffer({
@@ -185,6 +181,7 @@ export async function POST(request: NextRequest) {
           }),
         ),
       );
+      const count = await assignAllServices(target.business, target.barber);
       return apiOk({ count });
     }
 
@@ -192,23 +189,25 @@ export async function POST(request: NextRequest) {
     if (!service || service.business !== target.business) {
       return apiError("That service is not in your catalogue.", 404, "not_found");
     }
+    // The offer is written first and resolves any inherited (-1) value to an
+    // explicit one, so reads never depend on the legacy row being present.
+    await upsertOffer({
+      business: target.business,
+      barber: target.barber,
+      service: service.id,
+      price: parsed.data.price,
+      time: parsed.data.time,
+      active: true,
+      sort: service.sort,
+    });
+    // Legacy mirror for one release; the response stays the EmployeeService
+    // shape callers already use.
     const assigned = await assignService({
       business: target.business,
       barber: target.barber,
       service: service.id,
       ...(typeof parsed.data.price === "number" ? { price: parsed.data.price } : {}),
       ...(typeof parsed.data.time === "number" ? { time: parsed.data.time } : {}),
-    });
-    // Keep the legacy empser row and the materialised offer in step for one
-    // release. `upsertOffer` resolves -1 to an explicit value before writing.
-    await upsertOffer({
-      business: target.business,
-      barber: target.barber,
-      service: service.id,
-      price: assigned.price,
-      time: assigned.time,
-      active: true,
-      sort: service.sort,
     });
     return apiOk({ service: assigned });
   } catch (error) {
@@ -253,20 +252,26 @@ export async function PATCH(request: NextRequest) {
     );
     if (!owned) return apiError("That assignment no longer exists.", 404, "not_found");
 
-    const updated = await setEmployeeService(assignment, patch);
-    if (patch.active === false) {
+    // Resolve inherited (-1) values against the catalogue *before* the legacy
+    // row is touched, then write the offer first.
+    const nextActive = patch.active ?? owned.active;
+    if (!nextActive) {
       await deactivateOffer(target.barber, owned.service);
     } else {
+      const service = await getService(owned.service);
+      const inherit = (value: number, fallback: number) =>
+        value >= 0 ? value : fallback;
       await upsertOffer({
         business: target.business,
         barber: target.barber,
         service: owned.service,
-        price: patch.price ?? updated.price,
-        time: patch.time ?? updated.time,
-        active: patch.active ?? updated.active,
-        sort: updated.sort,
+        price: inherit(patch.price ?? owned.price, service?.price ?? 0),
+        time: inherit(patch.time ?? owned.time, service?.time ?? 30),
+        active: true,
+        sort: owned.sort,
       });
     }
+    const updated = await setEmployeeService(assignment, patch);
     return apiOk({ service: updated });
   } catch (error) {
     return businessFailure(error, "Could not save the override.", "assign_failed");
@@ -315,8 +320,8 @@ export async function DELETE(request: NextRequest) {
     );
     if (!owned) return apiError("That assignment no longer exists.", 404, "not_found");
 
-    await unassignService(parsed.data.assignment);
     await deactivateOffer(target.barber, owned.service);
+    await unassignService(parsed.data.assignment);
     return apiOk();
   } catch (error) {
     return businessFailure(error, "Could not unassign the service.", "assign_failed");

@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, Building2, CircleHelp, Map, Scissors } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CircleHelp, Map, Scissors } from "lucide-react";
 import Link from "next/link";
 
 import { routeMetadata } from "@/lib/metadata";
@@ -29,12 +29,6 @@ const destinations = [
     label: "nav.becomeBarber",
     body: "landing.linkBarberBody",
     Icon: Scissors,
-  },
-  {
-    href: "/become-barber?model=b",
-    label: "nav.openShop",
-    body: "landing.linkShopBody",
-    Icon: Building2,
   },
   {
     href: "/map",

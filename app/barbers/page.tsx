@@ -2,13 +2,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { routeMetadata } from "@/lib/metadata";
-import { BarberDirectory } from "@/components/barbers/barber-directory";
 import { T } from "@/components/i18n/t";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SearchResults } from "@/components/search/search-results";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listBarbers } from "@/lib/domain/professional";
 import { cn } from "@/lib/utils";
 
 export const metadata = routeMetadata({
@@ -17,53 +15,40 @@ export const metadata = routeMetadata({
   descriptionKey: "barbers.subtitle",
 });
 
-async function BarberList({ initialQuery }: { initialQuery: string }) {
-  let barbers;
-  try {
-    barbers = await listBarbers();
-  } catch {
-    return (
-      <Card>
-        <CardContent role="alert" className="py-10 text-center text-sm text-destructive">
-          <T k="barbers.loadError" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (barbers.length === 0) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          <T k="barbers.empty" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return <BarberDirectory barbers={barbers} initialQuery={initialQuery} />;
-}
-
-function ListSkeleton() {
-  return (
-    <div className="space-y-5" aria-hidden>
-      <Skeleton className="h-9 w-full" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <Skeleton key={index} className="h-44 w-full" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-async function FilteredList({
+async function BarberResults({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  return <BarberList initialQuery={q ?? ""} />;
+  // minChars=0 makes this a directory when there is no query and the same
+  // live result list as the header and landing search when there is one.
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background/40 p-2 sm:p-3">
+      <SearchResults
+        query={q ?? ""}
+        limit={24}
+        minChars={0}
+        hideHint
+        hideFooter
+        showSpecialtyFilter
+        emptyKey="barbers.empty"
+        errorKey="barbers.loadError"
+        allKey="landing.searchAll"
+      />
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div className="space-y-3 rounded-2xl border border-border/70 p-3" aria-hidden>
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-16 w-full" />
+    </div>
+  );
 }
 
 export default function BarbersPage({
@@ -81,7 +66,7 @@ export default function BarbersPage({
 
         <div className="mt-6">
           <Suspense fallback={<ListSkeleton />}>
-            <FilteredList searchParams={searchParams} />
+            <BarberResults searchParams={searchParams} />
           </Suspense>
         </div>
 

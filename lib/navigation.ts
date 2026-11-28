@@ -140,7 +140,6 @@ export const segmentLabelKeys: Record<string, string> = {
   "become-barber": "nav.becomeBarber",
   book: "nav.book",
   bookings: "nav.myVisits",
-  customer: "nav.home",
   favorites: "nav.saved",
   help: "nav.help",
   legal: "nav.legal",

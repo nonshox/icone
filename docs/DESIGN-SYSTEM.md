@@ -26,6 +26,13 @@ both, and at 390px width.
   action. Destructive actions require confirmation.
 - Customer screens are mobile-first; the professional workspace and admin are
   desktop-optimised but stay usable on a tablet and a 390px phone.
+- One surface per job: `/account` is the account home, `/settings` the only
+  profile form, `/notifications` the only inbox. Legacy `/customer` and
+  `/barber/notifications` redirect (query string preserved) instead of rendering
+  a second view. Do not reintroduce duplicate forms, stats or quick-link cards.
+- Discovery has one query/result component (`components/search/`). Result rows
+  use its `profileHref` helper (`/b/<slug>`) and "all results" uses
+  `allResultsHref` (`/map?q=…`); never build per-surface profile URLs by hand.
 
 ## Copy and language
 

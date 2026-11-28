@@ -1,57 +1,28 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, MapPin, Search, Star } from "lucide-react";
-import Link from "next/link";
+import { ArrowRight, Search } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { T } from "@/components/i18n/t";
-import { useT } from "@/lib/i18n/use-t";
+import { SearchResults } from "@/components/search/search-results";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api/client";
-import { imageUrl } from "@/lib/client/files";
-import type { SearchResult } from "@/lib/domain/discovery";
-import { formatPrice } from "@/lib/domain/time";
+import { useT } from "@/lib/i18n/use-t";
 import { cn } from "@/lib/utils";
 
-function photoStyle(value: string) {
-  const url = imageUrl(value);
-  if (!/^https?:\/\//.test(url)) return undefined;
-  return { backgroundImage: `url("${url.replace(/"/g, "%22")}")` };
-}
-
-function profileHref(row: SearchResult) {
-  const slug = row.slug || row.id;
-  return row.kind === "shop" ? `/shop/${slug}` : `/barbers/${slug}`;
-}
-
-/** Live search on the landing page: name, service or district. */
+/**
+ * Landing hero search. All copy is landing-specific; the query, result rows
+ * and destination URLs come from the one shared discovery component.
+ */
 export function LandingSearch() {
   const t = useT();
   const [draft, setDraft] = useState("");
   const [submitted, setSubmitted] = useState("");
 
-  const query = useQuery({
-    queryKey: ["landing-search", submitted],
-    queryFn: () =>
-      api<{ results: SearchResult[] }>(
-        `/api/search?q=${encodeURIComponent(submitted)}&limit=6`,
-      ),
-    enabled: submitted.length > 0,
-    staleTime: 60_000,
-  });
-
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(draft.trim());
   }
-
-  const results = query.data?.results ?? [];
-  const allHref = submitted
-    ? `/map?q=${encodeURIComponent(submitted)}`
-    : "/map";
 
   return (
     <section className="rounded-3xl border border-border/70 bg-card/60 p-5 sm:p-7">
@@ -95,80 +66,23 @@ export function LandingSearch() {
         <T k="landing.searchHint" />
       </p>
 
-      <div aria-live="polite" className="mt-5">
-        {!submitted ? null : query.isLoading ? (
-          <ul className="space-y-2" aria-hidden>
-            {[0, 1, 2].map((index) => (
-              <li key={index}>
-                <Skeleton className="h-16 w-full rounded-2xl" />
-              </li>
-            ))}
-          </ul>
-        ) : query.isError ? (
-          <div role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
-            <p className="text-destructive"><T k="landing.searchError" /></p>
-            <button
-              type="button"
-              onClick={() => void query.refetch()}
-              className="mt-2 text-sm font-medium text-foreground underline underline-offset-4"
-            >
-              <T k="common.tryAgain" />
-            </button>
-          </div>
-        ) : results.length === 0 ? (
-          <p className="rounded-2xl border border-border/70 p-4 text-sm text-muted-foreground">
-            <T k="landing.searchEmpty" />
+      {submitted ? (
+        <div className="mt-5">
+          <p className="mb-2 text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
+            <T k="landing.searchResults" />
           </p>
-        ) : (
-          <div>
-            <p className="mb-2 text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">
-              <T k="landing.searchResults" />
-            </p>
-            <ul className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-background/40">
-              {results.map((row) => (
-                <li key={`${row.kind}-${row.id}`}>
-                  <Link
-                    href={profileHref(row)}
-                    className="flex items-center gap-3 p-3 transition-colors hover:bg-brand/5"
-                  >
-                    <div
-                      aria-hidden
-                      style={photoStyle(row.photo)}
-                      className="size-10 shrink-0 rounded-xl bg-muted bg-cover bg-center"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{row.name}</p>
-                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                        <MapPin className="size-3 shrink-0" aria-hidden />
-                        {[row.subtitle, row.district, row.city].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                    <div className="hidden shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground sm:flex">
-                      {row.rating > 0 ? (
-                        <span className="flex items-center gap-1 tabular-nums">
-                          <Star className="size-3 fill-current text-brand-strong" aria-hidden />
-                          {row.rating.toFixed(1)}
-                        </span>
-                      ) : null}
-                      {row.price > 0 ? <span>{formatPrice(row.price)}</span> : null}
-                    </div>
-                    <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/40 p-2">
+            <SearchResults
+              query={submitted}
+              limit={6}
+              hideHint
+              emptyKey="landing.searchEmpty"
+              errorKey="landing.searchError"
+              allKey="landing.searchAll"
+            />
           </div>
-        )}
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        <Link href={allHref} className="font-medium text-brand-strong underline-offset-4 hover:underline">
-          <T k="landing.searchAll" />
-        </Link>
-        <Link href="/map" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-          <T k="landing.mapCta" />
-        </Link>
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

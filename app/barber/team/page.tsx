@@ -5,7 +5,7 @@ import { BarberShell, BarberSkeleton } from "@/components/barber/barber-shell";
 import { T } from "@/components/i18n/t";
 import { Card, CardContent } from "@/components/ui/card";
 import { TeamManager } from "@/components/team/team-manager";
-import { can, getActor, isOwner } from "@/lib/domain/access";
+import { activeBusinessId, can, getActor, isOwner } from "@/lib/domain/access";
 
 export const metadata = routeMetadata({
   path: "/barber/team",
@@ -18,15 +18,8 @@ async function TeamPanel() {
   const actor = await getActor();
   if (!actor) return null;
 
-  // Match the API's business resolution so the client never asks for a scope
-  // the route handler would silently redirect or reject.
-  const business =
-    actor.owns[0] ??
-    actor.memberships.find(
-      (row) => row.role === "owner" || row.role === "manager",
-    )?.business ??
-    actor.memberships[0]?.business ??
-    "";
+  // One resolver shared with the API and the other workspace pages.
+  const business = activeBusinessId(actor);
 
   if (!business) {
     return (

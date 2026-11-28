@@ -5,6 +5,7 @@ import { ArrowUpRight, Star } from "lucide-react";
 import Link from "next/link";
 
 import { T } from "@/components/i18n/t";
+import { profileHref } from "@/components/search/search-results";
 import { useT } from "@/lib/i18n/use-t";
 import {
   EmptyState,
@@ -23,11 +24,6 @@ function photoStyle(value: string) {
   const url = imageUrl(value);
   if (!/^https?:\/\//.test(url)) return undefined;
   return { backgroundImage: `url("${url.replace(/"/g, "%22")}")` };
-}
-
-function profileHref(row: SearchResult) {
-  const slug = row.slug || row.id;
-  return row.kind === "shop" ? `/shop/${slug}` : `/barbers/${slug}`;
 }
 
 type RailProps = {
@@ -103,7 +99,7 @@ export function ProfessionalRail({
             {rows.map((row) => (
               <Link
                 key={`${row.kind}-${row.id}`}
-                href={profileHref(row)}
+                href={profileHref(row.slug || row.id)}
                 className="group flex min-h-40 flex-col gap-3 rounded-2xl border border-border/70 bg-card/60 p-4 transition-colors hover:border-brand/60 hover:bg-brand/5"
               >
                 <div className="flex items-start gap-3">

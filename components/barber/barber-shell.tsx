@@ -2,9 +2,14 @@ import { redirect } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { SiteHeader } from "@/components/layout/site-header";
+import { BusinessSwitcher } from "@/components/barber/business-switcher";
 import { NavPills } from "@/components/barber/barber-ui";
 import {
+  activeBusiness,
+  activeBusinessId,
+  businessOptions,
   can,
+  canSwitchBusiness,
   getActor,
   hasTeam,
   isOwner,
@@ -35,8 +40,7 @@ const ANALYTICS_LINK = {
 
 export async function BarberNav() {
   const actor = await getActor();
-  const business =
-    actor?.owns[0] ?? actor?.memberships[0]?.business ?? "";
+  const business = actor ? activeBusinessId(actor) : "";
   const team = !!actor && hasTeam(actor) && !!business;
   const owner = !!actor && team && isOwner(actor, business);
   const independent = !!actor && !team && !!actor.barber;
@@ -59,6 +63,24 @@ export async function BarberNav() {
       labelKey="nav.business"
     />
   );
+}
+
+/**
+ * Owners and managers get a compact business/location picker in the workspace
+ * header. The choice is UI-only: it lives in plain cookies and never changes a
+ * membership, a booking context or any other server row.
+ */
+async function WorkspaceSwitcher() {
+  const actor = await getActor();
+  if (!actor || !canSwitchBusiness(actor)) return null;
+
+  const [active, options] = await Promise.all([
+    activeBusiness(actor),
+    businessOptions(actor),
+  ]);
+  if (options.length === 0) return null;
+
+  return <BusinessSwitcher active={active} options={options} />;
 }
 
 /** Session check happens inside Suspense so the page shell stays static. */
@@ -111,6 +133,11 @@ export function BarberShell({
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
+      <div className="mx-auto flex w-full max-w-6xl justify-end px-4 pt-2 sm:px-6">
+        <Suspense fallback={null}>
+          <WorkspaceSwitcher />
+        </Suspense>
+      </div>
 
       <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

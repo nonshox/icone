@@ -1,11 +1,11 @@
 "use client";
 
 import {
+  Bell,
   BriefcaseBusiness,
   CalendarDays,
   Clock,
   Heart,
-  LayoutDashboard,
   MessageSquare,
   Scissors,
   Settings,
@@ -18,7 +18,6 @@ import { useT } from "@/lib/i18n/use-t";
 
 import { T } from "@/components/i18n/t";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { EmptyState, LoadingRows } from "@/components/ui/app-state";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -28,11 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { StatCard } from "@/components/ui/stat-card";
-import { useBookings } from "@/lib/api/queries";
-import { useShopDate } from "@/lib/client/date";
 import type { SessionUser } from "@/lib/auth/types";
-import { formatDate, label } from "@/lib/domain/time";
 import type { Profile, Role } from "@/lib/domain/types";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +47,11 @@ function initials(name: string) {
     .join("");
 }
 
+/**
+ * The one account home. Editing lives only on `/settings`, visits/saved/
+ * messages keep their own pages, and the professional CTA appears once in the
+ * shared navigation — never repeated here.
+ */
 export function AccountView({
   user,
   profile,
@@ -63,19 +63,10 @@ export function AccountView({
   professional: boolean;
 }) {
   const t = useT();
-  const bookings = useBookings();
-  const todayDate = useShopDate();
-
-  const all = bookings.data ?? [];
-  const upcoming = todayDate
-    ? all.filter(
-        (booking) =>
-          ["pending", "confirmed"].includes(booking.status) &&
-          booking.date >= todayDate,
-      )
-    : [];
-  const done = all.filter((booking) => booking.status === "done");
-  const next = upcoming[0];
+  const contact =
+    profile.phone ||
+    user.email ||
+    (user.telegramUsername ? `@${user.telegramUsername}` : "—");
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_0.9fr]">
@@ -88,19 +79,15 @@ export function AccountView({
               </span>
               <div className="min-w-0">
                 <CardTitle className="truncate">{profile.name}</CardTitle>
-                <CardDescription className="truncate">
-                  {user.email ??
-                    (user.telegramUsername ? `@${user.telegramUsername}` : "—")}
-                </CardDescription>
+                <CardDescription className="truncate">{contact}</CardDescription>
               </div>
-              <Badge variant="outline" className="ml-auto">
+              <Badge variant="outline" className="ml-auto shrink-0">
                 <T k={roleKey[profile.role]} />
               </Badge>
             </div>
           </CardHeader>
-
-          {/* /settings is the only editable profile form. */}
           <CardContent>
+            {/* /settings is the only editable profile form. */}
             <Link
               href="/settings"
               className={cn(
@@ -134,134 +121,81 @@ export function AccountView({
         </Card>
       </div>
 
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("visits.upcoming")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {bookings.isPending || !todayDate ? (
-              <LoadingRows count={1} rowClassName="h-16 w-full" />
-            ) : next ? (
-              <div className="space-y-2">
-                <p className="font-medium">{next.serviceName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {next.barberName} · {formatDate(next.date)} ·{" "}
-                  {label(next.start)}
-                </p>
-                <Link
-                  href="/bookings"
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "mt-1 rounded-lg",
-                  )}
-                >
-                  <T k="visits.manage" />
-                </Link>
-              </div>
-            ) : (
-              <EmptyState
-                action={
-                  <Link
-                    href="/book"
-                    className={cn(buttonVariants({ size: "sm" }), "rounded-lg")}
-                  >
-                    <Scissors className="size-3.5" aria-hidden />
-                    <T k="nav.book" />
-                  </Link>
-                }
-              >
-                {t("visits.nothingBooked")}
-              </EmptyState>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-2 gap-4">
-          <StatCard
-            label={t("common.upcoming")}
-            value={todayDate ? upcoming.length : "—"}
-          />
-          <StatCard
-            label={t("common.completed")}
-            value={bookings.isPending ? "—" : done.length}
-          />
-        </div>
-
-        <Card size="sm">
-          <CardContent className="space-y-2">
-            {profile.role === "admin" ? (
-              <Link
-                href="/admin"
-                className="flex items-center gap-2 text-sm font-medium hover:underline"
-              >
-                <ShieldCheck className="size-4" aria-hidden />
-                <T k="account.adminDashboard" />
-              </Link>
-            ) : null}
-            {professional ? (
-              <Link
-                href="/barber"
-                className="flex items-center gap-2 text-sm font-medium text-brand-strong hover:underline"
-              >
-                <BriefcaseBusiness className="size-4" aria-hidden />
-                <T k="nav.workspace" />
-              </Link>
-            ) : null}
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle><T k="work.dashboard.quick" /></CardTitle>
+          <CardDescription><T k="account.subtitle" /></CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-1">
+          {profile.role === "admin" ? (
             <Link
-              href="/customer"
-              className="flex items-center gap-2 text-sm font-medium hover:underline"
+              href="/admin"
+              className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
             >
-              <LayoutDashboard className="size-4" aria-hidden />
-              <T k="account.customerHome" />
+              <ShieldCheck className="size-4" aria-hidden />
+              <T k="account.adminDashboard" />
             </Link>
+          ) : null}
+          {professional ? (
             <Link
-              href="/bookings"
-              className="flex items-center gap-2 text-sm font-medium hover:underline"
+              href="/barber"
+              className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-brand-strong hover:bg-brand/5"
             >
-              <CalendarDays className="size-4" aria-hidden />
-              <T k="nav.myVisits" />
+              <BriefcaseBusiness className="size-4" aria-hidden />
+              <T k="nav.workspace" />
             </Link>
-            <Link
-              href="/favorites"
-              className="flex items-center gap-2 text-sm font-medium hover:underline"
-            >
-              <Heart className="size-4" aria-hidden />
-              <T k="nav.saved" />
-            </Link>
-            <Link
-              href="/messages"
-              className="flex items-center gap-2 text-sm font-medium hover:underline"
-            >
-              <MessageSquare className="size-4" aria-hidden />
-              <T k="nav.messages" />
-            </Link>
-            <Link
-              href="/waits"
-              className="flex items-center gap-2 text-sm font-medium hover:underline"
-            >
-              <Clock className="size-4" aria-hidden />
-              <T k="nav.waitlist" />
-            </Link>
-            <Link
-              href="/book"
-              className="flex items-center gap-2 text-sm font-medium hover:underline"
-            >
-              <Scissors className="size-4" aria-hidden />
-              <T k="nav.book" />
-            </Link>
-            {!professional && profile.role !== "admin" ? (
-              <Link
-                href="/become-barber"
-                className="flex items-center gap-2 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              >
-                <UserRound className="size-3.5" aria-hidden />
-                <T k="nav.becomeBarber" />
-              </Link>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
+          ) : null}
+          <Link
+            href="/bookings"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <CalendarDays className="size-4" aria-hidden />
+            <T k="nav.myVisits" />
+          </Link>
+          <Link
+            href="/favorites"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Heart className="size-4" aria-hidden />
+            <T k="nav.saved" />
+          </Link>
+          <Link
+            href="/messages"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <MessageSquare className="size-4" aria-hidden />
+            <T k="nav.messages" />
+          </Link>
+          <Link
+            href="/notifications"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Bell className="size-4" aria-hidden />
+            <T k="nav.inbox" />
+          </Link>
+          <Link
+            href="/waits"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Clock className="size-4" aria-hidden />
+            <T k="nav.waitlist" />
+          </Link>
+          <Link
+            href="/book"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Scissors className="size-4" aria-hidden />
+            <T k="nav.book" />
+          </Link>
+          <Link
+            href="/settings"
+            className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Settings className="size-4" aria-hidden />
+            <T k="nav.settings" />
+          </Link>
+        </CardContent>
+      </Card>
     </div>
   );
 }

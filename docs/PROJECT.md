@@ -39,6 +39,24 @@ is subscription-ready but the product works fully without billing.
 - **Reminders:** `/api/cron/reminders`, called daily at 06:00 UTC by
   `.github/workflows/reminders.yml` with `CRON_SECRET`. Idempotent.
 
+## Canonical routes and redirects
+
+Old bookmarks and deep links keep working; new links always use one destination.
+
+| Surface | Canonical | Legacy compatibility |
+| --- | --- | --- |
+| Account home | `/account` | `/customer` redirects there (query string preserved) |
+| Profile settings | `/settings` | the only editable profile form |
+| Inbox | `/notifications` | `/barber/notifications` redirects there (query preserved) |
+| Shareable profile/booking link | `/b/<slug>` | `/barbers/<slug>` and `/shop/<slug>` still resolve |
+| All discovery results | `/map?q=…` | no query opens the full map |
+| Professional application | `/become-barber` | Model A default, Model B is one explicit option |
+
+`/account` is a summary — name, role, sign-in method and links to visits,
+saved, messages and settings. It does not repeat the settings form or booking
+stats. The one "Become a barber" entry lives in the shared navigation and the
+landing page; the model choice appears once, inside the application form.
+
 ## Navigation
 
 `lib/navigation.ts` is the single source of truth for links. `primaryLinks` are
@@ -62,6 +80,11 @@ the "any qualified employee" booking draft, a professional slug opens that
 chair's draft. `lib/domain/booking-link.ts` resolves both; public profile pages
 use `/b/<slug>` as the primary Book action and keep per-service or per-barber
 links as secondary.
+
+Header search, the landing hero and `/barbers` all use the one query/result
+component in `components/search/search-results.tsx`: result rows link to
+`/b/<slug>`, and "all results" links to `/map?q=…`. `LandingSearch` only adds
+landing copy; it owns no query, query key or result renderer of its own.
 
 ## Source map
 
@@ -87,7 +110,27 @@ as separate chunks on demand.
 
 ## Done means
 
-`cmd /c "npm run build"` and `cmd /c "npm run lint"` both pass; light and dark
+`cmd /c "npm run typecheck"`, `cmd /c "npm run check:i18n"`,
+`cmd /c "npm run lint"` and `cmd /c "npm run build"` all pass; light and dark
 are checked; 390px is checked; every major workflow works end to end with real
 data; no secrets or throwaway data remain; no decorative buttons or invented
 analytics.
+
+## Fresha stage 3 — business-root defaults (additive)
+
+The professional workspace now treats the **business**, not the chair, as its
+default root. `lib/domain/access.ts` exposes one stable resolver,
+`activeBusiness(actor)` → `{ id, name, branch? }` (owned business, then
+owner/manager membership, then first membership, each tier explicitly sorted),
+plus the id-only helper `activeBusinessId(actor)`. `getActor().summary.active`
+carries the resolved root. Owners and managers see a compact `BusinessSwitcher`
+in the workspace header; its choice is stored only in plain
+`icone_business` / `icone_branch` cookies and never mutates server data or
+authorization.
+
+Employee services are now read from `offers` first with the legacy
+`services`/`empser` calculation as fallback; write paths materialise the offer
+before mirroring to `empser`. Response shapes are unchanged. `scripts/migrate.mjs`
+gains a read-only business-root report (businesses without an active owner
+membership; barber rows whose business/branch disagrees with memberships). No
+historical row is rewritten or deleted. See `docs/DATA.md` for the full rule.

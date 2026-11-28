@@ -147,40 +147,67 @@ export async function servicesForBase(barberId: string): Promise<OfferedService[
 }
 
 /**
- * The public read path. Materialised `offers` rows win on price, duration and
- * assignment; the calculation above still supplies the catalogue metadata and
- * covers every service that has not been backfilled yet. The returned shape is
+ * The public read path. `offers` is the single authority for an employee's
+ * assignment, price and duration: it defines the menu even when no legacy
+ * `empser` row exists. The legacy calculation supplies the metadata and covers
+ * services that have not been materialised yet. The returned shape is
  * identical to `servicesForBase`, so callers need no changes.
  */
 export async function servicesFor(barberId: string): Promise<OfferedService[]> {
-  const [base, offers] = await Promise.all([
-    servicesForBase(barberId),
+  const sample = await first(TABLES.barbers, [Query.equal("$id", barberId)]);
+  if (!sample) return [];
+
+  const business = str(sample.business);
+  const [offers, legacy] = await Promise.all([
     listOffers(barberId),
+    servicesForBase(barberId),
   ]);
-  if (offers.length === 0) return base;
+  if (offers.length === 0) return legacy;
 
-  const active = new Map(offers.filter((row) => row.active).map((row) => [row.service, row]));
-  const inactive = new Set(offers.filter((row) => !row.active).map((row) => row.service));
+  // A shared catalogue is read without the empser filter: an offer can be the
+  // only row that assigns a service to this employee.
+  const catalogue = business ? await listBusinessServices(business) : legacy;
+  const byService = new Map(catalogue.map((service) => [service.id, service]));
+  const seen = new Set<string>();
+  const result: OfferedService[] = [];
 
-  return base
-    .filter((service) => !inactive.has(service.id))
-    .map((service) => {
-      const offer = active.get(service.id);
-      return offer ? applyOffer(offer, service) : service;
-    });
+  for (const offer of offers) {
+    const service = byService.get(offer.service);
+    if (!service || !service.active) continue;
+    seen.add(service.id);
+    if (!offer.active) continue; // an inactive offer is an explicit unassignment
+    result.push(applyOffer(offer, service));
+  }
+  // Rows with no offer yet still resolve from services + empser.
+  for (const service of legacy) {
+    if (!seen.has(service.id)) result.push(service);
+  }
+
+  return result.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
 }
 
-/** The catalogue services one employee is missing — used by the assign UI. */
+/**
+ * The catalogue services one employee is missing — used by the assign UI.
+ * An offer row wins: inactive means unassigned even if a legacy empser row
+ * still says active, while services with no offer fall back to empser.
+ */
 export async function unassignedServices(
   businessId: string,
   barberId: string,
 ): Promise<Service[]> {
-  const [catalogue, assigned] = await Promise.all([
+  const [catalogue, offers, legacy] = await Promise.all([
     listBusinessServices(businessId),
+    listOffers(barberId),
     listEmployeeServices(barberId),
   ]);
-  const taken = new Set(assigned.map((row) => row.service));
-  return catalogue.filter((service) => !taken.has(service.id));
+  const byService = new Map(offers.map((row) => [row.service, row]));
+  const legacyTaken = new Set(
+    legacy.filter((row) => row.active).map((row) => row.service),
+  );
+  return catalogue.filter((service) => {
+    const offer = byService.get(service.id);
+    return offer ? !offer.active : !legacyTaken.has(service.id);
+  });
 }
 
 /**

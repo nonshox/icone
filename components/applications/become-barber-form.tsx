@@ -128,6 +128,7 @@ function ApplicationForm({
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
+                aria-pressed={model === "a"}
                 onClick={() => setModel("a")}
                 className={`rounded-xl border p-3 text-left text-sm transition-colors ${
                   model === "a" ? "border-brand bg-brand/10" : "border-border hover:bg-muted"
@@ -142,6 +143,7 @@ function ApplicationForm({
               </button>
               <button
                 type="button"
+                aria-pressed={model === "b"}
                 onClick={() => setModel("b")}
                 className={`rounded-xl border p-3 text-left text-sm transition-colors ${
                   model === "b" ? "border-brand bg-brand/10" : "border-border hover:bg-muted"

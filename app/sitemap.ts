@@ -40,7 +40,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     route("/notifications", "weekly", 0.3),
     route("/waits", "monthly", 0.3),
     route("/invites", "monthly", 0.3),
-    route("/customer", "monthly", 0.3),
     route("/barber", "monthly", 0.3),
     route("/admin", "monthly", 0.2),
     route("/start", "monthly", 0.1),
